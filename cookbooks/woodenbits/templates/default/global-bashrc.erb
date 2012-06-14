@@ -1,0 +1,156 @@
+# System-wide .bashrc file for interactive bash(1) shells.
+
+# To enable the settings / commands in this file for login shells as well,
+# this file has to be sourced in /etc/profile.
+
+# If not running interactively, don't do anything
+[ -z "$PS1" ] && return
+
+export EDITOR=vim
+set -o vi
+
+# don't put duplicate lines in the history. See bash(1) for more options
+#export HISTCONTROL=ignoredups
+#export HISTCONTROL=ignoreboth
+export HISTCONTROL=ignorespace:erasedups
+export HISTIGNORE="l:ll:pwd"
+export HISTFILESIZE=1000000000
+export HISTSIZE=1000000
+
+export PGTZ=UTC # force default UTC timezone on postgres
+
+# check the window size after each command and, if necessary,
+# update the values of LINES and COLUMNS.
+shopt -s checkwinsize
+
+# do not override history file with "newer" history!
+shopt -s histappend
+
+# enable bash completion in interactive shells
+if [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+fi
+
+# sudo hint
+if [ ! -e $HOME/.sudo_as_admin_successful ]; then
+    case " $(groups) " in *\ admin\ *)
+    if [ -x /usr/bin/sudo ]; then
+    cat <<EOF
+To run a command as administrator (user "root"), use "sudo <command>".
+See "man sudo_root" for details.
+
+EOF
+    fi
+    esac
+fi
+
+# if the command-not-found package is installed, use it
+if [ -x /usr/lib/command-not-found ]; then
+    function command_not_found_handle {
+            # check because c-n-f could've been removed in the meantime
+                if [ -x /usr/lib/command-not-found ]; then
+           /usr/bin/python /usr/lib/command-not-found -- $1
+                   return $?
+        else
+           return 127
+        fi
+    }
+fi
+
+
+# enable color support of ls and also add handy aliases
+if [ "$TERM" != "dumb" ]; then
+    eval "`dircolors -b`"
+    alias ls='ls --color=auto'
+    #alias dir='ls --color=auto --format=vertical'
+    #alias vdir='ls --color=auto --format=long'
+fi
+
+# some more ls aliases
+alias ll='ls -l'
+alias lla='ls -lA'
+alias l='ls -CF'
+alias la='ls -CFA'
+
+
+alias scr='TERM=screen screen -D -R'
+alias ovi='set -o vi'
+alias mem-top='ps -eo pmem,rss,comm --sort=-rss | head'
+alias du-top='sudo find / -type f -size +50000k -exec ls -lh {} \;'
+alias cdgems='cd /usr/lib/ruby/gems/1.8/gems'
+alias hh='history -d $(($HISTCMD-2)) && history -d $(($HISTCMD-1))' # remove previous line from history
+alias mcurl="curl --write-out \"\nhttp-code: %{http_code}, content-type: '%{content_type}', total time: %{time_total}, app connect time: %{time_appconnect}, pretransfer time: %{time_pretransfer}, starttransfer time: %{time_starttransfer}\n\""
+alias roles='echo <%= @roles.join('  ') %>'
+alias services='echo <%= @services.join('  ') %>'
+
+std_excludes='--exclude=*\.log --exclude=*\.class --exclude=*\.jar --exclude=*\.jtl --exclude=*-db-200*'
+grep-src() { fgrep "$1" * -r $2 $3 $4 $std_excludes | grep -v '\.svn/'; }
+
+# set variable identifying the chroot you work in (used in the prompt below)
+if [ -z "$debian_chroot" ] && [ -r /etc/debian_chroot ]; then
+    debian_chroot=$(cat /etc/debian_chroot)
+fi
+
+short_dir ()
+{
+    if [ "$PWD" = "$HOME" ]; then
+        echo '~'
+    else
+        the_dir=`dirname "$PWD"`;
+        the_base=`basename "$PWD"`;
+        the_dir_base=`basename "$the_dir"`;
+        if [ "$the_dir_base" = '/' ]; then
+            the_dir_base="";
+        fi
+        echo "$the_dir_base/$the_base"
+    fi
+
+}
+
+function __bundler_ps1 {
+  if [ -n "${BUNDLE_GEMFILE-}" ]; then
+    project_path="${BUNDLE_GEMFILE%/Gemfile}"
+    project_name="${project_path##**/}"
+
+    if [ -n "${1-}" ]; then
+      printf "$1" "in ${project_name} bundle"
+    else
+      printf " (%s)" "in ${project_name} bundle"
+    fi
+  fi
+}
+
+
+# If this is an xterm set the title to user@host:dir
+case "$TERM" in
+xterm*|rxvt*)
+    PROMPT_COMMAND='echo -ne "\e]0;${USER}@${HOSTNAME}\007"'
+    ;;
+*)
+    ;;
+esac
+
+# Ubuntu Gnome-terminal reports 'xterm' instead of proper 'xterm-color'
+PS1="${debian_chroot:+($debian_chroot)}\[\e[01;32m\]\u@\h\[\e[00m\]: \`short_dir\` \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
+#PS1="${debian_chroot:+($debian_chroot)}\u@\h: \`short_dir\` $(__bundler_ps1 "[%s] ")\$ "
+
+# set a fancy prompt (non-color, unless we know we "want" color)
+#case "$TERM" in
+#xterm-color)
+#    PS1='${debian_chroot:+($debian_chroot)}\[\e[01;32m\]\u@\h\[\e[00m\]:\[\e[01;34m\]\w\[\e[00m\]\$ '
+#    ;;
+#*)
+#    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+#    ;;
+#esac
+
+if [ "$TERM" == "screen" ]
+then
+    if [ -z "$WN" ]
+    then
+        WN="?undefined?"
+    fi
+    #s="\e[1m\e[34m"
+    #us="\e[0m"
+    export PS1="\[\e[1;32m\]$HOSTNAME \[\e[1;34m\]$WN\[\e[01;36m\] \`short_dir\` \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
+fi

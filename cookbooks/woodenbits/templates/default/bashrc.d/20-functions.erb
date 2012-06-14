@@ -1,0 +1,33 @@
+std_excludes='--exclude=*\.log --exclude=*\.class --exclude=*\.jar --exclude=*\.jtl --exclude=*-db-200*'
+grep-src() { fgrep "$1" * -r $2 $3 $4 $std_excludes | grep -v '\.svn/'; }
+
+short_dir ()
+{
+    if [ "$PWD" = "$HOME" ]; then
+        echo '~'
+    else
+        the_dir=`dirname "$PWD"`;
+        the_base=`basename "$PWD"`;
+        the_dir_base=`basename "$the_dir"`;
+        if [ "$the_dir_base" = '/' ]; then
+            the_dir_base="";
+        fi
+        echo "$the_dir_base/$the_base"
+    fi
+
+}
+
+function __bundler_ps1 {
+  if [ -n "${BUNDLE_GEMFILE-}" ]; then
+    project_path="${BUNDLE_GEMFILE%/Gemfile}"
+    project_name="${project_path##**/}"
+
+    if [ -n "${1-}" ]; then
+      printf "$1" "in ${project_name} bundle"
+    else
+      printf " (%s)" "in ${project_name} bundle"
+    fi
+  fi
+}
+
+

@@ -1,0 +1,13 @@
+alias ll='ls -lF'
+alias lla='ls -alF'
+alias l='ls -F'
+alias la='ls -FA'
+
+
+alias scr='TERM=screen screen -D -R'
+alias ovi='set -o vi'
+alias mem-top='ps -eo pmem,rss,comm --sort=-rss | head'
+alias du-top='sudo find / -type f -size +50000k -exec ls -lh {} \;'
+alias cdgems='cd /usr/lib/ruby/gems/1.8/gems'
+alias hh='history -d $(($HISTCMD-2)) && history -d $(($HISTCMD-1))' # remove previous line from history
+alias mcurl="curl --write-out \"\nhttp-code: %{http_code}, content-type: '%{content_type}', total time: %{time_total}, app connect time: %{time_appconnect}, pretransfer time: %{time_pretransfer}, starttransfer time: %{time_starttransfer}\n\""

@@ -1,0 +1,21 @@
+defscrollback 9999
+idle 3600
+escape `;
+startup_message off
+
+chdir $HOME
+setenv WN "<%= @is_root ? 'admin' : 'root' %>"
+screen -t $WN bash
+stuff "<%= @is_root ? 'set -o vi' : 'sudo -i -H' %>\012"
+
+chdir $HOME
+setenv WN "primary"
+screen -t $WN bash
+
+setenv WN "secondary"
+screen -t $WN bash
+
+select "primary"
+
+chdir $HOME
+setenv WN "adhoc"

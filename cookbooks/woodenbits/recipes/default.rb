@@ -219,3 +219,5 @@ package "checkinstall"
 package "dosbox"
 package "wine"
 package "wine-gecko"
+
+package "synergy"

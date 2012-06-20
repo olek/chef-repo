@@ -1,31 +1,26 @@
+# Ubuntu Gnome-terminal reports 'xterm' instead of proper 'xterm-color'
+PS1="${debian_chroot:+($debian_chroot)}\[\e[01;32m\]\u@\h\[\e[00m\]: \`short_dir\` \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
+#PS1="${debian_chroot:+($debian_chroot)}\u@\h: \`short_dir\` $(__bundler_ps1 "[%s] ")\$ "
+
 # If this is an xterm set the title to user@host:dir
 case "$TERM" in
 xterm*|rxvt*)
-    PROMPT_COMMAND='echo -ne "\e]0;${USER}@${HOSTNAME}\007"'
+    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u: \`short_dir\`\a\]$PS1"
     ;;
 *)
     ;;
 esac
 
-# Ubuntu Gnome-terminal reports 'xterm' instead of proper 'xterm-color'
-PS1="${debian_chroot:+($debian_chroot)}\[\e[01;32m\]\u@\h\[\e[00m\]: \`short_dir\` \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
-#PS1="${debian_chroot:+($debian_chroot)}\u@\h: \`short_dir\` $(__bundler_ps1 "[%s] ")\$ "
-
-# set a fancy prompt (non-color, unless we know we "want" color)
-#case "$TERM" in
-#xterm-color)
-#    PS1='${debian_chroot:+($debian_chroot)}\[\e[01;32m\]\u@\h\[\e[00m\]:\[\e[01;34m\]\w\[\e[00m\]\$ '
-#    ;;
-#*)
-#    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
-#    ;;
-#esac
-
 if [ "$TERM" == "screen" ]
 then
-    if [ -z "$WN" ]
+    if [ "$USER" == "root" ]
     then
-        WN="?undefined?"
+        WN="root"
+    else
+        if [ -z "$WN" ]
+        then
+            WN="?AAundefined?"
+        fi
     fi
     #s="\e[1m\e[34m"
     #us="\e[0m"

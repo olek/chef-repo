@@ -60,7 +60,7 @@ end
     group user
   end
 
-  %w(inputrc profile bashrc vimrc.after gvimrc.after gemrc irbrc).each do |name|
+  %w(inputrc bashrc vimrc.after gvimrc.after gemrc irbrc).each do |name|
     template "#{home_dir}/.#{name}" do
       source "#{name}.erb"
       mode 0640
@@ -89,7 +89,7 @@ end
     execute "clone #{repo} for #{user}" do
       cmd = "cd ~/.janus && git clone http://github.com/#{repo}.git"
       command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
-      creates "#{home_dir}/.janus/#{repo}"
+      creates "#{home_dir}/.janus/#{repo.split('/').last}"
     end
   end
 end

@@ -5,9 +5,21 @@ alias la='ls -FA'
 
 
 alias scr='TERM=screen screen -D -R'
-alias ovi='set -o vi'
 alias mem-top='ps -eo pmem,rss,comm --sort=-rss | head'
 alias du-top='sudo find / -type f -size +50000k -exec ls -lh {} \;'
-alias cdgems='cd /usr/lib/ruby/gems/1.8/gems'
 alias hh='history -d $(($HISTCMD-2)) && history -d $(($HISTCMD-1))' # remove previous line from history
+
+# see bug https://bugs.launchpad.net/ubuntu/+source/vim/+bug/776499
+alias gvim="gvim --remote-send '<C-w>n'; UBUNTU_MENUPROXY= gvim --remote-silent"
+
+# same as ModCloth begin
+alias l='ls -alF'
+alias ll='ls -lG'
+alias bi='bundle install --path vendor/bundle'
+alias be='bundle exec'
+alias tbe='time bundle exec'
+alias vmf="set -o vi; export EDITOR=vim; echo 'bind -v' > ~/.editrc; echo 'set editing-mode vi' > ~/.inputrc"
+alias dvmf="set -o emacs; unset EDITOR; rm ~/.editrc; rm ~/.inputrc"
 alias mcurl="curl --write-out \"\nhttp-code: %{http_code}, content-type: '%{content_type}', total time: %{time_total}, app connect time: %{time_appconnect}, pretransfer time: %{time_pretransfer}, starttransfer time: %{time_starttransfer}\n\""
+alias gems-kill='gem list | cut -d" " -f1 | xargs gem uninstall -aIx'
+# same as ModCloth end

@@ -30,4 +30,13 @@ function __bundler_ps1 {
   fi
 }
 
-
+# usage: $repeat 15 echo 'foo'
+function repeat {
+    n=0
+    times=$1
+    shift
+    while [[ $n -lt $times ]]; do
+        $@
+        n=$((n+1))
+    done
+}

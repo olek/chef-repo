@@ -3,29 +3,6 @@
 
 #Chef::Log.info "fqdn = #{node[:fqdn]}, hostname = #{node[:hostname]}"
 
-=begin
-
-package "apt-transport-https" do
-  options "--force-yes"
-end
-
-template "/etc/apt/sources.list" do
-  source "sources.list.#{node[:platform_version]}.erb"
-  mode 0644
-  owner user
-  group user
-  notifies :run, resources(:execute => "update system"), :immediately
-  not_if { File.exists?("/etc/apt/sources.list.no_chef") }
-end
-
-template "/etc/crontab" do
-  source "crontab.erb"
-  mode 0644
-  owner user
-  group user
-end
-=end
-
 if node[:platform] == 'ubuntu' && node[:platform_version] == '12.04'
   template "/etc/polkit-1/localauthority/50-local.d/com.ubuntu.enable-hibernate.pkla" do
     source "com.ubuntu.enable-hibernate.pkla.erb"
@@ -35,76 +12,33 @@ if node[:platform] == 'ubuntu' && node[:platform_version] == '12.04'
   end
 end
 
-=begin
-template "/etc/motd.tail" do
-  source "motd-tail.erb"
-  variables(
-    :roles => node.run_list.roles,
-    :services => node[:penthera][:services]
-  )
-  mode 0644
-  owner "root"
-  group "root"
-end
-
-template "/etc/bash.bashrc" do
-  source "global-bashrc.erb"
-  variables(
-    :roles => node.run_list.roles,
-    :services => node[:penthera][:services]
-  )
-  mode 0644
-  owner "root"
-  group "root"
-end
-
-template "#{home}/.profile" do
-  source "profile.erb"
-  mode 0644
-  owner user
-  group user
-end
-
-template "#{home}/.bashrc" do
-  source "root-bashrc.erb"
-  mode 0644
-  owner user
-  group user
-end
-=end
-
 %w(root olek).each do |user|
-  home = user == 'root' ? "/#{user}" : "/home/#{user}"
+  home_dir = user == 'root' ? "/#{user}" : "/home/#{user}"
 
-  directory "#{home}/tmp" do
+  %w(tmp tmp/vi build .bashrc.d .janus).each do |dir|
+    directory "#{home_dir}/#{dir}" do
+      owner user
+      group user
+      mode "0750"
+      action :create
+    end
+  end
+
+  directory "#{home_dir}/.ssh" do
     owner user
     group user
     mode "0700"
     action :create
   end
 
-  directory "#{home}/tmp/vi" do
+  template "#{home_dir}/.ssh/config" do
+    source "ssh-config.erb"
+    mode 0600
     owner user
     group user
-    mode "0700"
-    action :create
   end
 
-  directory "#{home}/build" do
-    owner user
-    group user
-    mode "0750"
-    action :create
-  end
-
-  directory "#{home}/.bashrc.d" do
-    owner user
-    group user
-    mode "0750"
-    action :create
-  end
-
-  template "#{home}/.gitconfig" do
+  template "#{home_dir}/.gitconfig" do
     source "gitconfig.erb"
     variables(
       :username => 'olek',
@@ -116,7 +50,7 @@ end
     group user
   end
 
-  template "#{home}/.screenrc" do
+  template "#{home_dir}/.screenrc" do
     source "screenrc.erb"
     variables(
       :is_root => user == 'root'
@@ -126,72 +60,43 @@ end
     group user
   end
 
-  template "#{home}/.vimrc" do
-    source "vimrc.erb"
-    mode 0640
-    owner user
-    group user
+  %w(inputrc profile bashrc vimrc.after gvimrc.after gemrc irbrc).each do |name|
+    template "#{home_dir}/.#{name}" do
+      source "#{name}.erb"
+      mode 0640
+      owner user
+      group user
+    end
   end
 
-  template "#{home}/.inputrc" do
-    source "inputrc.erb"
-    mode 0640
-    owner user
-    group user
+  %w(05-settings 10-path 20-functions 30-aliases 40-prompt 50-other).each do |name|
+    template "#{home_dir}/.bashrc.d/#{name}" do
+      source "bashrc.d/#{name}.erb"
+      mode 0740
+      owner user
+      group user
+    end
   end
 
-  template "#{home}/.bashrc" do
-    source "bashrc.erb"
-    mode 0640
-    owner user
-    group user
+  # Execute the Janus bootstrap installation from github.
+  execute "install janus for #{user}" do
+    cmd = "curl -Lo- http://bit.ly/janus-bootstrap | bash"
+    command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
+    creates "#{home_dir}/.vim/bootstrap.sh"
   end
 
-  template "#{home}/.bashrc.d/05-settings" do
-    source "bashrc.d/05-settings.erb"
-    mode 0740
-    owner user
-    group user
-  end
-
-  template "#{home}/.bashrc.d/10-path" do
-    source "bashrc.d/10-path.erb"
-    mode 0740
-    owner user
-    group user
-  end
-
-  template "#{home}/.bashrc.d/20-functions" do
-    source "bashrc.d/20-functions.erb"
-    mode 0740
-    owner user
-    group user
-  end
-
-  template "#{home}/.bashrc.d/30-aliases" do
-    source "bashrc.d/30-aliases.erb"
-    mode 0740
-    owner user
-    group user
-  end
-
-  template "#{home}/.bashrc.d/40-prompt" do
-    source "bashrc.d/40-prompt.erb"
-    mode 0740
-    owner user
-    group user
-  end
-
-  template "#{home}/.bashrc.d/50-other" do
-    source "bashrc.d/50-other.erb"
-    mode 0740
-    owner user
-    group user
+  %w(jgdavey/tslime.vim olek/vim-turbux).each do |repo|
+    execute "clone #{repo} for #{user}" do
+      cmd = "cd ~/.janus && git clone http://github.com/#{repo}.git"
+      command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
+      creates "#{home_dir}/.janus/#{repo}"
+    end
   end
 end
 
 package "build-essential"
 package "ruby"
+package "rake"
 
 package "vim-gtk"
 package "screen"
@@ -218,6 +123,18 @@ package "checkinstall"
 
 package "dosbox"
 package "wine"
-package "wine-gecko"
+package "wine-gecko1.4"
 
-package "synergy"
+#package "synergy"
+
+bash "install synergy" do
+  version = '1.3.7'
+  cwd "/tmp"
+  code <<-EOH
+    wget http://synergy.googlecode.com/files/synergy-#{version}-Linux-i686.deb
+    sudo dpkg --install synergy-#{version}-Linux-i686.deb
+    sudo apt-mark hold synergy
+    rm synergy-#{version}-Linux-i686.deb
+  EOH
+  creates '/usr/bin/synergyc'
+end

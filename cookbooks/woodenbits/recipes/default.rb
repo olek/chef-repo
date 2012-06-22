@@ -60,7 +60,7 @@ end
     group user
   end
 
-  %w(inputrc bashrc vimrc.after gvimrc.after gemrc irbrc).each do |name|
+  %w(inputrc bashrc vimrc.before vimrc.after gvimrc.after gemrc irbrc).each do |name|
     template "#{home_dir}/.#{name}" do
       source "#{name}.erb"
       mode 0640

@@ -12,6 +12,20 @@ if node[:platform] == 'ubuntu' && node[:platform_version] == '12.04'
   end
 end
 
+directory "/etc/pgl" do
+  mode "0755"
+  action :create
+end
+
+%w(pglcmd.conf blocklists.list).each do |fname|
+  template "/etc/pgl/#{fname}" do
+    source "system/etc/pgl-#{fname}.erb"
+    mode 0644
+    owner 'root'
+    group 'root'
+  end
+end
+
 %w(root olek).each do |user|
   home_dir = user == 'root' ? "/#{user}" : "/home/#{user}"
 
@@ -125,10 +139,20 @@ package "dosbox"
 package "wine"
 package "wine-gecko1.4"
 
+#execute "restart pgld" do
+#  command 'pglcmd restart'
+#  action :nothing
+#end
+
+package "pgld"
+# brings popup, needs interactive console
+#package "pglcmd"
+package "pgl-gui"
+
 #package "synergy"
 
 bash "install synergy" do
-  version = '1.3.7'
+  version = '1.3.7' # 1.3.8.generates core dumps
   cwd "/tmp"
   code <<-EOH
     wget http://synergy.googlecode.com/files/synergy-#{version}-Linux-i686.deb

@@ -1,3 +1,6 @@
+function tmount { truecrypt -t -k '' --protect-hidden=no ~/vaults/$1 /media/$1; };
+function tumount { truecrypt -d /media/$1; };
+
 std_excludes='--exclude=*\.log --exclude=*\.class --exclude=*\.jar --exclude=*\.jtl --exclude=*-db-200*'
 grep-src() { fgrep "$1" * -r $2 $3 $4 $std_excludes | grep -v '\.svn/'; }
 

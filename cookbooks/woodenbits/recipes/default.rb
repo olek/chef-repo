@@ -26,7 +26,9 @@ end
   end
 end
 
-%w(root olek).each do |user|
+users = ['olek']
+
+(users + ['root']).each do |user|
   home_dir = user == 'root' ? "/#{user}" : "/home/#{user}"
 
   %w(tmp tmp/vi build .bashrc.d .janus).each do |dir|
@@ -149,6 +151,9 @@ package "pgld"
 #package "pglcmd"
 package "pgl-gui"
 
+package "powertop"
+package "laptop-mode-tools"
+
 #package "synergy"
 
 bash "install synergy" do
@@ -162,3 +167,34 @@ bash "install synergy" do
   EOH
   creates '/usr/bin/synergyc'
 end
+
+
+directory "/root/install" do
+  mode "0755"
+  action :create
+end
+
+#truecrypt_archive = 'truecrypt_7.1a_console_i386.tar.gz'
+truecrypt_archive = 'truecrypt_7.1a_i386.tar.gz'
+cookbook_file "/root/install/#{truecrypt_archive}" do
+  source truecrypt_archive
+  mode 0640
+end
+
+bash "install truecrypt" do
+  cwd "/"
+  code <<-EOH
+    tar xfz /root/install/#{truecrypt_archive}
+  EOH
+  creates '/usr/bin/truecrypt'
+end
+
+template "/etc/sudoers.d/truecrypt" do
+  source "system/etc/sudoers-truecrypt.erb"
+  variables(
+    :users => users
+  )
+  mode 0440
+end
+=begin
+=end

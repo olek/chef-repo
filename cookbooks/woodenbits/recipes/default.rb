@@ -152,7 +152,24 @@ package "pgld"
 package "pgl-gui"
 
 package "powertop"
+package "powertop-1.13"
+package "fatrace"
 package "laptop-mode-tools"
+package "smartmontools"
+package "iotop"
+
+%w(
+ac97-powersave auto-hibernate battery-level-polling bluetooth configuration-file-control
+cpufreq dpms-standby eee-superhe ethernet exec-commands hal-polling intel-hda-powersave
+intel-sata-powermgmt lcd-brightness nmi-watchdog runtime-pm sched-mc-power-savings
+sched-smt-power-savings start-stop-programs terminal-blanking usb-autosuspend video-out
+wireless-ipw-power wireless-iwl-power wireless-power
+).each do |name|
+  template "/etc/laptop-mode/conf.d/#{name}.conf" do
+    source "system/etc/laptop-mode.conf.d/#{name}.conf"
+    mode 0644
+  end
+end
 
 #package "synergy"
 

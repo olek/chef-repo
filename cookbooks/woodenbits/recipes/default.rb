@@ -4,16 +4,16 @@
 #Chef::Log.info "fqdn = #{node[:fqdn]}, hostname = #{node[:hostname]}"
 
 if node[:platform] == 'ubuntu' && node[:platform_version] == '12.04'
-  template "/etc/polkit-1/localauthority/50-local.d/com.ubuntu.enable-hibernate.pkla" do
-    source "com.ubuntu.enable-hibernate.pkla.erb"
+  template '/etc/polkit-1/localauthority/50-local.d/com.ubuntu.enable-hibernate.pkla' do
+    source 'com.ubuntu.enable-hibernate.pkla.erb'
     mode 0644
-    owner "root"
-    group "root"
+    owner 'root'
+    group 'root'
   end
 end
 
-directory "/etc/pgl" do
-  mode "0755"
+directory '/etc/pgl' do
+  mode '0755'
   action :create
 end
 
@@ -26,54 +26,54 @@ end
   end
 end
 
-package "aptitude"
-package "build-essential"
-package "ruby"
-package "rake"
+package 'aptitude'
+package 'build-essential'
+package 'ruby'
+package 'rake'
 
-package "vim-gtk"
-package "screen"
+package 'vim-gtk'
+package 'screen'
 
 case node[:platform]
-when "debian", "ubuntu"
-  package "git-core"
+when 'debian', 'ubuntu'
+  package 'git-core'
 else
-  package "git"
+  package 'git'
 end
 
-package "httperf"
+package 'httperf'
 
-package "sysstat"
-package "ethstatus"
+package 'sysstat'
+package 'ethstatus'
 
-package "mlocate"
-package "telnet"
-package "dnsutils"
-package "curl"
+package 'mlocate'
+package 'telnet'
+package 'dnsutils'
+package 'curl'
 
-package "logrotate"
-package "checkinstall"
+package 'logrotate'
+package 'checkinstall'
 
-package "dosbox"
-package "wine"
-package "wine-gecko1.4"
+package 'dosbox'
+package 'wine'
+package 'wine-gecko1.4'
 
-#execute "restart pgld" do
+#execute 'restart pgld' do
 #  command 'pglcmd restart'
 #  action :nothing
 #end
 
-package "pgld"
+#package 'pgld'
 # brings popup, needs interactive console
-#package "pglcmd"
-package "pgl-gui"
+#package 'pglcmd'
+#package 'pgl-gui'
 
-package "powertop"
-package "powertop-1.13"
-package "fatrace"
-package "laptop-mode-tools"
-package "smartmontools"
-package "iotop"
+package 'powertop'
+package 'powertop-1.13'
+package 'fatrace'
+package 'laptop-mode-tools'
+package 'smartmontools'
+package 'iotop'
 
 %w(
 ac97-powersave auto-hibernate battery-level-polling bluetooth configuration-file-control
@@ -88,11 +88,11 @@ wireless-ipw-power wireless-iwl-power wireless-power
   end
 end
 
-#package "synergy"
+#package 'synergy'
 
-bash "install synergy" do
+bash 'install synergy' do
   version = '1.3.7' # 1.3.8.generates core dumps
-  cwd "/tmp"
+  cwd '/tmp'
   code <<-EOH
     wget http://synergy.googlecode.com/files/synergy-#{version}-Linux-i686.deb
     sudo dpkg --install synergy-#{version}-Linux-i686.deb
@@ -103,8 +103,8 @@ bash "install synergy" do
 end
 
 
-directory "/root/install" do
-  mode "0755"
+directory '/root/install' do
+  mode '0755'
   action :create
 end
 
@@ -115,23 +115,23 @@ cookbook_file "/root/install/#{truecrypt_archive}" do
   mode 0640
 end
 
-bash "install truecrypt" do
-  cwd "/"
+bash 'install truecrypt' do
+  cwd '/'
   code <<-EOH
     tar xfz /root/install/#{truecrypt_archive}
   EOH
   creates '/usr/bin/truecrypt'
 end
 
-template "/etc/sudoers.d/truecrypt" do
-  source "system/etc/sudoers-truecrypt.erb"
+users = ['olek']
+
+template '/etc/sudoers.d/truecrypt' do
+  source 'system/etc/sudoers-truecrypt.erb'
   variables(
     :users => users
   )
   mode 0440
 end
-
-users = ['olek']
 
 (users + ['root']).each do |user|
   home_dir = user == 'root' ? "/#{user}" : "/home/#{user}"
@@ -140,7 +140,7 @@ users = ['olek']
     directory "#{home_dir}/#{dir}" do
       owner user
       group user
-      mode "0750"
+      mode '0750'
       action :create
     end
   end
@@ -148,35 +148,35 @@ users = ['olek']
   directory "#{home_dir}/.ssh" do
     owner user
     group user
-    mode "0700"
+    mode '0700'
     action :create
   end
 
   template "#{home_dir}/.ssh/config" do
-    source "ssh-config.erb"
-    mode 0600
+    source 'ssh-config.erb'
+    mode '0600'
     owner user
     group user
   end
 
   template "#{home_dir}/.gitconfig" do
-    source "gitconfig.erb"
+    source 'gitconfig.erb'
     variables(
       :username => 'olek',
       :name => 'Olek Poplavsky',
       :email => 'olek@woodenbits.com'
     )
-    mode 0640
+    mode '0640'
     owner user
     group user
   end
 
   template "#{home_dir}/.screenrc" do
-    source "screenrc.erb"
+    source 'screenrc.erb'
     variables(
       :is_root => user == 'root'
     )
-    mode 0640
+    mode '0640'
     owner user
     group user
   end
@@ -184,7 +184,7 @@ users = ['olek']
   %w(inputrc bashrc vimrc.before vimrc.after gvimrc.after gemrc irbrc).each do |name|
     template "#{home_dir}/.#{name}" do
       source "#{name}.erb"
-      mode 0640
+      mode '0640'
       owner user
       group user
     end
@@ -193,7 +193,7 @@ users = ['olek']
   %w(05-settings 10-path 20-functions 30-aliases 40-prompt 50-other).each do |name|
     template "#{home_dir}/.bashrc.d/#{name}" do
       source "bashrc.d/#{name}.erb"
-      mode 0740
+      mode '0740'
       owner user
       group user
     end

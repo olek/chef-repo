@@ -71,10 +71,17 @@ package 'wine-gecko1.4'
 package 'powertop'
 package 'powertop-1.13'
 package 'fatrace'
-package 'laptop-mode-tools'
 package 'smartmontools'
 package 'iotop'
+package 'dstat'
 
+execute "turn off chef-client verbose logging" do
+  command "echo 'verbose_logging false' >> /etc/chef/client.rb"
+  not_if "grep 'verbose_logging false' /etc/chef/client.rb"
+end
+
+=begin
+package 'laptop-mode-tools'
 %w(
 ac97-powersave auto-hibernate battery-level-polling bluetooth configuration-file-control
 cpufreq dpms-standby eee-superhe ethernet exec-commands hal-polling intel-hda-powersave
@@ -87,8 +94,12 @@ wireless-ipw-power wireless-iwl-power wireless-power
     mode 0644
   end
 end
+=end
 
-#package 'synergy'
+package 'synergy' do
+  action :remove
+  only_if "synergyc --version | grep -v '1.3.7'"
+end
 
 bash 'install synergy' do
   version = '1.3.7' # 1.3.8.generates core dumps

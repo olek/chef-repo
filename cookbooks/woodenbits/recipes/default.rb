@@ -50,13 +50,10 @@ package 'mlocate'
 package 'telnet'
 package 'dnsutils'
 package 'curl'
+package 'gparted'
 
 package 'logrotate'
 package 'checkinstall'
-
-package 'dosbox'
-package 'wine'
-package 'wine-gecko1.4'
 
 #execute 'restart pgld' do
 #  command 'pglcmd restart'
@@ -74,6 +71,17 @@ package 'fatrace'
 package 'smartmontools'
 package 'iotop'
 package 'dstat'
+package 'hwinfo'
+package 'lm-sensors'
+package 'xsensors'
+#package 'cpufrequtils'
+
+package 'dosbox'
+package 'wine'
+package 'wine-gecko1.4'
+
+package 'chromium-browser'
+
 
 execute "turn off chef-client verbose logging" do
   command "echo 'verbose_logging false' >> /etc/chef/client.rb"
@@ -81,6 +89,7 @@ execute "turn off chef-client verbose logging" do
 end
 
 =begin
+#package 'tlp'
 package 'laptop-mode-tools'
 %w(
 ac97-powersave auto-hibernate battery-level-polling bluetooth configuration-file-control

@@ -1,5 +1,5 @@
 # Cookbook Name:: woodenbits
-# Recipe:: user
+# Recipe:: user-config
 
 users = ['olek']
 

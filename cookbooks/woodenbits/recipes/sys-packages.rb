@@ -1,8 +1,9 @@
 # Cookbook Name:: woodenbits
-# Recipe:: system
+# Recipe:: sys-packages
 
 package 'aptitude'
 package 'build-essential'
+#package 'libshadow-ruby1.8' # for chef user password support (ruby-shadow)
 package 'ruby'
 package 'rake'
 

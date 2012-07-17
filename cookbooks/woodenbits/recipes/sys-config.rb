@@ -1,5 +1,5 @@
 # Cookbook Name:: woodenbits
-# Recipe:: default
+# Recipe:: sys-config
 
 #Chef::Log.info "fqdn = #{node[:fqdn]}, hostname = #{node[:hostname]}"
 

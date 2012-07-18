@@ -12,12 +12,13 @@ template '/etc/sudoers.d/truecrypt' do
 end
 
 (users + ['root']).each do |user|
-  home_dir = user == 'root' ? "/#{user}" : "/home/#{user}"
+  home_dir = user == 'root' ? '/root' : "/home/#{user}"
+  user_group = user == 'root' ? 'root' : 'users'
 
   %w(tmp tmp/vi build .bashrc.d .janus).each do |dir|
     directory "#{home_dir}/#{dir}" do
       owner user
-      group user
+      group user_group
       mode '0750'
       action :create
     end
@@ -25,7 +26,7 @@ end
 
   directory "#{home_dir}/.ssh" do
     owner user
-    group user
+    group user_group
     mode '0700'
     action :create
   end
@@ -34,7 +35,7 @@ end
     source 'ssh-config.erb'
     mode '0600'
     owner user
-    group user
+    group user_group
   end
 
   template "#{home_dir}/.gitconfig" do
@@ -46,7 +47,7 @@ end
     )
     mode '0640'
     owner user
-    group user
+    group user_group
   end
 
   template "#{home_dir}/.screenrc" do
@@ -56,7 +57,7 @@ end
     )
     mode '0640'
     owner user
-    group user
+    group user_group
   end
 
   %w(inputrc bashrc vimrc.before vimrc.after gvimrc.after gemrc irbrc).each do |name|
@@ -64,7 +65,7 @@ end
       source "#{name}.erb"
       mode '0640'
       owner user
-      group user
+      group user_group
     end
   end
 
@@ -73,7 +74,7 @@ end
       source "bashrc.d/#{name}.erb"
       mode '0740'
       owner user
-      group user
+      group user_group
     end
   end
 

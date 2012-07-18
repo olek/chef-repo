@@ -1,0 +1,72 @@
+#!/bin/bash
+
+sound=beam
+case "$1" in
+  true|thaw|resume)
+    # battery
+    sound=falling
+  ;;
+  false)
+    # ac
+    sound=nature2
+  ;;
+esac
+
+prefix="[trifty]"
+
+function set_param {
+  for i in $1; do
+    old="`cat $i`"
+    if [ "$old" != "$2" ]
+    then
+      echo "$prefix changing $old to $2 for $i"
+      echo $2 > $i
+    # else
+    #   echo "$prefix leaving $old for $i"
+    fi
+  done
+}
+
+set_param '/sys/class/scsi_host/host*/link_power_management_policy' min_power
+
+ethtool -s eth0 wol d
+ifconfig eth0 down
+
+iwconfig wlan0 power on
+
+#set_param '/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor' powersave
+set_param /proc/sys/kernel/nmi_watchdog 0
+set_param '/sys/bus/pci/devices/*/power/control' auto
+
+set_param /sys/module/snd_hda_intel/parameters/power_save_controller Y
+set_param /sys/module/snd_hda_intel/parameters/power_save 1
+aplay --quiet /usr/lib/libreoffice/share/gallery/sounds/${sound}.wav
+#echo -n | aplay
+
+#extra
+modprobe coretemp
+
+# not conclusive
+set_param /proc/sys/vm/laptop_mode 5
+
+# Reduce disk activity by waiting up to 10 minutes before doing writes
+#set_param /proc/sys/vm/dirty_ratio 90
+#set_param /proc/sys/vm/dirty_background_ratio 1
+#set_param /proc/sys/vm/dirty_writeback_centisecs 60000
+
+set_param '/sys/bus/usb/devices/*/power/level' auto
+set_param '/sys/bus/usb/devices/*/power/autosuspend' 1
+
+
+<<EOF
+Notes:
+All testing done with Samsung 470 SSD
+
+Loaded into X, and cooled to 'no fan', system
+  starts at 7.5w
+  optimized by script to 6.2W
+  with dpms off drops to 5.0w
+  with fan on, system is usable at 6.8w
+
+  overall gain - 1.3w
+EOF

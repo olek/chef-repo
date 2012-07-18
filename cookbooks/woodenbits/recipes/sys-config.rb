@@ -31,6 +31,11 @@ execute "turn off chef-client verbose logging" do
   not_if "grep 'verbose_logging false' /etc/chef/client.rb"
 end
 
+template "/etc/pm/power.d/99_trifty" do
+  source "system/etc/trifty.erb"
+  mode 0755
+end
+
 =begin
 #package 'tlp'
 package 'laptop-mode-tools'

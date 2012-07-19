@@ -1,5 +1,84 @@
-function tmount { truecrypt -t -k '' --protect-hidden=no ~/vaults/$1 /vaults/$1; };
-function tumount { truecrypt -d /vaults/$1; };
+function tmount {
+  VAULT="$1"
+  shift
+
+  if [[ $VAULT == "" ]]; then
+    echo "No vault name provided"
+    return
+  fi
+
+  truecrypt \
+    --text --keyfiles='' --fs-options="uid=$UID,umask=077" --protect-hidden=no $@ \
+    ~/vaults/$VAULT /vaults/$VAULT
+};
+
+function tformat {
+  VAULT="$1"
+  shift
+
+  if [[ $VAULT == "" ]]; then
+    echo "No vault name provided"
+    return
+  fi
+
+  tmount $VAULT --text --filesystem=none || return
+  DEVICE=`truecrypt --text --list | grep -e " $HOME/vaults/$VAULT " | cut -d ' ' -f 3`
+  if [[ ! $DEVICE =~ /dev/mapper/truecrypt[[:digit:]]+ ]]; then 
+    echo "bad device $DEVICE"
+    return
+  fi
+  echo "device: $DEVICE"
+  sudo bash -c "dd if=/dev/zero of=$DEVICE bs=1k count=100 && \
+    mkudffs --media-type=hd --utf8 $DEVICE"
+  tumount $VAULT
+};
+
+function tcreate {
+  VAULT="$1"
+  shift
+
+  if [[ $VAULT == "" ]]; then
+    echo "No vault name provided"
+    return
+  fi
+
+  SIZE="$1"
+  shift
+
+  if [[ $SIZE == "" ]]; then
+    echo "No vault size provided"
+    return
+  fi
+
+  let SIZE=$SIZE*1024*1024 # size is in MB
+
+  echo "size: $SIZE"
+
+  truecrypt --text \
+  --create \
+  --keyfiles="" \
+  --volume-type=normal \
+  --size=${SIZE} \
+  --encryption=AES \
+  --hash=RIPEMD-160 \
+  --filesystem=none \
+  --random-source=/dev/random \
+  ~/vaults/$VAULT
+};
+
+function tumount {
+  VAULT="$1"
+
+  if [[ $VAULT == "" ]]; then
+    echo "unmounting all truecrypt vaults"
+    truecrypt --text --dismount
+  else
+    # echo "unmounting truecrypt vault '$VAULT'"
+    truecrypt --text --dismount ~/vaults/$1
+  fi
+};
+
+function tlist { truecrypt --text --list; };
 
 std_excludes='--exclude=*\.log --exclude=*\.class --exclude=*\.jar --exclude=*\.jtl --exclude=*-db-200*'
 grep-src() { fgrep "$1" * -r $2 $3 $4 $std_excludes | grep -v '\.svn/'; }

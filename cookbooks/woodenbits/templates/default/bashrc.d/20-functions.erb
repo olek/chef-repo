@@ -1,44 +1,74 @@
-function tmount {
+function tc-mount {
   VAULT="$1"
   shift
 
   if [[ $VAULT == "" ]]; then
     echo "No vault name provided"
     return
+  fi
+
+  VAULT_PATH=$HOME/vaults/$VAULT.tc
+
+  if [ ! -f $VAULT_PATH ]; then
+    echo "Vault $VAULT_PATH not found!"
+    return
+  fi
+
+  MOUNT_PATH=/vaults/$VAULT
+
+  if [ ! -d $MOUNT_PATH ]; then
+    echo "Vault mount point $MOUNT_PATH not found, creating it!"
+    sudo mkdir $MOUNT_PATH
   fi
 
   truecrypt \
     --text --keyfiles='' --fs-options="uid=$UID,umask=077" --protect-hidden=no $@ \
-    ~/vaults/$VAULT /vaults/$VAULT
+    ~/vaults/$VAULT.tc /vaults/$VAULT
 };
 
-function tformat {
+function tc-format {
   VAULT="$1"
   shift
 
   if [[ $VAULT == "" ]]; then
     echo "No vault name provided"
+    return
+  fi
+
+  VAULT_PATH=$HOME/vaults/$VAULT.tc
+
+  if [ ! -f $VAULT_PATH ]; then
+    echo "Vault $VAULT_PATH not found!"
     return
   fi
 
   tmount $VAULT --text --filesystem=none || return
-  DEVICE=`truecrypt --text --list | grep -e " $HOME/vaults/$VAULT " | cut -d ' ' -f 3`
+  DEVICE=`truecrypt --text --list | grep -e " $VAULT_PATH " | cut -d ' ' -f 3`
   if [[ ! $DEVICE =~ /dev/mapper/truecrypt[[:digit:]]+ ]]; then 
     echo "bad device $DEVICE"
     return
   fi
-  echo "device: $DEVICE"
+
+  LABEL=`echo $VAULT | sed 's/^./\u&/'`
+  echo "vault: $VAULT.tc, label: $LABEL, device: $DEVICE"
   sudo bash -c "dd if=/dev/zero of=$DEVICE bs=1k count=100 && \
-    mkudffs --media-type=hd --utf8 $DEVICE"
+    mkudffs --media-type=hd --utf8 --lvid $LABEL --vid $VAULT $DEVICE"
   tumount $VAULT
 };
 
-function tcreate {
+function tc-create {
   VAULT="$1"
   shift
 
   if [[ $VAULT == "" ]]; then
     echo "No vault name provided"
+    return
+  fi
+
+  VAULT_PATH=$HOME/vaults/$VAULT.tc
+
+  if [ -f $VAULT_PATH ]; then
+    echo "Vault $VAULT_PATH already exists!"
     return
   fi
 
@@ -63,22 +93,29 @@ function tcreate {
   --hash=RIPEMD-160 \
   --filesystem=none \
   --random-source=/dev/random \
-  ~/vaults/$VAULT
+  $VAULT_PATH
 };
 
-function tumount {
+function tc-umount {
   VAULT="$1"
 
   if [[ $VAULT == "" ]]; then
     echo "unmounting all truecrypt vaults"
     truecrypt --text --dismount
   else
+    VAULT_PATH=$HOME/vaults/$VAULT.tc
+
+    if [ ! -f $VAULT_PATH ]; then
+      echo "Vault $VAULT_PATH not found!"
+      return
+    fi
+
     # echo "unmounting truecrypt vault '$VAULT'"
-    truecrypt --text --dismount ~/vaults/$1
+    truecrypt --text --dismount $VAULT_PATH
   fi
 };
 
-function tlist { truecrypt --text --list; };
+function tc-list { truecrypt --text --list; };
 
 std_excludes='--exclude=*\.log --exclude=*\.class --exclude=*\.jar --exclude=*\.jtl --exclude=*-db-200*'
 grep-src() { fgrep "$1" * -r $2 $3 $4 $std_excludes | grep -v '\.svn/'; }

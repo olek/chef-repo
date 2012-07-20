@@ -27,6 +27,7 @@ package 'telnet'
 package 'dnsutils'
 package 'curl'
 package 'gparted'
+package 'udftools'
 
 package 'logrotate'
 package 'checkinstall'

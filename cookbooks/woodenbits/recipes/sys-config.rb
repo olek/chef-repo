@@ -31,8 +31,13 @@ execute "turn off chef-client verbose logging" do
   not_if "grep 'verbose_logging false' /etc/chef/client.rb"
 end
 
-template "/etc/pm/power.d/99_trifty" do
+template "/etc/pm/power.d/000_trifty" do
   source "system/etc/trifty.erb"
+  mode 0755
+end
+
+template "/etc/pm/config.d/00_sleep" do
+  source "system/etc/pm-config.erb"
   mode 0755
 end
 

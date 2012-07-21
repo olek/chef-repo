@@ -1,0 +1,10 @@
+#SLEEP_MODULE="kernel"
+SLEEP_MODULE="uswsusp"
+
+# Always use suspend_hybrid instead of suspend
+if [ "$METHOD" = "suspend" ]; then
+    METHOD=suspend_hybrid
+fi
+# PM_HIBERNATE_DELAY=900
+# Hibernate to disk after 15 minutes (900 seconds)
+# Only works for kernel sleep module, alas!

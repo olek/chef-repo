@@ -1,7 +1,20 @@
 # Cookbook Name:: woodenbits
 # Recipe:: sys-packages
 
+execute "update apt" do
+  command 'apt-get -q -y update'
+  action :nothing
+end
+
+execute "enable partners repo" do
+  command 'apt-add-repository --yes "deb http://archive.canonical.com/ $(lsb_release -sc) partner"'
+  notifies :run, resources(:execute => "update apt")
+  not_if %q(grep -e '^deb.\+partner' /etc/apt/sources.list)
+end
+
 package 'aptitude'
+
+
 package 'build-essential'
 #package 'libshadow-ruby1.8' # for chef user password support (ruby-shadow)
 package 'ruby'
@@ -9,6 +22,7 @@ package 'rake'
 
 package 'vim-gtk'
 package 'screen'
+package 'skype'
 
 case node[:platform]
 when 'debian', 'ubuntu'
@@ -52,6 +66,7 @@ package 'hwinfo'
 package 'lm-sensors'
 package 'xsensors'
 #package 'cpufrequtils'
+package 'uswsusp'
 
 package 'dosbox'
 package 'wine'

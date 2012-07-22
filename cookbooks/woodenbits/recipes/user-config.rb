@@ -93,3 +93,16 @@ end
     end
   end
 end
+
+# can not change gnome settings for non-current user
+current_user = node[:current_user]
+
+if current_user && current_user != 'root'
+  execute "disable auto-mount pop-up for user #{current_user}" do
+    sudo = "sudo -H -u #{current_user} /bin/bash -c"
+    command %Q(#{sudo} "gsettings set org.gnome.desktop.media-handling automount false")
+    only_if %Q(#{sudo} "gsettings get org.gnome.desktop.media-handling automount | grep true")
+  end
+else
+  Chef::Log.info "No gnome settings changes performed for user #{current_user}"
+end

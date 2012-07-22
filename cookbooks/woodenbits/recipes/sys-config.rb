@@ -41,6 +41,11 @@ template "/etc/pm/config.d/00_sleep" do
   mode 0755
 end
 
+template "/etc/sysctl.d/60-local.conf" do
+  source "system/etc/sysctl.d.conf.erb"
+  mode 0644
+end
+
 =begin
 #package 'tlp'
 package 'laptop-mode-tools'

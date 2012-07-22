@@ -12,10 +12,25 @@ execute "enable partners repo" do
   not_if %q(grep -e '^deb.\+partner' /etc/apt/sources.list)
 end
 
+execute "enable pgld repo" do
+  command 'apt-add-repository --yes ppa:jre-phoenix/ppa'
+  notifies :run, resources(:execute => "update apt")
+  creates '/etc/apt/sources.list.d/jre-phoenix-ppa-precise.list'
+end
+
+# add-apt-repository --yes ppa:jre-phoenix/ppa
+# maybe useful kernel options: i915.i915_enable_fbc=1 i915.lvds_downclock=1
+
 package 'aptitude'
 
 
 package 'build-essential'
+
+# for compiling you own kernel
+package 'fakeroot'
+package 'kernel-package'
+package 'linux-source'
+
 #package 'libshadow-ruby1.8' # for chef user password support (ruby-shadow)
 package 'ruby'
 package 'rake'
@@ -42,6 +57,7 @@ package 'dnsutils'
 package 'curl'
 package 'gparted'
 package 'udftools'
+package 'deluge'
 
 package 'logrotate'
 package 'checkinstall'
@@ -53,8 +69,6 @@ package 'checkinstall'
 
 #package 'pgld'
 # brings popup, needs interactive console
-#package 'pglcmd'
-#package 'pgl-gui'
 
 package 'powertop'
 package 'powertop-1.13'

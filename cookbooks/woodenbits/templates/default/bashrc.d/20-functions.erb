@@ -26,6 +26,22 @@ function tc-mount {
     ~/vaults/$VAULT.tc /vaults/$VAULT
 };
 
+function tc-mount-usb {
+  MOUNT_PATH=/vaults/usb
+
+  if [ ! -d $MOUNT_PATH ]; then
+    echo "Vault mount point $MOUNT_PATH not found, creating it!"
+    sudo mkdir $MOUNT_PATH
+  fi
+
+  truecrypt \
+    --text --keyfiles='' --filesystem hfsplus --fs-options="uid=$UID,umask=077" --protect-hidden=no $@ \
+    /dev/sdb /vaults/usb
+  # or
+  # truecrypt --filesystem=none /dev/sdb
+  # mount -t hfsplus -o rw /dev/mapper/truecrypt1 /vaults/usb
+};
+
 function tc-format {
   VAULT="$1"
   shift
@@ -44,7 +60,7 @@ function tc-format {
 
   tc-mount $VAULT --text --filesystem=none || return
   DEVICE=`truecrypt --text --list | grep -e " $VAULT_PATH " | cut -d ' ' -f 3`
-  if [[ ! $DEVICE =~ /dev/mapper/truecrypt[[:digit:]]+ ]]; then 
+  if [[ ! $DEVICE =~ /dev/mapper/truecrypt[[:digit:]]+ ]]; then
     echo "bad device $DEVICE"
     return
   fi

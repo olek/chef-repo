@@ -8,21 +8,21 @@ end
 
 execute "enable partners repo" do
   command 'apt-add-repository --yes "deb http://archive.canonical.com/ $(lsb_release -sc) partner"'
-  notifies :run, resources(:execute => "update apt")
+  # notifies :run, resources(:execute => "update apt")
+  notifies :run, 'execute[update apt]', :immediately
   not_if %q(grep -e '^deb.\+partner' /etc/apt/sources.list)
 end
 
 execute "enable pgld repo" do
   command 'apt-add-repository --yes ppa:jre-phoenix/ppa'
-  notifies :run, resources(:execute => "update apt")
+  #notifies :run, resources(:execute => "update apt")
+  notifies :run, 'execute[update apt]', :immediately
   creates '/etc/apt/sources.list.d/jre-phoenix-ppa-precise.list'
 end
 
-# add-apt-repository --yes ppa:jre-phoenix/ppa
 # maybe useful kernel options: i915.i915_enable_fbc=1 i915.lvds_downclock=1
 
 package 'aptitude'
-
 
 package 'build-essential'
 
@@ -109,7 +109,6 @@ bash 'install synergy' do
     rm synergy-#{version}-Linux-i686.deb
   EOH
   creates '/usr/bin/synergyc'
-  not_if "synergyc --version"
 end
 
 #truecrypt_archive = 'truecrypt_7.1a_console_i386.tar.gz'

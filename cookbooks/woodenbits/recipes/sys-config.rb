@@ -17,6 +17,11 @@ directory '/etc/pgl' do
   action :create
 end
 
+directory '/vaults' do
+  mode '0755'
+  action :create
+end
+
 %w(pglcmd.conf blocklists.list).each do |fname|
   template "/etc/pgl/#{fname}" do
     source "system/etc/pgl-#{fname}.erb"

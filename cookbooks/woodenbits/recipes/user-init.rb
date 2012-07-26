@@ -19,3 +19,10 @@ users.each do |user_login, (user_name, user_uid)|
     supports :manage_home => true
   end
 end
+
+group "sudo" do
+  action :modify
+  members "olek"
+  append true
+end
+

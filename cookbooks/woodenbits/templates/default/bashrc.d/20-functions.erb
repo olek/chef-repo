@@ -27,19 +27,24 @@ function tc-mount {
 };
 
 function tc-mount-usb {
-  MOUNT_PATH=/vaults/usb
+  VAULT="usb"
+  DEVICE="/dev/sdb"
+
+  truecrypt \
+    --text --keyfiles='' --fs-options="uid=$UID,umask=077" --protect-hidden=no $@ \
+    $DEVICE /vaults/$VAULT || return
+
+  MOUNT_PATH=/vaults/$VAULT
 
   if [ ! -d $MOUNT_PATH ]; then
     echo "Vault mount point $MOUNT_PATH not found, creating it!"
     sudo mkdir $MOUNT_PATH
   fi
 
-  truecrypt \
-    --text --keyfiles='' --filesystem hfsplus --fs-options="uid=$UID,umask=077" --protect-hidden=no $@ \
-    /dev/sdb /vaults/usb
-  # or
-  # truecrypt --filesystem=none /dev/sdb
-  # mount -t hfsplus -o rw /dev/mapper/truecrypt1 /vaults/usb
+  #truecrypt \
+  #  --text --keyfiles='' --filesystem hfsplus --fs-options="uid=$UID,umask=077" --protect-hidden=no $@ \
+  #  $DEVICE /vaults/$VAULT
+  mount -t hfsplus -o rw $DEVICE /vaults/$VAULT
 };
 
 function tc-format {
@@ -132,6 +137,8 @@ function tc-umount {
 };
 
 function tc-list { truecrypt --text --list; };
+
+function remount-usb { eject /dev/sdb; sleep 1; eject -t /dev/sdb; };
 
 std_excludes='--exclude=*\.log --exclude=*\.class --exclude=*\.jar --exclude=*\.jtl --exclude=*-db-200*'
 grep-src() { fgrep "$1" * -r $2 $3 $4 $std_excludes | grep -v '\.svn/'; }

@@ -27,9 +27,11 @@ package 'aptitude'
 package 'build-essential'
 
 # for compiling you own kernel
-package 'fakeroot'
-package 'kernel-package'
-package 'linux-source'
+#package 'fakeroot'
+#package 'kernel-package'
+#package 'linux-source'
+
+package 'ia32-libs'
 
 #package 'libshadow-ruby1.8' # for chef user password support (ruby-shadow)
 package 'ruby'
@@ -56,7 +58,8 @@ package 'telnet'
 package 'dnsutils'
 package 'curl'
 package 'gparted'
-package 'udftools'
+#package 'udftools'
+package 'hfsprogs'
 package 'deluge'
 
 package 'logrotate'

@@ -1,16 +1,25 @@
 #!/bin/bash
 
-sound=beam
+mode=unknown
 case "$1" in
   true|thaw|resume)
-    # battery
-    sound=falling
+    mode=battery
   ;;
   false)
-    # ac
-    sound=nature2
+    mode=ac
+  ;;
+  *)
+    # assume battery
+    mode=battery
   ;;
 esac
+
+sound=apert
+lpmp=min_power
+if [ "$mode" == "ac" ]; then
+  sound=laser
+  lpmp=max_performance
+fi
 
 prefix="[trifty]"
 
@@ -27,10 +36,14 @@ function set_param {
   done
 }
 
-set_param '/sys/class/scsi_host/host*/link_power_management_policy' min_power
+set_param '/sys/class/scsi_host/host*/link_power_management_policy' $lpmp
 
-ethtool -s eth0 wol d
-ifconfig eth0 down
+if [ "$mode" == "battery" ]; then
+  ifconfig eth0 down
+else
+  ifconfig eth0 up
+  ethtool -s eth0 wol d
+fi
 
 iwconfig wlan0 power on
 
@@ -40,7 +53,7 @@ set_param '/sys/bus/pci/devices/*/power/control' auto
 
 set_param /sys/module/snd_hda_intel/parameters/power_save_controller Y
 set_param /sys/module/snd_hda_intel/parameters/power_save 1
-aplay --quiet /usr/lib/libreoffice/share/gallery/sounds/${sound}.wav
+sleep 1; aplay --quiet /usr/lib/libreoffice/share/gallery/sounds/${sound}.wav &
 #echo -n | aplay
 
 #extra
@@ -56,6 +69,9 @@ set_param /proc/sys/vm/laptop_mode 5
 
 set_param '/sys/bus/usb/devices/*/power/level' auto
 set_param '/sys/bus/usb/devices/*/power/autosuspend' 1
+
+set_param /sys/block/sda/queue/scheduler deadline
+set_param /sys/block/sda/queue/iosched/fifo_batch 1
 
 
 <<EOF

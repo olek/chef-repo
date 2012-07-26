@@ -42,7 +42,7 @@ function tc-format {
     return
   fi
 
-  tmount $VAULT --text --filesystem=none || return
+  tc-mount $VAULT --text --filesystem=none || return
   DEVICE=`truecrypt --text --list | grep -e " $VAULT_PATH " | cut -d ' ' -f 3`
   if [[ ! $DEVICE =~ /dev/mapper/truecrypt[[:digit:]]+ ]]; then 
     echo "bad device $DEVICE"
@@ -53,7 +53,7 @@ function tc-format {
   echo "vault: $VAULT.tc, label: $LABEL, device: $DEVICE"
   sudo bash -c "dd if=/dev/zero of=$DEVICE bs=1k count=100 && \
     mkudffs --media-type=hd --utf8 --lvid $LABEL --vid $VAULT $DEVICE"
-  tumount $VAULT
+  tc-umount $VAULT
 };
 
 function tc-create {

@@ -115,7 +115,7 @@ bash 'install synergy' do
 end
 
 #truecrypt_archive = 'truecrypt_7.1a_console_i386.tar.gz'
-truecrypt_archive = 'truecrypt_7.1a_i386.tar.gz'
+truecrypt_archive = 'truecrypt_7.1a_amd64.tar.gz'
 cookbook_file "/root/install/#{truecrypt_archive}" do
   source truecrypt_archive
   mode 0640

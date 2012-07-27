@@ -1,0 +1,7 @@
+#!/bin/bash
+LIST=( `cat /proc/mounts | grep "/dev/mapper/truecrypt" | awk '{print $2}'` )
+for volume in "${LIST[@]}"
+do
+	sudo truecrypt --text --verbose --non-interactive --force --dismount $volume >/var/log/syslog 2>&1
+done
+exit 0

@@ -113,18 +113,3 @@ bash 'install synergy' do
   EOH
   creates '/usr/bin/synergyc'
 end
-
-#truecrypt_archive = 'truecrypt_7.1a_console_i386.tar.gz'
-truecrypt_archive = 'truecrypt_7.1a_amd64.tar.gz'
-cookbook_file "/root/install/#{truecrypt_archive}" do
-  source truecrypt_archive
-  mode 0640
-end
-
-bash 'install truecrypt' do
-  cwd '/'
-  code <<-EOH
-    tar xfz /root/install/#{truecrypt_archive}
-  EOH
-  creates '/usr/bin/truecrypt'
-end

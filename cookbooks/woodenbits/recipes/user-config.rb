@@ -24,6 +24,13 @@ end
     end
   end
 
+  directory "#{home_dir}/bin" do
+    owner user
+    group user_group
+    mode '0750'
+    action :create
+  end
+
   directory "#{home_dir}/.ssh" do
     owner user
     group user_group

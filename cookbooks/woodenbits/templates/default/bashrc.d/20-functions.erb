@@ -22,7 +22,7 @@ function tc-mount {
   fi
 
   truecrypt \
-    --text --keyfiles='' --fs-options="uid=$UID,umask=077" --protect-hidden=no $@ \
+    --text --keyfiles='' --fs-options="noatime,nodiratime,rw" --protect-hidden=no $@ \
     ~/vaults/$VAULT.tc /vaults/$VAULT
 };
 
@@ -70,11 +70,27 @@ function tc-format {
     return
   fi
 
-  LABEL=`echo $VAULT | sed 's/^./\u&/'`
+  MOUNT_PATH=/vaults/$VAULT
+
+  if [ ! -d $MOUNT_PATH ]; then
+    echo "Vault mount point $MOUNT_PATH not found, creating it!"
+    sudo mkdir $MOUNT_PATH
+  fi
+
+  user=$(id --user --name)
+  group=$(id --group --name)
+
+
+  LABEL=`echo $VAULT | sed 's/^.*/\u&/'`
   echo "vault: $VAULT.tc, label: $LABEL, device: $DEVICE"
   sudo bash -c "dd if=/dev/zero of=$DEVICE bs=1k count=100 && \
-    mkudffs --media-type=hd --utf8 --lvid $LABEL --vid $VAULT $DEVICE"
-  tc-umount $VAULT
+    mkfs.ext2 -T news -L $LABEL $DEVICE && \
+    mount $DEVICE $MOUNT_PATH && \
+    chown $user:$group $MOUNT_PATH && \
+    chmod 700 $MOUNT_PATH \
+  "
+    #mkfs.hfsplus -U $UID -G users -M 700 -v $LABEL $DEVICE"
+    #mkudffs --media-type=hd --utf8 --lvid $LABEL --vid $VAULT $DEVICE"
 };
 
 function tc-create {

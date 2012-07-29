@@ -22,6 +22,8 @@ end
 
 # maybe useful kernel options: i915.i915_enable_fbc=1 i915.lvds_downclock=1
 
+package 'ubuntu-restricted-extras'
+
 package 'aptitude'
 
 package 'build-essential'
@@ -90,6 +92,13 @@ package 'wine'
 package 'wine-gecko1.4'
 
 package 'chromium-browser'
+package 'compizconfig-settings-manager'
+
+%w(multiload weather).each do |name|
+  package "indicator-#{name}"
+end
+
+package 'ubuntu-restricted-extras'
 
 package 'synergy' do
   action :remove

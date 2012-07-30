@@ -29,6 +29,13 @@ rvm_rubies.each do |rvm_ruby|
   end
 end
 
+template "#{user_home}/.bash_login" do
+  source "bash_login.erb"
+  mode '0640'
+  owner user
+  group 'users'
+end
+
 #execute"make #{rvm_ruby} the default ruby for user #{user}" do
 #  command %Q(sudo -H -u #{user} /bin/bash -l -c "rvm --default #{rvm_ruby}")
 #  not_if { system %Q(sudo -H -u #{user} /bin/bash -l -c "env | grep --quiet '^MY_RUBY_HOME=#{user_home}/.rvm/rubies/#{rvm_ruby}'") }

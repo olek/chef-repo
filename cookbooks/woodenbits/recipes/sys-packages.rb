@@ -8,16 +8,31 @@ end
 
 execute "enable partners repo" do
   command 'apt-add-repository --yes "deb http://archive.canonical.com/ $(lsb_release -sc) partner"'
-  # notifies :run, resources(:execute => "update apt")
   notifies :run, 'execute[update apt]', :immediately
   not_if %q(grep -e '^deb.\+partner' /etc/apt/sources.list)
 end
 
 execute "enable pgld repo" do
   command 'apt-add-repository --yes ppa:jre-phoenix/ppa'
-  #notifies :run, resources(:execute => "update apt")
   notifies :run, 'execute[update apt]', :immediately
   creates '/etc/apt/sources.list.d/jre-phoenix-ppa-precise.list'
+end
+
+execute "enable weather indicator repo" do
+  command 'add-apt-repository ppa:weather-indicator-team/ppa'
+  notifies :run, 'execute[update apt]', :immediately
+  creates '/etc/apt/sources.list.d/weather-indicator-team-ppa-precise.list'
+end
+
+execute "enable medibuntu repo" do
+  command %Q(
+    wget -q "http://packages.medibuntu.org/medibuntu-key.gpg" -O- | sudo apt-key add -
+    add-apt-repository --yes "deb http://packages.medibuntu.org/ $(lsb_release -sc) free non-free"
+  )
+
+  # notifies :run, resources(:execute => "update apt")
+  notifies :run, 'execute[update apt]', :immediately
+  not_if %q(grep -e '^deb.\+medibuntu' /etc/apt/sources.list)
 end
 
 # maybe useful kernel options: i915.i915_enable_fbc=1 i915.lvds_downclock=1
@@ -99,6 +114,11 @@ package 'compizconfig-settings-manager'
 end
 
 package 'ubuntu-restricted-extras'
+
+package 'vlc'
+package 'smplayer'
+package 'w64codecs'
+package 'libdvdcss2'
 
 package 'synergy' do
   action :remove

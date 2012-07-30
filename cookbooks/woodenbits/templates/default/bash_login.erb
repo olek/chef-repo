@@ -1,0 +1,13 @@
+# have to load bashrc here because if .bash_login exists, .profile is never loaded
+
+if [ -n "$BASH_VERSION" ]; then
+  # include .bashrc if it exists
+  if [ -f "$HOME/.bashrc" ]; then
+  	. "$HOME/.bashrc"
+  fi
+fi
+
+
+# load RVM functions
+[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
+

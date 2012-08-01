@@ -1,40 +1,6 @@
 # Cookbook Name:: woodenbits
 # Recipe:: sys-packages
 
-execute "update apt" do
-  command 'apt-get -q -y update'
-  action :nothing
-end
-
-execute "enable partners repo" do
-  command 'apt-add-repository --yes "deb http://archive.canonical.com/ $(lsb_release -sc) partner"'
-  notifies :run, 'execute[update apt]', :immediately
-  not_if %q(grep -e '^deb.\+partner' /etc/apt/sources.list)
-end
-
-execute "enable pgld repo" do
-  command 'apt-add-repository --yes ppa:jre-phoenix/ppa'
-  notifies :run, 'execute[update apt]', :immediately
-  creates '/etc/apt/sources.list.d/jre-phoenix-ppa-precise.list'
-end
-
-execute "enable weather indicator repo" do
-  command 'add-apt-repository ppa:weather-indicator-team/ppa'
-  notifies :run, 'execute[update apt]', :immediately
-  creates '/etc/apt/sources.list.d/weather-indicator-team-ppa-precise.list'
-end
-
-execute "enable medibuntu repo" do
-  command %Q(
-    wget -q "http://packages.medibuntu.org/medibuntu-key.gpg" -O- | sudo apt-key add -
-    add-apt-repository --yes "deb http://packages.medibuntu.org/ $(lsb_release -sc) free non-free"
-  )
-
-  # notifies :run, resources(:execute => "update apt")
-  notifies :run, 'execute[update apt]', :immediately
-  not_if %q(grep -e '^deb.\+medibuntu' /etc/apt/sources.list)
-end
-
 # maybe useful kernel options: i915.i915_enable_fbc=1 i915.lvds_downclock=1
 
 package 'ubuntu-restricted-extras'
@@ -109,9 +75,11 @@ package 'wine-gecko1.4'
 package 'chromium-browser'
 package 'compizconfig-settings-manager'
 
-%w(multiload weather).each do |name|
+%w(multiload weather keylock ubuntuone).each do |name|
   package "indicator-#{name}"
 end
+package 'touchpad-indicator'
+package 'radiotray'
 
 package 'ubuntu-restricted-extras'
 
@@ -132,13 +100,15 @@ end
 
 bash 'install synergy' do
   version = '1.3.7' # 1.3.8.generates core dumps
+  #arch = 'i686'
+  arch = 'x86_64'
   cwd '/tmp'
   code <<-EOH
     cd /root/install
-    wget http://synergy.googlecode.com/files/synergy-#{version}-Linux-i686.deb
-    sudo dpkg --install synergy-#{version}-Linux-i686.deb
+    wget http://synergy.googlecode.com/files/synergy-#{version}-Linux-#{arch}.deb
+    sudo dpkg --install synergy-#{version}-Linux-#{arch}.deb
     sudo apt-mark hold synergy
-    rm synergy-#{version}-Linux-i686.deb
+    rm synergy-#{version}-Linux-#{arch}.deb
   EOH
   creates '/usr/bin/synergyc'
 end

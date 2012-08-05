@@ -1,0 +1,28 @@
+This file contains notes on manual configuration changes that chef does not do
+(yet) and require human being to perform them.
+
+- update ubuntu:
+  aptitude update && aptitude full-upgrade
+
+- settings adjustments:
+  - in brightness and lock: no dim, screen off after 10 min, lock after 30 min (wish could do 15min)
+  - mouse and touchpad: show pointer on ctrl, touchpad: disable clicks on touchpad, two finger scroll, enable horizontal scroll
+  - appearance: choose wallpaper, behavior: auto-hode launcher, sensitivity high
+
+- change terminal to have light background
+  file -> new profile woodenbits, based on default
+  change is color scheme to 'black on white'
+  edit -> profiles -> make woodenbits default
+
+- install pgld
+  aptitude install pgld
+  test by pinging ubuntu.com and google.com (guess which one should fail)
+
+- make ubuntu look for updates every two weeks, not daily
+  in update manager, settings button, updates tab, change dropdown, save
+
+- make alt-tab switch only applications and disable delayed window shifting
+  run Compiz config settings manager
+  select ubuntu unity plugin
+  select switcher tab
+  uncheck 'automatically grid windows on timer in switcher'

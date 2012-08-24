@@ -20,8 +20,6 @@ touch $i; chmod 444 $i; chown olek:users $i; done;
 find . -user 99 -or -group 99 -exec chown olek:users {} \;; 
 chown olek:users .'
 
-alias fix-scroll='xinput set-prop 10 269 444 444 && xinput set-prop 11 312 40'
-
 # same as ModCloth begin
 alias bi='bundle install --path vendor/bundle'
 alias be='bundle exec'

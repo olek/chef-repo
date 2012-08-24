@@ -1,0 +1,36 @@
+#!/bin/bash
+#
+# adjusts trackpad and trackpoint
+#
+# right now it simply adjusts scrolling to be much slower
+#
+
+function xinput_change {
+  DEVICE_NAME="$1"
+  PROP_NAME="$2"
+  PROP_VALUE="$3"
+
+  # echo "device name: $DEVICE_NAME, prop name: $PROP_NAME, prop value: $PROP_VALUE"
+
+  DEVICE_ID=$(xinput list | grep -i "$DEVICE_NAME" | cut -d= -f2 | cut -c1,2)
+
+  if [[ $DEVICE_ID == "" ]]; then
+    echo "No $DEVICE_NAME found"
+  else
+    PROP_LINE=$(xinput list-props $DEVICE_ID | grep -i "$PROP_NAME")
+    PROP_ID=$(echo "$PROP_LINE" | cut -d ":" -f 1 | sed 's/.*(\([[:digit:]]*\))/\1/')
+    OLD_PROP_VALUE=$(echo "$PROP_LINE" | cut -d ":" -f 2 | sed 's/^[[:space:]]*//' | sed 's/,//')
+    # echo "prop id: $PROP_ID, prop value: $OLD_PROP_VALUE"
+    if [[ $PROP_ID == "" ]]; then
+      echo "No $PROP_NAME setting found for $DEVICE_NAME"
+    else
+      if [[ $OLD_PROP_VALUE != $PROP_VALUE ]]; then
+        echo "Changing $PROP_NAME property on $DEVICE_NAME from '$OLD_PROP_VALUE' to '$PROP_VALUE'"
+        xinput set-prop "$DEVICE_ID" $PROP_ID $PROP_VALUE
+      fi
+    fi
+  fi
+};
+
+xinput_change 'touchpad' 'synaptics scrolling distance' '400 400'
+xinput_change 'trackpoint' 'Evdev Wheel Emulation Inertia' '30'

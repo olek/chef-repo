@@ -74,6 +74,13 @@ end
     group user_group
   end
 
+  template "#{home_dir}/bin/fix-scroll" do
+    source 'fix-scroll.erb'
+    mode '0700'
+    owner user
+    group user_group
+  end
+
   %w(inputrc bashrc vimrc.before vimrc.after gvimrc.after gemrc irbrc).each do |name|
     template "#{home_dir}/.#{name}" do
       source "#{name}.erb"
@@ -114,10 +121,20 @@ user_group = `id --group --name #{user}`.chomp
 home_dir = user == 'root' ? '/root' : "/home/#{user}"
 
 if user && user != 'root'
+  sudo = "sudo -H -u #{user} /bin/bash -c"
   execute "disable auto-mount pop-up for user #{user}" do
-    sudo = "sudo -H -u #{user} /bin/bash -c"
     command %Q(#{sudo} "gsettings set org.gnome.desktop.media-handling automount-open false")
     only_if %Q(#{sudo} "gsettings get org.gnome.desktop.media-handling automount-open | grep true")
+  end
+
+  execute "enable full screen dashboard for user #{user}" do
+    command %Q(#{sudo} "gsettings set com.canonical.Unity2d form-factor netbook")
+    only_if %Q(#{sudo} "gsettings get com.canonical.Unity2d form-factor | grep -v netbook")
+  end
+
+  execute "enable 2d OpenGL for user #{user}" do
+    command %Q(#{sudo} "gsettings set com.canonical.Unity2d use-opengl true")
+    only_if %Q(#{sudo} "gsettings get com.canonical.Unity2d use-opengl | grep false")
   end
 else
   Chef::Log.info "No gnome settings changes performed for user #{user}"

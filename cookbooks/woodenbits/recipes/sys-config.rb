@@ -41,6 +41,13 @@ template "/etc/pm/power.d/000_trifty" do
   mode 0755
 end
 
+template "/usr/local/bin/fix-scroll" do
+  source 'fix-scroll.erb'
+  mode '0755'
+  owner 'root'
+  group 'root'
+end
+
 template "/etc/pm/config.d/00_sleep" do
   source "system/etc/pm-config.erb"
   mode 0755

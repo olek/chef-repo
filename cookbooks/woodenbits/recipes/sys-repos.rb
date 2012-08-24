@@ -22,8 +22,19 @@ execute "enable medibuntu repo" do
   not_if %q(grep -e '^deb.\+medibuntu' /etc/apt/sources.list)
 end
 
-%w(jre-phoenix/ppa weather-indicator-team/ppa atareao/atareao
-   tsbarnes/indicator-keylock eugenesan/ppa rye/ubuntuone-extras).each do |ppa_name|
+execute "enable chrome repo" do
+  command %Q(
+    wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
+    echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
+  )
+
+  notifies :run, 'execute[update apt]', :immediately
+  creates "/etc/apt/sources.list.d/google.list"
+  #not_if %q(grep -e '^deb.\+chrome' /etc/apt/sources.list)
+end
+
+%w(jre-phoenix/ppa alexeftimie/ppa scopes-packagers/ppa atareao/atareao
+   tsbarnes/indicator-keylock eugenesan/ppa rye/ubuntuone-extras webupd8team/java webupd8team/jupiter).each do |ppa_name|
   file_name = ppa_name.sub('/', '-')
   execute "enable #{ppa_name} repo" do
     command "apt-add-repository --yes ppa:#{ppa_name}"

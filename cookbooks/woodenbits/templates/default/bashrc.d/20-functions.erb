@@ -156,6 +156,17 @@ function tc-list { truecrypt --text --list; };
 
 function remount-usb { eject /dev/sdb; sleep 1; eject -t /dev/sdb; };
 
+function js-beautify-in-place {
+  if [[ $1 == "" ]]; then
+    echo "Usage: js-beautify-in-place file1.js file2.js"
+  else
+    for i in $@; do
+      echo $i
+      cat $i | js-beautify -i -s2 -j -o $i
+    done;
+  fi
+};
+
 std_excludes='--exclude=*\.log --exclude=*\.class --exclude=*\.jar --exclude=*\.jtl --exclude=*-db-200*'
 grep-src() { fgrep "$1" * -r $2 $3 $4 $std_excludes | grep -v '\.svn/'; }
 

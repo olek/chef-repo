@@ -14,6 +14,8 @@ This file contains notes on manual configuration changes that chef does not do
   change is color scheme to 'black on white'
   edit -> profiles -> make woodenbits default
 
+- change terminal to have deeper scroll buffer (default 512 is not enough, 5k is good)
+
 - install pgld
   aptitude install pgld
   test by pinging ubuntu.com and google.com (guess which one should fail)
@@ -26,3 +28,16 @@ This file contains notes on manual configuration changes that chef does not do
   select ubuntu unity plugin
   select switcher tab
   uncheck 'automatically grid windows on timer in switcher'
+
+- customize file /etc/uswsusp.conf to not do compression and to set image size to 1
+
+- modify /etc/fstab
+  - prepend those options to ext4 mounts: noatime
+  - prepend those options to ext4 mounts if SSD: discard
+  - add following line to put tmp files in memory
+      none /tmp tmpfs defaults 0 0
+    or
+      tmpfs /tmp tmpfs defaults,noatime,mode=1777 0 0
+- install dropbox and google voice plugins as outlined in
+  http://www.techdrivein.com/2012/06/25-things-i-did-after-installing-ubuntu.html
+  Note: this can be automated somehow, but not to great extent.

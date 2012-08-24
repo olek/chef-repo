@@ -20,9 +20,12 @@ package 'ia32-libs'
 package 'ruby'
 package 'rake'
 
+# user tools
 package 'vim-gtk'
 package 'screen'
 package 'skype'
+package 'xournal'
+package 'gimp'
 
 case node[:platform]
 when 'debian', 'ubuntu'
@@ -43,6 +46,8 @@ package 'curl'
 package 'gparted'
 #package 'udftools'
 package 'hfsprogs'
+package 'sshfs'
+package 'cifs-utils'
 package 'deluge'
 
 package 'logrotate'
@@ -67,18 +72,29 @@ package 'lm-sensors'
 package 'xsensors'
 #package 'cpufrequtils'
 package 'uswsusp'
+package 'ethtool'
+package 'dconf-tools'
 
 package 'dosbox'
 package 'wine'
 package 'wine-gecko1.4'
 
+package 'google-chrome-stable'
 package 'chromium-browser'
 package 'compizconfig-settings-manager'
 
-%w(multiload weather keylock ubuntuone).each do |name|
+%w(sysmonitor keylock ubuntuone).each do |name|
   package "indicator-#{name}"
 end
 package 'touchpad-indicator'
+
+package 'unity-lens-utilities'
+package 'unity-scope-calculator'
+package 'unity-scope-cities'
+package 'unity-scope-rottentomatoes'
+
+package 'python-gpgme' # for dropbox
+
 package 'radiotray'
 
 package 'ubuntu-restricted-extras'

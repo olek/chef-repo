@@ -1,0 +1,67 @@
+#!/bin/bash
+#
+# adjusts trackpoint
+#
+# right now it simply adjusts scrolling to be much slower
+#
+
+function xinput_change {
+  DEVICE_NAME="$1"
+  PROP_NAME="$2"
+  PROP_VALUE="$3"
+
+  # echo "device name: $DEVICE_NAME, prop name: $PROP_NAME, prop value: $PROP_VALUE"
+
+  DEVICE_ID=$(xinput list | grep -i "$DEVICE_NAME" | cut -d= -f2 | cut -c1,2)
+
+  if [[ $DEVICE_ID == "" ]]; then
+    echo "No $DEVICE_NAME found"
+  else
+    PROP_LINE=$(xinput list-props $DEVICE_ID | grep -i "$PROP_NAME")
+    PROP_ID=$(echo "$PROP_LINE" | cut -d ":" -f 1 | sed 's/.*(\([[:digit:]]*\))/\1/')
+    OLD_PROP_VALUE=$(echo "$PROP_LINE" | cut -d ":" -f 2 | sed 's/^[[:space:]]*//' | sed 's/,//')
+    # echo "prop id: $PROP_ID, prop value: $OLD_PROP_VALUE"
+    if [[ $PROP_ID == "" ]]; then
+      echo "No $PROP_NAME setting found for $DEVICE_NAME"
+    else
+      if [[ $OLD_PROP_VALUE != $PROP_VALUE ]]; then
+        echo "Changing $PROP_NAME property on $DEVICE_NAME from '$OLD_PROP_VALUE' to '$PROP_VALUE'"
+        xinput set-prop "$DEVICE_ID" $PROP_ID $PROP_VALUE
+      fi
+    fi
+  fi
+};
+
+mode=unknown
+case "$1" in
+  true)
+    mode=adjusted
+  ;;
+  false)
+    mode=original
+  ;;
+  *)
+    # assume adjusted
+    mode=adjusted
+  ;;
+esac
+
+inertia=6
+sensitivity=128
+speed=97
+deceleration=1
+touchpad_enabled=1
+if [ "$mode" == "adjusted" ]; then
+  inertia=2
+  sensitivity=255
+  speed=140
+  deceleration=3
+  touchpad_enabled=0
+fi
+
+xinput_change 'trackpoint' 'Device Accel Constant Deceleration' $deceleration
+xinput_change 'touchpad' 'Device Enabled' $touchpad_enabled
+sudo bash -c "echo $sensitivity > /sys/devices/platform/i8042/serio1/serio2/sensitivity"
+sudo bash -c "echo $speed > /sys/devices/platform/i8042/serio1/serio2/speed"
+sudo bash -c "echo $inertia > /sys/devices/platform/i8042/serio1/serio2/inertia"
+

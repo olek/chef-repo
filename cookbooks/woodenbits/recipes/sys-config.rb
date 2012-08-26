@@ -41,8 +41,15 @@ template "/etc/pm/power.d/000_trifty" do
   mode 0755
 end
 
-template "/usr/local/bin/fix-scroll" do
-  source 'fix-scroll.erb'
+template "/usr/local/bin/adjust-scroll" do
+  source 'adjust-scroll.erb'
+  mode '0755'
+  owner 'root'
+  group 'root'
+end
+
+template "/usr/local/bin/adjust-trackpoint" do
+  source 'adjust-trackpoint.erb'
   mode '0755'
   owner 'root'
   group 'root'

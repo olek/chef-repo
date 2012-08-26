@@ -12,7 +12,7 @@ alias hh='history -d $(($HISTCMD-2)) && history -d $(($HISTCMD-1))' # remove pre
 # see bug https://bugs.launchpad.net/ubuntu/+source/vim/+bug/776499
 alias gvim="gvim --remote-send '<C-w>n'; UBUNTU_MENUPROXY= gvim --remote-silent"
 
-alias dstat-power="dstat --time --battery --power --battery-remain --fan --dstat-cpu --cpufreq --top-cpu --top-mem"
+alias dstat-power="dstat --time --battery --power --battery-remain --fan --dstat-cpu --cpufreq --top-cpu --top-mem --top-io"
 alias hfs-drive-cleanup='rm -fr .Trashes .fseventsd .Spotlight-V100; \
 mkdir .fseventsd; \
 for i in .Trashes .fseventsd/no_log .metadata_never_index; do \

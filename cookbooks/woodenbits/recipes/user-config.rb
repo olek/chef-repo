@@ -74,13 +74,6 @@ end
     group user_group
   end
 
-  template "#{home_dir}/bin/fix-scroll" do
-    source 'fix-scroll.erb'
-    mode '0700'
-    owner user
-    group user_group
-  end
-
   %w(inputrc bashrc vimrc.before vimrc.after gvimrc.after gemrc irbrc).each do |name|
     template "#{home_dir}/.#{name}" do
       source "#{name}.erb"

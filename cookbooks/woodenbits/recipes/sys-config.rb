@@ -53,6 +53,13 @@ template "/usr/local/bin/adjust-scroll" do
   group 'root'
 end
 
+template "/usr/local/bin/update-kernel.sh" do
+  source 'update-kernel.sh.erb.erb'
+  mode '0755'
+  owner 'root'
+  group 'root'
+end
+
 template "/etc/pm/config.d/00_sleep" do
   source "system/etc/pm-config.erb"
   mode 0755

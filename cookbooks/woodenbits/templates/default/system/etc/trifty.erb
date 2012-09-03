@@ -44,7 +44,13 @@ set_param '/sys/class/scsi_host/host*/link_power_management_policy' $lpmp
 
 CURRENT_USER=$(who | grep tty7 | sed 's/\([a-z]*\).*/\1/')
 sudo -H -u $CURRENT_USER /bin/bash -c 'export DISPLAY=:0.0 && /usr/local/bin/adjust-scroll'
+#sudo -H -u $CURRENT_USER /bin/bash -c 'export DISPLAY=:0.0 && /usr/local/bin/adjust-trackpad'
 sudo -H -u $CURRENT_USER /bin/bash -c 'export DISPLAY=:0.0 && xmodmap -e "keycode 156 = Break"'
+
+
+set_param /sys/devices/platform/i8042/serio1/serio2/sensitivity 255
+set_param /sys/devices/platform/i8042/serio1/serio2/speed 180
+set_param /sys/devices/platform/i8042/serio1/serio2/inertia 2
 
 # if [ "$mode" == "battery" ]; then
 #  ifconfig eth0 down

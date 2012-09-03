@@ -41,15 +41,13 @@ template "/etc/pm/power.d/000_trifty" do
   mode 0755
 end
 
-template "/usr/local/bin/adjust-scroll" do
-  source 'adjust-scroll.erb'
-  mode '0755'
-  owner 'root'
-  group 'root'
+template "/etc/modprobe.d/wlan.conf" do
+  source "system/etc/modprobe.wlan.conf.erb"
+  mode 0644
 end
 
-template "/usr/local/bin/adjust-trackpoint" do
-  source 'adjust-trackpoint.erb'
+template "/usr/local/bin/adjust-scroll" do
+  source 'adjust-scroll.erb'
   mode '0755'
   owner 'root'
   group 'root'

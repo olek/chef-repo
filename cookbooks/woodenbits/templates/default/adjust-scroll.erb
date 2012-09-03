@@ -33,4 +33,9 @@ function xinput_change {
 };
 
 xinput_change 'touchpad' 'synaptics scrolling distance' '400 400'
-xinput_change 'trackpoint' 'Evdev Wheel Emulation Inertia' '30'
+
+xinput_change 'trackpoint' 'Evdev Wheel Emulation Inertia' '100'
+if [[ $? ]]; then
+  xinput_change 'trackpoint' 'Device Accel Constant Deceleration' 3.000000
+  xinput_change 'touchpad' 'Device Enabled' 0
+fi

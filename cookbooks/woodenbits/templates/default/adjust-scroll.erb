@@ -14,6 +14,7 @@ function xinput_change {
 
   DEVICE_ID=$(xinput list | grep -i "$DEVICE_NAME" | cut -d= -f2 | cut -c1,2)
 
+  status=1
   if [[ $DEVICE_ID == "" ]]; then
     echo "No $DEVICE_NAME found"
   else
@@ -28,14 +29,17 @@ function xinput_change {
         echo "Changing $PROP_NAME property on $DEVICE_NAME from '$OLD_PROP_VALUE' to '$PROP_VALUE'"
         xinput set-prop "$DEVICE_ID" $PROP_ID $PROP_VALUE
       fi
+      status=0
     fi
   fi
+
+  return $status;
 };
 
 xinput_change 'touchpad' 'synaptics scrolling distance' '400 400'
 
 xinput_change 'trackpoint' 'Evdev Wheel Emulation Inertia' '100'
-if [[ $? ]]; then
+if [ $? -eq 0 ]; then
   xinput_change 'trackpoint' 'Device Accel Constant Deceleration' 3.000000
   xinput_change 'touchpad' 'Device Enabled' 0
 fi

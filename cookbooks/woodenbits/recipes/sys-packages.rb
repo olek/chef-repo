@@ -95,6 +95,10 @@ package 'unity-scope-rottentomatoes'
 
 package 'python-gpgme' # for dropbox
 
+# color management
+package 'argyll'
+package 'gnome-color-manager'
+
 package 'radiotray'
 
 package 'ubuntu-restricted-extras'

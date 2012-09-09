@@ -1,0 +1,150 @@
+#!/usr/bin/env ruby
+
+module Commands
+  def self.<<(cmd)
+    (@commands ||= []) << cmd
+  end
+
+  def self.execute
+    cmd = @commands.join('; ')
+    # puts cmd
+    `#{cmd}`
+  end
+end
+
+module Screen
+  class << self
+    def resolution_raw
+      `xrandr | grep "*" | awk '{print $1}'`
+    end
+
+    def load_resolutions
+      @width, @height = resolution_raw.split('x').map { |i| Integer(i) }
+    end
+
+    def width
+      load_resolutions unless @width
+      @width
+    end
+
+    def height
+      load_resolutions unless @height
+      @height
+    end
+
+    def small?
+      width < 1400
+    end
+
+    def wasted_height
+      53
+    end
+  end
+end
+
+class Window
+  attr_reader :app, :title
+
+  def initialize(line)
+    words = line.split
+    @id, @app, @title = words[0], words[2].split('.').last, words[4..-1].join(' ')
+  end
+
+  def move(x, y=-1)
+    x = Screen.width - @width + x if x < -1
+    y = Screen.height - @height + y if y < -1
+
+    wmctrl "-r #{@id} -e 1,#{x},#{y},-1,-1"
+  end
+
+  def align(*opts)
+    x = 0
+    y = 0
+
+    if opts.include?(:bottom)
+      y = Screen.height - @height
+    end
+
+    if opts.include?(:right)
+      x = Screen.width - @width
+    elsif opts.include?(:center)
+      x = (Screen.width - @width) / 2
+    end
+
+    wmctrl "-r #{@id} -e 1,#{x},#{y},-1,-1"
+  end
+
+  def resize(w, h, max_on_low_res=true)
+    self.width, self.height = w, h
+
+    wmctrl "-r #{@id} -e 1,-1,-1,#{@width},#{@height}"
+
+    if max_on_low_res && Screen.small?
+      wmctrl "-r #{@id} -b add,maximized_horz,maximized_vert"
+    else
+      wmctrl "-r #{@id} -b remove,maximized_horz,maximized_vert"
+    end
+  end
+
+  def focus
+    wmctrl "-a #{@id}"
+  end
+
+  def to_s
+    "[#{@id} #{@app} '#{@title}']"
+  end
+
+  private
+
+  def width=(w)
+    @width = w =~ /^\d+%$/ ? w.to_i * Screen.width / 100 : w
+  end
+
+  def height=(h)
+    @height = h =~ /^\d+%$/ ? h.to_i * Screen.height / 100 - Screen.wasted_height : h
+  end
+
+  def wmctrl(cmd)
+    # puts "wmctrl -i #{cmd}"
+    Commands << "wmctrl -i #{cmd}"
+  end
+end
+
+windows = `wmctrl -l -x | grep -v 'N/A'`.split("\n").map { |line| Window.new(line) }
+
+windows.each do |window|
+  if window.app == 'Gvim' && window.title =~ / - GVIM$/
+    window.resize 1366, '100%', true
+    window.align :center
+  end
+
+  if window.app == 'Gnome-terminal' && window.title.include?(':')
+    window.resize 1366, 766 - Screen.wasted_height, true
+    window.align
+  end
+
+  if window.app == 'Deluge' && window.title == 'Deluge'
+    window.resize 1366, 766 - Screen.wasted_height, true
+    window.align :bottom, :right
+  end
+
+  if window.app == 'Firefox' && window.title =~ / - Vimperator$/ or
+      window.app == 'Google-chrome' && window.title =~ / - Google Chrome$/ or
+      window.app == 'Chromium-browser' && window.title =~ / - Chromium$/
+    window.resize 1366, '100%', true
+    window.align :right
+  end
+
+  if window.app == 'Skype' && window.title.include?(' - Skype')
+    if window.title.include?('olek.poplavsky - Skype')
+      window.resize(240, '100%', false)
+      window.align(:right)
+    else
+      window.resize(1122, '100%', false)
+      window.move(-244)
+    end
+  end
+end
+
+Commands << "wmctrl -a :ACTIVE:"
+Commands.execute

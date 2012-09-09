@@ -54,7 +54,14 @@ template "/usr/local/bin/adjust-scroll" do
 end
 
 template "/usr/local/bin/update-kernel.sh" do
-  source 'update-kernel.sh.erb.erb'
+  source 'update-kernel.sh.erb'
+  mode '0755'
+  owner 'root'
+  group 'root'
+end
+
+template "/usr/local/bin/resize.rb" do
+  source 'resize.rb.erb'
   mode '0755'
   owner 'root'
   group 'root'

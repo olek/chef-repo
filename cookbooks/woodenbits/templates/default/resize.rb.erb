@@ -123,7 +123,8 @@ windows.each do |window|
     window.align
   end
 
-  if window.app == 'Deluge' && window.title == 'Deluge'
+  if window.app == 'Deluge' && window.title == 'Deluge' or
+      window.app == 'Rhythmbox'
     window.resize 1366, 766 - Screen.wasted_height, true
     window.align :bottom, :right
   end

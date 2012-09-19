@@ -10,6 +10,7 @@ package 'redis-server'
 package 'mysql-server'
 package 'libmysqlclient-dev'
 package 'libmagickwand-dev'
+package 'freetds-dev'
 
 
 #execute "pre-agree to sun java license" do

@@ -3,29 +3,60 @@
 
 # maybe useful kernel options: i915.i915_enable_fbc=1 i915.lvds_downclock=1
 
-package 'ubuntu-restricted-extras'
+# ========== essentials
 
 package 'aptitude'
-
+package 'ubuntu-restricted-extras'
 package 'build-essential'
 
-# for compiling you own kernel
+# compile your own kernel
 #package 'fakeroot'
 #package 'kernel-package'
 #package 'linux-source'
 
 package 'ia32-libs'
 
-#package 'libshadow-ruby1.8' # for chef user password support (ruby-shadow)
-package 'ruby'
-package 'rake'
 
-# user tools
+# ========== user tools
+
 package 'vim-gtk'
 package 'screen'
 package 'skype'
 package 'xournal'
 package 'gimp'
+package 'exuberant-ctags'
+
+package 'deluge'
+
+package 'sqlite3'
+package 'libsqlite3-dev'
+
+package 'wmctrl' # for window resize script resize.rb
+
+package 'google-chrome-stable'
+package 'chromium-browser'
+package 'compizconfig-settings-manager'
+
+%w(sysmonitor keylock ubuntuone).each do |name|
+  package "indicator-#{name}"
+end
+package 'touchpad-indicator'
+
+package 'unity-lens-utilities'
+package 'unity-scope-calculator'
+#package 'unity-scope-cities'
+#package 'unity-scope-rottentomatoes'
+
+package 'python-gpgme' # for dropbox
+
+package 'radiotray'
+
+package 'vlc'
+package 'smplayer'
+package 'w64codecs'
+package 'libdvdcss2'
+
+# ========== dev tools
 
 case node[:platform]
 when 'debian', 'ubuntu'
@@ -33,6 +64,19 @@ when 'debian', 'ubuntu'
 else
   package 'git'
 end
+
+#package 'libshadow-ruby1.8' # for chef user password support (ruby-shadow)
+package 'ruby'
+package 'rake'
+
+# ========== audio
+
+package 'mpd'
+package 'mpc'
+package 'ncmpc'
+package 'audacious'
+
+# ========== System tools
 
 package 'httperf'
 
@@ -48,7 +92,15 @@ package 'gparted'
 package 'hfsprogs'
 package 'sshfs'
 package 'cifs-utils'
-package 'deluge'
+
+package 'apparmor-utils'
+package 'apparmor-profiles'
+package 'apparmor-notify'
+
+execute "enable apparmor firefox profile" do
+  command 'aa-enforce /etc/apparmor.d/usr.bin.firefox'
+  not_if "aa-status | grep firefox"
+end
 
 package 'logrotate'
 package 'checkinstall'
@@ -60,6 +112,8 @@ package 'checkinstall'
 
 #package 'pgld'
 # brings popup, needs interactive console
+
+# ========== power management
 
 package 'powertop'
 package 'powertop-1.13'
@@ -75,38 +129,18 @@ package 'uswsusp'
 package 'ethtool'
 package 'dconf-tools'
 
+# ========== emulators / virtualization
+
 package 'dosbox'
 package 'wine'
 package 'wine-gecko1.4'
 
-package 'google-chrome-stable'
-package 'chromium-browser'
-package 'compizconfig-settings-manager'
+# ========== color management
 
-%w(sysmonitor keylock ubuntuone).each do |name|
-  package "indicator-#{name}"
-end
-package 'touchpad-indicator'
-
-package 'unity-lens-utilities'
-package 'unity-scope-calculator'
-package 'unity-scope-cities'
-package 'unity-scope-rottentomatoes'
-
-package 'python-gpgme' # for dropbox
-
-# color management
 package 'argyll'
 package 'gnome-color-manager'
 
-package 'radiotray'
-
-package 'ubuntu-restricted-extras'
-
-package 'vlc'
-package 'smplayer'
-package 'w64codecs'
-package 'libdvdcss2'
+# ========== synergy
 
 package 'synergy' do
   action :remove

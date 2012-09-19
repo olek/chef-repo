@@ -26,3 +26,9 @@ group "sudo" do
   append true
 end
 
+group "lpadmin" do
+  action :modify
+  members "olek"
+  append true
+end
+

@@ -24,6 +24,7 @@ package 'screen'
 package 'skype'
 package 'xournal'
 package 'gimp'
+package 'calibre'
 package 'exuberant-ctags'
 
 package 'deluge'
@@ -112,6 +113,10 @@ package 'checkinstall'
 
 #package 'pgld'
 # brings popup, needs interactive console
+
+# ========== infrared remote
+package 'lirc'
+package 'evtest'
 
 # ========== power management
 

@@ -12,6 +12,9 @@ package 'libmysqlclient-dev'
 package 'libmagickwand-dev'
 package 'freetds-dev'
 
+# VPN
+package 'openconnect'
+package 'network-manager-openconnect'
 
 #execute "pre-agree to sun java license" do
 #  command "echo 'sun-java6-jdk shared/accepted-sun-dlj-v1-1 boolean true' | debconf-set-selections"

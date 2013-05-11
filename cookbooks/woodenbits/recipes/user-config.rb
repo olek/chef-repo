@@ -15,7 +15,7 @@ end
   home_dir = user == 'root' ? '/root' : "/home/#{user}"
   user_group = user == 'root' ? 'root' : 'users'
 
-  %w(tmp tmp/vi build .bashrc.d .janus).each do |dir|
+  %w(tmp tmp/vi build .bashrc.d .janus .mplayer).each do |dir|
     directory "#{home_dir}/#{dir}" do
       owner user
       group user_group
@@ -70,6 +70,13 @@ end
   template "#{home_dir}/bin/truecrypt-init.sh" do
     source 'truecrypt-init.erb'
     mode '0700'
+    owner user
+    group user_group
+  end
+
+  template "#{home_dir}/.mplayer/config" do
+    source 'mplayer-config.erb'
+    mode '0640'
     owner user
     group user_group
   end

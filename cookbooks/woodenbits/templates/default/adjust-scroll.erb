@@ -18,7 +18,7 @@ function xinput_change {
   if [[ $DEVICE_ID == "" ]]; then
     echo "No $DEVICE_NAME found"
   else
-    PROP_LINE=$(xinput list-props $DEVICE_ID | grep -i "$PROP_NAME")
+    PROP_LINE=$(xinput list-props $DEVICE_ID | grep -i "$PROP_NAME" | head -n 1)
     PROP_ID=$(echo "$PROP_LINE" | cut -d ":" -f 1 | sed 's/.*(\([[:digit:]]*\))/\1/')
     OLD_PROP_VALUE=$(echo "$PROP_LINE" | cut -d ":" -f 2 | sed 's/^[[:space:]]*//' | sed 's/,//')
     # echo "prop id: $PROP_ID, prop value: $OLD_PROP_VALUE"
@@ -26,8 +26,9 @@ function xinput_change {
       echo "No $PROP_NAME setting found for $DEVICE_NAME"
     else
       if [[ $OLD_PROP_VALUE != $PROP_VALUE ]]; then
-        echo "Changing $PROP_NAME property on $DEVICE_NAME from '$OLD_PROP_VALUE' to '$PROP_VALUE'"
-        xinput set-prop "$DEVICE_ID" $PROP_ID $PROP_VALUE
+        echo "Changing '$PROP_NAME' ($PROP_ID) property on '$DEVICE_NAME' from '$OLD_PROP_VALUE' to '$PROP_VALUE'"
+        echo "xinput set-prop $DEVICE_ID $PROP_ID $PROP_VALUE"
+        xinput set-prop $DEVICE_ID $PROP_ID $PROP_VALUE
       fi
       status=0
     fi
@@ -42,4 +43,9 @@ xinput_change 'trackpoint' 'Evdev Wheel Emulation Inertia' '100'
 if [ $? -eq 0 ]; then
   xinput_change 'trackpoint' 'Device Accel Constant Deceleration' 3.000000
   xinput_change 'touchpad' 'Device Enabled' 0
+fi
+
+xinput_change 'ps2 to usb .*pointer' 'Evdev Wheel Emulation' '1'
+if [ $? -eq 0 ]; then
+  xinput_change 'ps2 to usb .*pointer' 'Evdev Wheel Emulation Button' '2'
 fi

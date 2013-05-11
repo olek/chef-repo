@@ -1,0 +1,5 @@
+#!/bin/sh
+
+gvim --remote-send ':tabnew<CR>'
+# see bug https://bugs.launchpad.net/ubuntu/+source/vim/+bug/776499
+UBUNTU_MENUPROXY= gvim --remote-silent $@

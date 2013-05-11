@@ -28,6 +28,8 @@ package 'calibre'
 package 'exuberant-ctags'
 
 package 'deluge'
+package 'dvdrip'
+package 'rar'
 
 package 'sqlite3'
 package 'libsqlite3-dev'
@@ -43,10 +45,22 @@ package 'compizconfig-settings-manager'
 end
 package 'touchpad-indicator'
 
-package 'unity-lens-utilities'
+#package 'unity-lens-utilities'
 package 'unity-scope-calculator'
 #package 'unity-scope-cities'
 #package 'unity-scope-rottentomatoes'
+
+package 'unity-lens-shopping' do
+  action :remove
+end
+
+package 'unity-scope-video-remote' do
+  action :remove
+end
+
+package 'unity-scope-musicstores' do
+  action :remove
+end
 
 package 'python-gpgme' # for dropbox
 
@@ -75,7 +89,9 @@ package 'rake'
 package 'mpd'
 package 'mpc'
 package 'ncmpc'
+package 'sonata'
 package 'audacious'
+package 'deadbeef'
 
 # ========== System tools
 
@@ -93,6 +109,8 @@ package 'gparted'
 package 'hfsprogs'
 package 'sshfs'
 package 'cifs-utils'
+package 'fuse-exfat'
+package 'autofs'
 
 package 'apparmor-utils'
 package 'apparmor-profiles'

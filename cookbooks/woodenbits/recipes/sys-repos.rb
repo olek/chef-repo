@@ -34,7 +34,8 @@ execute "enable chrome repo" do
 end
 
 %w(jre-phoenix/ppa alexeftimie/ppa scopes-packagers/ppa atareao/atareao
-   tsbarnes/indicator-keylock eugenesan/ppa rye/ubuntuone-extras webupd8team/java webupd8team/jupiter).each do |ppa_name|
+   tsbarnes/indicator-keylock eugenesan/ppa rye/ubuntuone-extras
+   webupd8team/java relan/exfat starws-box/deadbeef-player).each do |ppa_name|
   file_name = ppa_name.sub('/', '-')
   execute "enable #{ppa_name} repo" do
     command "apt-add-repository --yes ppa:#{ppa_name}"

@@ -74,15 +74,21 @@ class Window
     wmctrl "-r #{@id} -e 1,#{x},#{y},-1,-1"
   end
 
-  def resize(w, h, max_on_low_res=true)
+  def resize(w, h, max_w_on_low_res=true, max_h_on_low_res=true)
     self.width, self.height = w, h
 
     wmctrl "-r #{@id} -e 1,-1,-1,#{@width},#{@height}"
 
-    if max_on_low_res && Screen.small?
-      wmctrl "-r #{@id} -b add,maximized_horz,maximized_vert"
+    if max_w_on_low_res && Screen.small?
+      wmctrl "-r #{@id} -b add,maximized_horz"
     else
-      wmctrl "-r #{@id} -b remove,maximized_horz,maximized_vert"
+      wmctrl "-r #{@id} -b remove,maximized_horz"
+    end
+
+    if max_h_on_low_res && Screen.small?
+      wmctrl "-r #{@id} -b add,maximized_vert"
+    else
+      wmctrl "-r #{@id} -b remove,maximized_vert"
     end
   end
 
@@ -114,35 +120,35 @@ windows = `wmctrl -l -x | grep -v 'N/A'`.split("\n").map { |line| Window.new(lin
 
 windows.each do |window|
   if window.app == 'Gvim' && window.title =~ / - GVIM$/
-    window.resize 1366, '100%', true
-    window.align :center
+    window.resize 1100, '100%', false
+    window.align :right
   end
 
   if window.app == 'Gnome-terminal' && window.title.include?(':')
-    window.resize 1366, 766 - Screen.wasted_height, true
+    window.resize 1366, 766 - Screen.wasted_height
     window.align
   end
 
   if window.app == 'Deluge' && window.title == 'Deluge' or
       window.app == 'Rhythmbox'
-    window.resize 1366, 766 - Screen.wasted_height, true
+    window.resize 1366, 766 - Screen.wasted_height
     window.align :bottom, :right
   end
 
   if window.app == 'Firefox' && window.title =~ / - Vimperator$/ or
       window.app == 'Google-chrome' && window.title =~ / - Google Chrome$/ or
       window.app == 'Chromium-browser' && window.title =~ / - Chromium$/
-    window.resize 1366, '100%', true
+    window.resize 1366, '100%'
     window.align :right
   end
 
   if window.app == 'Skype' && window.title.include?(' - Skype')
     if window.title.include?('olek.poplavsky - Skype')
-      window.resize(240, '100%', false)
-      window.align(:right)
+      window.resize 240, '100%'
+      window.align :right
     else
-      window.resize(1122, '100%', false)
-      window.move(-244)
+      window.resize 1122, '100%'
+      window.move -244
     end
   end
 end

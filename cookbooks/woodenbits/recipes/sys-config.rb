@@ -77,6 +77,33 @@ template "/etc/sysctl.d/60-local.conf" do
   mode 0644
 end
 
+directory '/etc/auto.master.d' do
+  mode '0755'
+  action :create
+end
+
+template "/etc/auto.cifs" do
+  source "system/etc/auto.cifs.erb"
+  mode 0755
+end
+
+template "/etc/auto.master.d/cifs.autofs" do
+  source "system/etc/cifs.autofs.erb"
+  mode 0644
+end
+
+%w(svim tvim).each do |script|
+  template "/usr/local/bin/#{script}" do
+    source "system/usr/local/#{script}.erb"
+    mode '0755'
+  end
+end
+
+execute "enable ExpressCard SATA adapter" do
+  command 'echo "acpiphp" >> /etc/modules'
+  not_if %q(grep -e '^acpiphp' /etc/modules)
+end
+
 =begin
 #package 'tlp'
 package 'laptop-mode-tools'

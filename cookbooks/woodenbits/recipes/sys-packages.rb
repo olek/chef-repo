@@ -21,6 +21,7 @@ package 'ia32-libs'
 
 package 'vim-gtk'
 package 'screen'
+package 'tmux'
 package 'skype'
 package 'xournal'
 package 'gimp'
@@ -151,6 +152,7 @@ package 'xsensors'
 package 'uswsusp'
 package 'ethtool'
 package 'dconf-tools'
+package 'acpi'
 
 # ========== emulators / virtualization
 

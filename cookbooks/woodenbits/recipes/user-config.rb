@@ -67,6 +67,13 @@ end
     group user_group
   end
 
+  template "#{home_dir}/.tmux.conf" do
+    source 'tmux.conf.erb'
+    mode '0640'
+    owner user
+    group user_group
+  end
+
   template "#{home_dir}/bin/truecrypt-init.sh" do
     source 'truecrypt-init.erb'
     mode '0700'

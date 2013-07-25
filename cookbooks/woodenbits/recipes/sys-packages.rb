@@ -85,6 +85,9 @@ end
 package 'ruby'
 package 'rake'
 
+package 'virtualbox'
+package 'vagrant'
+
 # ========== audio
 
 package 'mpd'
@@ -93,6 +96,8 @@ package 'ncmpc'
 package 'sonata'
 package 'audacious'
 package 'deadbeef'
+package 'audacity'
+package 'flac'
 
 # ========== System tools
 

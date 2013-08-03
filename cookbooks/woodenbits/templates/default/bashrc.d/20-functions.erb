@@ -1,15 +1,24 @@
 function tc-mount {
-  VAULT="$1"
+  CMD_VAULT="$1"
   shift
 
-  if [[ $VAULT == "" ]]; then
+  if [[ $CMD_VAULT == "" ]]; then
     echo "No vault name provided"
     return
   fi
 
-  VAULT_PATH=$HOME/vaults/$VAULT.tc
+  VAULT_FILENAME=$(basename "$CMD_VAULT")
+  VAULT_EXT="${VAULT_FILENAME##*.}"
+  VAULT="${VAULT_FILENAME%.*}"
 
-  if [ ! -f $VAULT_PATH ]; then
+  if [[ "${VAULT_EXT}" == "tc" ]]
+  then
+    VAULT_PATH="$CMD_VAULT"
+  else
+    VAULT_PATH=$HOME/vaults/$CMD_VAULT.tc
+  fi
+
+  if [ ! -f "$VAULT_PATH" ]; then
     echo "Vault $VAULT_PATH not found!"
     return
   fi
@@ -23,7 +32,7 @@ function tc-mount {
 
   truecrypt \
     --text --keyfiles='' --fs-options="noatime,nodiratime,rw" --protect-hidden=no $@ \
-    ~/vaults/$VAULT.tc /vaults/$VAULT
+    "$VAULT_PATH" /vaults/$VAULT
 };
 
 function tc-mount-usb {
@@ -134,21 +143,31 @@ function tc-create {
 };
 
 function tc-umount {
-  VAULT="$1"
+  CMD_VAULT="$1"
+  shift
 
-  if [[ $VAULT == "" ]]; then
+  if [[ $CMD_VAULT == "" ]]; then
     echo "unmounting all truecrypt vaults"
     truecrypt --text --dismount
   else
-    VAULT_PATH=$HOME/vaults/$VAULT.tc
+    VAULT_FILENAME=$(basename "$CMD_VAULT")
+    VAULT_EXT="${VAULT_FILENAME##*.}"
+    VAULT="${VAULT_FILENAME%.*}"
 
-    if [ ! -f $VAULT_PATH ]; then
+    if [[ "${VAULT_EXT}" == "tc" ]]
+    then
+      VAULT_PATH="$CMD_VAULT"
+    else
+      VAULT_PATH=$HOME/vaults/$CMD_VAULT.tc
+    fi
+
+    if [ ! -f "$VAULT_PATH" ]; then
       echo "Vault $VAULT_PATH not found!"
       return
     fi
 
     # echo "unmounting truecrypt vault '$VAULT'"
-    truecrypt --text --dismount $VAULT_PATH
+    truecrypt --text --dismount "$VAULT_PATH"
   fi
 };
 

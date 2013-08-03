@@ -22,7 +22,7 @@ directory '/vaults' do
   action :create
 end
 
-%w(pglcmd.conf blocklists.list).each do |fname|
+%w(pglcmd.conf blocklists.list allow.p2p).each do |fname|
   template "/etc/pgl/#{fname}" do
     source "system/etc/pgl-#{fname}.erb"
     mode 0644

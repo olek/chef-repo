@@ -1,0 +1,16 @@
+# allow.p2p - allow list for pglcmd
+#
+# This file contains IP ranges that shall not be checked.
+# They must be in the PeerGuardian .p2p text format like this:
+#   Some organization:1.0.0.0-1.255.255.255
+# This is also true if your blocklists are in another format.
+# Lines beginning with a hash (#) are comments and will be ignored.
+#
+# Do a "pglcmd restart" when you have edited this file.
+
+blackvpn-vpn:192.162.103.74
+modcloth-vpn:209.116.91.34
+joyent-vpn:64.30.130.52
+joyent-servers1:192.168.112.0-192.168.112.255
+joyent-servers2:192.168.113.0-192.168.113.255
+vbox:192.168.56.0-192.168.56.255

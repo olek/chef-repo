@@ -72,6 +72,9 @@ package 'smplayer'
 package 'w64codecs'
 package 'libdvdcss2'
 
+package 'network-manager-vpnc'
+package 'network-manager-openvpn'
+
 # ========== dev tools
 
 case node[:platform]
@@ -84,9 +87,6 @@ end
 #package 'libshadow-ruby1.8' # for chef user password support (ruby-shadow)
 package 'ruby'
 package 'rake'
-
-package 'virtualbox'
-package 'vagrant'
 
 # ========== audio
 
@@ -164,6 +164,9 @@ package 'acpi'
 package 'dosbox'
 package 'wine'
 package 'wine-gecko1.4'
+
+package 'virtualbox'
+package 'vagrant'
 
 # ========== color management
 

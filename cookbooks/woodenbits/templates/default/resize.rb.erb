@@ -144,7 +144,7 @@ windows.each do |window|
 
   if window.app == 'Skype' && window.title.include?(' - Skype')
     if window.title.include?('olek.poplavsky - Skype')
-      window.resize 240, '100%'
+      window.resize 240, '100%', false
       window.align :right
     else
       window.resize 1122, '100%'

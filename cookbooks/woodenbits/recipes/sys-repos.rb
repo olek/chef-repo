@@ -12,16 +12,6 @@ execute "enable partners repo" do
   not_if %q(grep -e '^deb.\+partner' /etc/apt/sources.list)
 end
 
-execute "enable medibuntu repo" do
-  command %Q(
-    wget -q "http://packages.medibuntu.org/medibuntu-key.gpg" -O- | sudo apt-key add -
-    add-apt-repository --yes "deb http://packages.medibuntu.org/ $(lsb_release -sc) free non-free"
-  )
-
-  notifies :run, 'execute[update apt]', :immediately
-  not_if %q(grep -e '^deb.\+medibuntu' /etc/apt/sources.list)
-end
-
 execute "enable chrome repo" do
   command %Q(
     wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -

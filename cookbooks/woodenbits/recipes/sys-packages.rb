@@ -14,8 +14,6 @@ package 'build-essential'
 #package 'kernel-package'
 #package 'linux-source'
 
-package 'ia32-libs'
-
 
 # ========== user tools
 
@@ -150,7 +148,6 @@ package 'fatrace'
 package 'smartmontools'
 package 'iotop'
 package 'dstat'
-package 'hwinfo'
 package 'lm-sensors'
 package 'xsensors'
 #package 'cpufrequtils'

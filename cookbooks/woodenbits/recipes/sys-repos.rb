@@ -23,15 +23,14 @@ execute "enable chrome repo" do
   #not_if %q(grep -e '^deb.\+chrome' /etc/apt/sources.list)
 end
 
-%w(jre-phoenix/ppa alexeftimie/ppa scopes-packagers/ppa atareao/atareao
+%w(jre-phoenix/ppa scopes-packagers/ppa atareao/atareao
    tsbarnes/indicator-keylock eugenesan/ppa
    webupd8team/java relan/exfat starws-box/deadbeef-player
 ).each do |ppa_name|
-  # rye/ubuntuone-extras
   file_name = ppa_name.sub('/', '-')
   execute "enable #{ppa_name} repo" do
     command "apt-add-repository --yes ppa:#{ppa_name}"
     notifies :run, 'execute[update apt]', :immediately
-    creates "/etc/apt/sources.list.d/#{file_name}-raring.list"
+    creates "/etc/apt/sources.list.d/#{file_name}-saucy.list"
   end
 end

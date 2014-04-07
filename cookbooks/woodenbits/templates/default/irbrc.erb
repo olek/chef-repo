@@ -17,3 +17,9 @@ if false # if we want to display query log for all queries
     Object.const_set('RAILS_DEFAULT_LOGGER', Logger.new(STDOUT))
   end
 end
+
+# Loads a per-project .irbrc, if there is one
+localrc = File.expand_path(File.join(Dir.pwd, ".irbrc"))
+if File.exists?(localrc) && localrc != File.expand_path(__FILE__)
+  load localrc
+end

@@ -146,7 +146,7 @@ end
     end
   end
 
-  %w(05-settings 10-path 20-functions 30-aliases 40-prompt 50-other).each do |name|
+  %w(05-settings 10-functions 20-path 30-aliases 40-prompt 50-other).each do |name|
     template "#{home_dir}/.bashrc.d/#{name}" do
       source "bashrc.d/#{name}.erb"
       mode '0740'
@@ -154,6 +154,14 @@ end
       group user_group
     end
   end
+
+  # killing old files
+  %w(10-path 20-functions).each do |name|
+    file "#{home_dir}/.bashrc.d/#{name}" do
+      action :delete
+    end
+  end
+
 
   # Execute the Janus bootstrap installation from github.
   execute "install janus for #{user}" do

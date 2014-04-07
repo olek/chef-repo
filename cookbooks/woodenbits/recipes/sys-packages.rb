@@ -17,7 +17,7 @@ package 'build-essential'
 
 # ========== user tools
 
-package 'vim-gtk'
+package 'vim-gnome'
 package 'screen'
 package 'tmux'
 package 'skype'
@@ -38,11 +38,14 @@ package 'wmctrl' # for window resize script resize.rb
 package 'google-chrome-stable'
 package 'chromium-browser'
 package 'compizconfig-settings-manager'
+package 'gnome-tweak-tool' # make it possible to remap caps lock to ctrl
 
-%w(sysmonitor keylock ubuntuone).each do |name|
+[
+  #'sysmonitor', # not available for 14.04 yet
+  #'ubuntuone'
+].each do |name|
   package "indicator-#{name}"
 end
-package 'touchpad-indicator'
 
 #package 'unity-lens-utilities'
 package 'unity-scope-calculator'
@@ -67,8 +70,8 @@ package 'radiotray'
 
 package 'vlc'
 package 'smplayer'
-package 'w64codecs'
-package 'libdvdcss2'
+#package 'w64codecs'
+#package 'libdvdcss2'
 
 package 'network-manager-vpnc'
 package 'network-manager-openvpn'
@@ -113,7 +116,7 @@ package 'gparted'
 package 'hfsprogs'
 package 'sshfs'
 package 'cifs-utils'
-package 'fuse-exfat'
+#package 'fuse-exfat'
 package 'autofs'
 
 package 'apparmor-utils'
@@ -160,7 +163,7 @@ package 'acpi'
 
 package 'dosbox'
 package 'wine'
-package 'wine-gecko1.4'
+package 'wine-gecko'
 
 package 'virtualbox'
 package 'vagrant'

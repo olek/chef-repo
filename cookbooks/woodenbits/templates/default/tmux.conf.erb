@@ -5,3 +5,6 @@ set -g default-terminal "screen-256color"
 
 # Set that silly Esc-Wait off, so VI works again properly
 set-option -sg  escape-time 0
+
+# integration with tmuxstart
+bind S command-prompt -p "Make/attach session:" "new-window 'tmuxstart \'%%\''"

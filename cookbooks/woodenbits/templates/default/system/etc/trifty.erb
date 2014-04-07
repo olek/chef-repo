@@ -14,11 +14,11 @@ case "$1" in
   ;;
 esac
 
-sound=apert
+sound=car_door
 lpmp=min_power
 cpu_governor=conservative
 if [ "$mode" == "ac" ]; then
-  sound=laser
+  sound=whiff
   lpmp=max_performance
   cpu_governor=ondemand
 fi
@@ -42,15 +42,14 @@ set_param '/sys/class/scsi_host/host*/link_power_management_policy' $lpmp
 
 # ethtool -s eth0 wol d
 
-CURRENT_USER=$(who | grep tty7 | sed 's/\([a-z]*\).*/\1/')
-sudo -H -u $CURRENT_USER /bin/bash -c 'export DISPLAY=:0.0 && /usr/local/bin/adjust-scroll'
-#sudo -H -u $CURRENT_USER /bin/bash -c 'export DISPLAY=:0.0 && /usr/local/bin/adjust-trackpad'
-sudo -H -u $CURRENT_USER /bin/bash -c 'export DISPLAY=:0.0 && xmodmap -e "keycode 156 = Break"'
+CURRENT_USER=$(who | grep 'tty7\| :0' | sed 's/\([a-z]*\).*/\1/')
+# sudo -H -u $CURRENT_USER /bin/bash -c 'export DISPLAY=:0.0 && /usr/local/bin/adjust-scroll'
+# sudo -H -u $CURRENT_USER /bin/bash -c 'export DISPLAY=:0.0 && xmodmap -e "keycode 156 = Break"'
 
 
-set_param /sys/devices/platform/i8042/serio1/serio2/sensitivity 255
-set_param /sys/devices/platform/i8042/serio1/serio2/speed 180
-set_param /sys/devices/platform/i8042/serio1/serio2/inertia 2
+# set_param /sys/devices/platform/i8042/serio1/serio2/sensitivity 255
+# set_param /sys/devices/platform/i8042/serio1/serio2/speed 180
+# set_param /sys/devices/platform/i8042/serio1/serio2/inertia 2
 
 # if [ "$mode" == "battery" ]; then
 #  ifconfig eth0 down
@@ -70,7 +69,7 @@ set_param '/sys/bus/pci/devices/*/power/control' auto
 
 set_param /sys/module/snd_hda_intel/parameters/power_save_controller Y
 set_param /sys/module/snd_hda_intel/parameters/power_save 1
-sleep 1; aplay --quiet /usr/lib/libreoffice/share/gallery/sounds/${sound}.wav &
+sleep 1; aplay --quiet /usr/lib/python2.7/dist-packages/pygame/examples/data/${sound}.wav & # 14.04
 #echo -n | aplay
 
 #extra

@@ -228,3 +228,35 @@ function repeat {
         n=$((n+1))
     done
 }
+
+function prepend_to_path {
+    path_list=`echo $PATH | tr ':' ' '`
+    new_dir=$1
+    for d in $path_list
+    do
+    	if [ $d == $new_dir ]
+    	then
+    		return 0
+    	fi
+    done
+
+    if [ -d "$new_dir" ] ; then
+        export PATH="$new_dir:$PATH"
+    fi
+}
+
+function append_to_path {
+    path_list=`echo $PATH | tr ':' ' '`
+    new_dir=$1
+    for d in $path_list
+    do
+    	if [ $d == $new_dir ]
+    	then
+    		return 0
+    	fi
+    done
+
+    if [ -d "$new_dir" ] ; then
+        export PATH="$PATH:$new_dir"
+    fi
+}

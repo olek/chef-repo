@@ -25,4 +25,5 @@ package 'network-manager-openconnect'
 #package "ant"
 #package "ant-optional"
 
-package 'oracle-java7-installer'
+# causes trouble for now in 14.04
+#package 'oracle-java7-installer'

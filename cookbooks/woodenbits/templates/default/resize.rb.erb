@@ -33,7 +33,7 @@ module Screen
     end
 
     def small?
-      width < 1400
+      width <= 1600
     end
 
     def wasted_height
@@ -135,7 +135,7 @@ windows.each do |window|
     window.align :bottom, :right
   end
 
-  if window.app == 'Firefox' && window.title =~ / - Vimperator$/ or
+  if window.app == 'Firefox' && window.title =~ / - Mozilla Firefox$/ or
       window.app == 'Google-chrome' && window.title =~ / - Google Chrome$/ or
       window.app == 'Chromium-browser' && window.title =~ / - Chromium$/
     window.resize 1366, '100%'

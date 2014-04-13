@@ -41,8 +41,8 @@ package 'compizconfig-settings-manager'
 package 'gnome-tweak-tool' # make it possible to remap caps lock to ctrl
 
 [
-  #'sysmonitor', # not available for 14.04 yet
-  #'ubuntuone'
+  'sysmonitor', # not available for 14.04 yet
+  'ubuntuone' # same
 ].each do |name|
   package "indicator-#{name}"
 end

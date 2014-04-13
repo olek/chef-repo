@@ -25,5 +25,15 @@ package 'network-manager-openconnect'
 #package "ant"
 #package "ant-optional"
 
-# causes trouble for now in 14.04
-#package 'oracle-java7-installer'
+execute "pre-agree to oracle java7 license" do
+  command "echo 'oracle-java7-installer shared/accepted-oracle-license-v1-1 select true' | debconf-set-selections"
+  not_if { File.exists?("/usr/lib/jvm/java-7-oracle/jre/bin/java") }
+end
+
+execute "pre-agree to oracle java8 license" do
+  command "echo 'oracle-java8-installer shared/accepted-oracle-license-v1-1 select true' | debconf-set-selections"
+  not_if { File.exists?("/usr/lib/jvm/java-8-oracle/jre/bin/java") }
+end
+
+package 'oracle-java7-installer'
+package 'oracle-java8-installer'

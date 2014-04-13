@@ -7,17 +7,15 @@ This file contains notes on manual configuration changes that chef does not do
 - settings adjustments:
   - in brightness and lock: no dim, screen off after 10 min, lock after 30 min (wish could do 15min)
   - mouse and touchpad: touchpad: disable clicks on touchpad, two finger scroll, enable horizontal scroll
-  - appearance: choose wallpaper, behavior: auto-hide launcher, sensitivity high
+  - appearance: choose wallpaper, behavior: auto-hide launcher
 
 - change terminal to have light background
   file -> new profile woodenbits, based on default
   change is color scheme to 'black on white'
+  whilet there, change terminal to have deeper scroll buffer (default 512 is not enough, 5k is good)
   edit -> profiles -> make woodenbits default
 
-- change terminal to have deeper scroll buffer (default 512 is not enough, 5k is good)
-
 - in keyboard layouts add ukrainian kbd, make double-shift switch layout
-- in keyboard shortcuts switch HUD to shift-alt
 - in keyboard shortcuts create ctrl-alt-R custom shortcut to /usr/local/bin/resize.rb
 - run gnome-tweak-tool, remap CapsLock to Control, show pointer on ctrl
 
@@ -32,20 +30,22 @@ This file contains notes on manual configuration changes that chef does not do
   run Compiz config settings manager
   select ubuntu unity plugin
   select switcher tab
-  uncheck 'automatically grid windows on timer in switcher'
+  uncheck 'timed automatic to show live preview in the switcher'
 
 - customize file /etc/uswsusp.conf to not do compression and to set image size to 1
+  either setting is more than questionable now, just let it be
 
 - modify /etc/fstab
   - prepend those options to ext4 mounts: noatime
   - prepend those options to ext4 mounts if SSD: discard
   - add following line to put tmp files in memory
-      none /tmp tmpfs defaults 0 0
-    or
       tmpfs /tmp tmpfs defaults,noatime,mode=1777 0 0
+
+- edit /etc/default/grub, remove 'quiet splash' from options, that makes for more informative boot/shutdown
+
+- turn off online search results in HUD (amazon etc)
+    Settings -> Security & Privacy -> Search -> Include online search results
+
 - install dropbox and google voice plugins as outlined in
   http://www.techdrivein.com/2012/06/25-things-i-did-after-installing-ubuntu.html
   Note: this can be automated somehow, but not to great extent.
-
-- install firefox desktop configuration that allows easy running of multiple profiles
-  TODO this should be automated SOON

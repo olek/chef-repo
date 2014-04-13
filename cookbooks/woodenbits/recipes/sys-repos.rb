@@ -14,16 +14,17 @@ execute "enable partners repo" do
   not_if %q(grep -e '^deb.\+partner' /etc/apt/sources.list)
 end
 
-#execute "enable chrome repo" do
-#  command %Q(
-#    wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
-#    echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
-#  )
+# not required anumore in "14.04"
+execute "enable chrome repo" do
+  command %Q(
+    wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
+    echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
+  )
 
-#  notifies :run, 'execute[update apt]', :immediately
-#  creates "/etc/apt/sources.list.d/google.list"
-#  #not_if %q(grep -e '^deb.\+chrome' /etc/apt/sources.list)
-#end
+  notifies :run, 'execute[update apt]', :immediately
+  creates "/etc/apt/sources.list.d/google.list"
+  #not_if %q(grep -e '^deb.\+chrome' /etc/apt/sources.list)
+end
 
 #   eugenesan/ppa
 [
@@ -31,7 +32,7 @@ end
   'scopes-packagers/ppa', # calculator scope
   'webupd8team/java', # java
   'starws-box/deadbeef-player', # deadbeef music player
-#  'noobslab/indicators', # indicator-sysmonitor - bad
+  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
 ].each do |ppa_name|
   file_name = ppa_name.sub('/', '-')
   execute "enable #{ppa_name} repo" do

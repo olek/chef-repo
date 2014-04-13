@@ -89,6 +89,12 @@ set_param '/sys/bus/usb/devices/*/power/autosuspend' 1
 set_param /sys/block/sda/queue/scheduler deadline
 set_param /sys/block/sda/queue/iosched/fifo_batch 1
 
+# workaround for the problem of wifi not always coming back after resume on thinkpads
+case "$1" in
+  thaw|resume)
+    nmcli nm sleep false
+  ;;
+esac
 
 <<EOF
 Notes:

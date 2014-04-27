@@ -32,7 +32,7 @@ end
   'scopes-packagers/ppa', # calculator scope
   'webupd8team/java', # java
   'starws-box/deadbeef-player', # deadbeef music player
-  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
+#  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
 ].each do |ppa_name|
   file_name = ppa_name.sub('/', '-')
   execute "enable #{ppa_name} repo" do

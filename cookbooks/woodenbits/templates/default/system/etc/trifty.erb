@@ -83,7 +83,8 @@ set_param /proc/sys/vm/laptop_mode 5
 #set_param /proc/sys/vm/dirty_background_ratio 1
 #set_param /proc/sys/vm/dirty_writeback_centisecs 60000
 
-set_param '/sys/bus/usb/devices/*/power/level' auto
+# next line causes external keyboard/mouse to disappear
+# set_param '/sys/bus/usb/devices/*/power/level' auto
 set_param '/sys/bus/usb/devices/*/power/autosuspend' 1
 
 set_param /sys/block/sda/queue/scheduler deadline

@@ -76,6 +76,8 @@ package 'smplayer'
 package 'network-manager-vpnc'
 package 'network-manager-openvpn'
 
+package 'nautilus-dropbox'
+
 # ========== dev tools
 
 case node[:platform]
@@ -99,6 +101,7 @@ package 'audacious'
 package 'deadbeef'
 package 'audacity'
 package 'flac'
+package 'asterisk-core-sounds-en-wav'
 
 # ========== System tools
 

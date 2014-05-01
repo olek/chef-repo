@@ -1,0 +1,29 @@
+#!/bin/bash
+
+sound=car_door
+case "$1" in
+  thaw)
+    sound=t
+  ;;
+  resume)
+    sound=r
+  ;;
+  hibernate)
+    sound=h
+  ;;
+  suspend)
+    sound=s
+  ;;
+  *)
+    # assume battery
+    sound=asterisk
+  ;;
+esac
+
+# workaround for the problem of wifi not always coming back after resume on thinkpads
+case "$1" in
+  thaw|resume)
+    nmcli nm sleep false 2>/dev/null
+    aplay --quiet /usr/share/asterisk/sounds/en_US_f_Allison/letters/${sound}.wav
+  ;;
+esac

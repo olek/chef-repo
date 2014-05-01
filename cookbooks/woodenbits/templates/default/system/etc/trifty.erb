@@ -2,23 +2,24 @@
 
 mode=unknown
 case "$1" in
-  true|thaw|resume)
+  true)
     mode=battery
+    sound=car_door
   ;;
   false)
     mode=ac
+    sound=whiff
   ;;
   *)
     # assume battery
     mode=battery
+    sound=punch
   ;;
 esac
 
-sound=car_door
 lpmp=min_power
 cpu_governor=conservative
 if [ "$mode" == "ac" ]; then
-  sound=whiff
   lpmp=max_performance
   cpu_governor=ondemand
 fi
@@ -28,8 +29,9 @@ prefix="[trifty]"
 function set_param {
   for i in $1; do
     old="`cat $i`"
-    if [ "$old" != "$2" ]
-    then
+    cat $i | grep -q "$2"
+    if [ $? -ne 0 ]; then
+      # if [ "$old" != "$2" ]
       echo "$prefix changing $old to $2 for $i"
       echo $2 > $i
     # else
@@ -61,7 +63,10 @@ CURRENT_USER=$(who | grep 'tty7\| :0' | sed 's/\([a-z]*\).*/\1/')
 #  sudo -H -u $CURRENT_USER /bin/bash -c 'export DISPLAY=:0.0 && /usr/bin/indicator-multiload &'
 # fi
 
-iwconfig wlan0 power on
+iwconfig 2>&1 | grep -q wlan
+if [ $? -eq 0 ]; then
+  iwconfig wlan0 power on
+fi
 
 set_param '/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor' $cpu_governor
 set_param /proc/sys/kernel/nmi_watchdog 0
@@ -69,10 +74,9 @@ set_param '/sys/bus/pci/devices/*/power/control' auto
 
 set_param /sys/module/snd_hda_intel/parameters/power_save_controller Y
 set_param /sys/module/snd_hda_intel/parameters/power_save 1
-sleep 1; aplay --quiet /usr/lib/python2.7/dist-packages/pygame/examples/data/${sound}.wav & # 14.04
-#echo -n | aplay
+aplay --quiet /usr/lib/python2.7/dist-packages/pygame/examples/data/${sound}.wav
 
-#extra
+# extra
 modprobe coretemp
 
 # not conclusive
@@ -89,13 +93,6 @@ set_param '/sys/bus/usb/devices/*/power/autosuspend' 1
 
 set_param /sys/block/sda/queue/scheduler deadline
 set_param /sys/block/sda/queue/iosched/fifo_batch 1
-
-# workaround for the problem of wifi not always coming back after resume on thinkpads
-case "$1" in
-  thaw|resume)
-    nmcli nm sleep false
-  ;;
-esac
 
 <<EOF
 Notes:

@@ -3,15 +3,6 @@
 
 #Chef::Log.info "fqdn = #{node[:fqdn]}, hostname = #{node[:hostname]}"
 
-if node[:platform] == 'ubuntu' && node[:platform_version] == '12.04'
-  template '/etc/polkit-1/localauthority/50-local.d/com.ubuntu.enable-hibernate.pkla' do
-    source 'com.ubuntu.enable-hibernate.pkla.erb'
-    mode 0644
-    owner 'root'
-    group 'root'
-  end
-end
-
 directory '/etc/pgl' do
   mode '0755'
   action :create
@@ -41,6 +32,11 @@ template "/etc/pm/power.d/000_trifty" do
   mode 0755
 end
 
+template "/etc/pm/sleep.d/05_wake_up_network_manager_hack" do
+  source "system/etc/wake_up_network_manager_hack.erb"
+  mode 0755
+end
+
 template "/etc/modprobe.d/wlan.conf" do
   source "system/etc/modprobe.wlan.conf.erb"
   mode 0644
@@ -48,13 +44,6 @@ end
 
 template "/usr/local/bin/adjust-scroll" do
   source 'adjust-scroll.erb'
-  mode '0755'
-  owner 'root'
-  group 'root'
-end
-
-template "/usr/local/bin/update-kernel.sh" do
-  source 'update-kernel.sh.erb'
   mode '0755'
   owner 'root'
   group 'root'

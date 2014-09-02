@@ -15,28 +15,10 @@ package 'build-essential'
 #package 'linux-source'
 
 
-# ========== user tools
+# ========== essential user tools
 
 package 'vim-gnome'
-package 'screen'
-package 'tmux'
-package 'skype'
-package 'xournal'
-package 'gimp'
-package 'calibre'
-package 'exuberant-ctags'
 
-package 'deluge'
-package 'dvdrip'
-package 'rar'
-
-package 'sqlite3'
-package 'libsqlite3-dev'
-
-package 'wmctrl' # for window resize script resize.rb
-
-package 'google-chrome-stable'
-package 'chromium-browser'
 package 'compizconfig-settings-manager'
 package 'gnome-tweak-tool' # make it possible to remap caps lock to ctrl
 
@@ -52,9 +34,9 @@ package 'unity-scope-calculator'
 #package 'unity-scope-cities'
 #package 'unity-scope-rottentomatoes'
 
-package 'unity-lens-shopping' do
-  action :remove
-end
+#package 'unity-lens-shopping' do
+#  action :remove
+#end
 
 package 'unity-scope-video-remote' do
   action :remove
@@ -64,48 +46,7 @@ package 'unity-scope-musicstores' do
   action :remove
 end
 
-package 'python-gpgme' # for dropbox
-
-package 'radiotray'
-
-package 'vlc'
-package 'smplayer'
-#package 'w64codecs'
-#package 'libdvdcss2'
-
-package 'network-manager-vpnc'
-package 'network-manager-openvpn'
-
-package 'nautilus-dropbox'
-
-# ========== dev tools
-
-case node[:platform]
-when 'debian', 'ubuntu'
-  package 'git-core'
-else
-  package 'git'
-end
-
-#package 'libshadow-ruby1.8' # for chef user password support (ruby-shadow)
-package 'ruby'
-package 'rake'
-
-# ========== audio
-
-package 'mpd'
-package 'mpc'
-package 'ncmpc'
-package 'sonata'
-package 'audacious'
-package 'deadbeef'
-package 'audacity'
-package 'flac'
-package 'asterisk-core-sounds-en-wav'
-
 # ========== System tools
-
-package 'httperf'
 
 package 'sysstat'
 package 'ethstatus'
@@ -142,10 +83,6 @@ package 'checkinstall'
 #package 'pgld'
 # brings popup, needs interactive console
 
-# ========== infrared remote
-package 'lirc'
-package 'evtest'
-
 # ========== power management
 
 package 'powertop'
@@ -161,44 +98,9 @@ package 'uswsusp'
 package 'ethtool'
 package 'dconf-tools'
 package 'acpi'
-
-# ========== emulators / virtualization
-
-package 'dosbox'
-package 'wine'
-package 'wine-gecko'
-
-package 'virtualbox'
-package 'vagrant'
+package 'asterisk-core-sounds-en-wav'
 
 # ========== color management
 
 package 'argyll'
 package 'gnome-color-manager'
-
-# ========== synergy
-
-package 'synergy' do
-  action :remove
-  only_if "synergyc --version | grep '1.3.8'"
-end
-
-directory '/root/install' do
-  mode '0755'
-  action :create
-end
-
-bash 'install synergy' do
-  version = '1.3.7' # 1.3.8.generates core dumps
-  #arch = 'i686'
-  arch = 'x86_64'
-  cwd '/tmp'
-  code <<-EOH
-    cd /root/install
-    wget http://synergy.googlecode.com/files/synergy-#{version}-Linux-#{arch}.deb
-    sudo dpkg --install synergy-#{version}-Linux-#{arch}.deb
-    sudo apt-mark hold synergy
-    rm synergy-#{version}-Linux-#{arch}.deb
-  EOH
-  creates '/usr/bin/synergyc'
-end

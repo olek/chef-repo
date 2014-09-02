@@ -1,5 +1,5 @@
 # Cookbook Name:: woodenbits
-# Recipe:: modcloth
+# Recipe:: dev-modcloth
 
 package 'libqtwebkit-dev' # capybara-webkit gem dependency
 
@@ -10,7 +10,7 @@ package 'redis-server'
 package 'mysql-server'
 package 'libmysqlclient-dev'
 package 'libmagickwand-dev'
-package 'freetds-dev'
+#package 'freetds-dev'
 
 # VPN
 package 'openconnect'

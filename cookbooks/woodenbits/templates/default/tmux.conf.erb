@@ -8,3 +8,15 @@ set-option -sg  escape-time 0
 
 # integration with tmuxstart
 bind S command-prompt -p "Make/attach session:" "new-window 'tmuxstart \'%%\''"
+
+# lighten the BG color of status bar to make it easier to read
+set -g status-bg brightgreen
+
+# Default history limit 2000 lines is too low.
+set-option -g history-limit 10000
+
+# Vi movement keys (jkhl) work in copy mode
+set-window-option -g mode-keys vi
+
+# No time in status line, please (freaks out tabs on some terminals)
+set -g status-right '#S:#W #H'

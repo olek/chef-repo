@@ -35,6 +35,8 @@ package 'network-manager-vpnc'
 package 'network-manager-openvpn'
 
 package 'nautilus-dropbox'
+package 'txt2tags'
+package 'htmldoc'
 
 # ========== audio
 

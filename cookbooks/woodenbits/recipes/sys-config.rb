@@ -76,6 +76,11 @@ template "/etc/auto.cifs" do
   mode 0755
 end
 
+template "/etc/mpd.conf" do
+  source "system/etc/mpd.conf.erb"
+  mode 0644
+end
+
 template "/etc/auto.master.d/cifs.autofs" do
   source "system/etc/cifs.autofs.erb"
   mode 0644

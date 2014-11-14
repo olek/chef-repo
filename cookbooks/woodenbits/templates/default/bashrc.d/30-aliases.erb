@@ -28,6 +28,6 @@ alias tbe='time bundle exec'
 alias vmf="set -o vi; export EDITOR=vim; echo 'bind -v' > ~/.editrc; echo 'set editing-mode vi' > ~/.inputrc"
 alias dvmf="set -o emacs; unset EDITOR; rm ~/.editrc; rm ~/.inputrc"
 alias mcurl="curl --write-out \"\nhttp-code: %{http_code}, content-type: '%{content_type}', total time: %{time_total}, app connect time: %{time_appconnect}, pretransfer time: %{time_pretransfer}, starttransfer time: %{time_starttransfer}\n\""
-alias gems-kill='gem list | cut -d" " -f1 | xargs gem uninstall -aIx'
-alias gems-clean='gems-kill && gem install bundler rake tmuxinator && rbenv rehash'
+alias gems-kill='for i in $(gem list --no-versions); do gem uninstall -aIx $i; done'
+alias gems-clean='gems-kill; gem install bundler tmuxinator && rbenv rehash'
 # same as ModCloth end

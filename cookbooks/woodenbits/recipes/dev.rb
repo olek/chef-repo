@@ -37,3 +37,4 @@ package 'libpq-dev'
 package 'pgadmin3'
 
 package 'nodejs'
+package 'jq' # json pretty print

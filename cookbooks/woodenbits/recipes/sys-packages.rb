@@ -9,6 +9,9 @@ package 'aptitude'
 package 'ubuntu-restricted-extras'
 package 'build-essential'
 
+# client and server
+package 'ssh'
+
 # compile your own kernel
 #package 'fakeroot'
 #package 'kernel-package'

@@ -34,7 +34,7 @@ end
   'starws-box/deadbeef-player', # deadbeef music player
 #  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
 ].each do |ppa_name|
-  file_name = ppa_name.sub('/', '-')
+  file_name = ppa_name.sub('/', '-ubuntu-')
   execute "enable #{ppa_name} repo" do
     command "apt-add-repository --yes ppa:#{ppa_name}"
     notifies :run, 'execute[update apt]', :immediately

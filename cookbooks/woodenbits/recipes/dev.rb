@@ -5,9 +5,6 @@ include_recipe 'woodenbits::rbenv'
 include_recipe 'woodenbits::dev-modcloth'
 
 # ========== dev / user tools
-
-package 'screen'
-package 'tmux'
 package 'exuberant-ctags'
 
 package 'sqlite3'
@@ -15,16 +12,7 @@ package 'libsqlite3-dev'
 
 # ========== dev tools
 
-case node[:platform]
-when 'debian', 'ubuntu'
-  package 'git-core'
-else
-  package 'git'
-end
-
 #package 'libshadow-ruby1.8' # for chef user password support (ruby-shadow)
-package 'ruby'
-package 'rake'
 
 package 'httperf'
 

@@ -9,6 +9,17 @@ package 'aptitude'
 package 'ubuntu-restricted-extras'
 package 'build-essential'
 
+# ruby, rake and git should be in dev, but must be here because of damn janus
+package 'ruby'
+package 'rake'
+
+case node[:platform]
+when 'debian', 'ubuntu'
+  package 'git-core'
+else
+  package 'git'
+end
+
 # client and server
 package 'ssh'
 
@@ -24,6 +35,11 @@ package 'vim-gnome'
 
 package 'compizconfig-settings-manager'
 package 'gnome-tweak-tool' # make it possible to remap caps lock to ctrl
+
+package 'screen'
+package 'tmux'
+
+package 'wmctrl' # for window resize script resize.rb
 
 [
 #  'sysmonitor', # not available for 14.04 yet
@@ -65,6 +81,7 @@ package 'sshfs'
 package 'cifs-utils'
 #package 'fuse-exfat'
 package 'autofs'
+package 'smbclient' # otherwise automount cifs does not work
 
 package 'apparmor-utils'
 package 'apparmor-profiles'

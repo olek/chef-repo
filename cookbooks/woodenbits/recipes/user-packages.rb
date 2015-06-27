@@ -17,8 +17,6 @@ package 'deluge'
 package 'dvdrip'
 package 'rar'
 
-package 'wmctrl' # for window resize script resize.rb
-
 package 'google-chrome-stable'
 package 'chromium-browser'
 

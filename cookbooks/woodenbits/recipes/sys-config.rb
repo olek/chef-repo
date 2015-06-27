@@ -32,6 +32,15 @@ template "/etc/pm/power.d/000_trifty" do
   mode 0755
 end
 
+template "/etc/pm/power.d/95hdparm-arm" do
+  source "system/etc/95hdparm-arm.erb"
+  mode 0755
+end
+
+link "/etc/pm/sleep.d/95hdparm-arm" do
+  to "/etc/pm/power.d/95hdparm-arm"
+end
+
 template "/etc/pm/sleep.d/05_wake_up_network_manager_hack" do
   source "system/etc/wake_up_network_manager_hack.erb"
   mode 0755
@@ -51,6 +60,13 @@ end
 
 template "/usr/local/bin/resize.rb" do
   source 'resize.rb.erb'
+  mode '0755'
+  owner 'root'
+  group 'root'
+end
+
+template "/usr/local/bin/tmuxstart" do
+  source 'tmuxstart.erb'
   mode '0755'
   owner 'root'
   group 'root'

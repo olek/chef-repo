@@ -1,0 +1,20 @@
+cd ~
+
+new_session -n mpd
+new_window -n disks
+new_window -n root
+#new_window -n synergy
+new_window -n ncmpc
+new_window -n cmd
+
+sleep 0.7
+
+# send_keys mpd 'mkdir /run/mpd && chmod 777 /run/mpd' 'Enter'
+
+sleep 0.3
+
+send_keys mpd 'sudo bash -c "mkdir -p /run/mpd && chmod 777 /run/mpd; mpd --no-daemon /etc/mpd.conf"' 'Enter'
+send_keys disks 'sudo bash -c "watch hdparm -C /dev/sdb /dev/sdc"' 'Enter'
+send_keys root 'sudo -H -i' 'Enter'
+#send_keys synergy 'synergyc --no-daemon opoplavsky-ltm'
+send_keys ncmpc 'ncmpc' 'Enter'

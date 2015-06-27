@@ -27,11 +27,13 @@ execute "enable chrome repo" do
 end
 
 #   eugenesan/ppa
+#   ppa:pmjdebruijn/gnome-color-manager-release
 [
-  'jre-phoenix/ppa', # PeerGuardian
-  'scopes-packagers/ppa', # calculator scope
+  'jre-phoenix/ppa', # PeerGuardian, not yet for 14.10, force it to be 'trusty' in its apt file for now
+  # 'scopes-packagers/ppa', # calculator scope, not yet for 14.10
   'webupd8team/java', # java
   'starws-box/deadbeef-player', # deadbeef music player
+#  'pmjdebruijn/gnome-color-manager-release', # new argyll, not yet for 14.10
 #  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
 ].each do |ppa_name|
   file_name = ppa_name.sub('/', '-ubuntu-')

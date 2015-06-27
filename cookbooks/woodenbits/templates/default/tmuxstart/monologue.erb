@@ -1,0 +1,14 @@
+cd ~/git/monologue
+
+new_session -n rails
+new_window -n log
+new_window -n rspec
+new_window -n container
+new_window -n engine
+
+sleep 1
+
+send_keys rails 'cd ../monologue_container; be rails server' 'Enter'
+send_keys log 'cd ../monologue_container; tail -f log/development.log' 'Enter'
+send_keys rspec 'tbe rake spec' 'Enter'
+send_keys container 'cd ../monologue_container' 'Enter'

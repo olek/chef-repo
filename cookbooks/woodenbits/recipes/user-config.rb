@@ -92,20 +92,6 @@ end
     group user_group
   end
 
-=begin
-  template "#{home_dir}/.gitconfig" do
-    source 'gitconfig.erb'
-    variables(
-      :username => 'olek',
-      :name => 'Olek Poplavsky',
-      :email => 'olek@woodenbits.com'
-    )
-    mode '0640'
-    owner user
-    group user_group
-  end
-=end
-
   template "#{home_dir}/.screenrc" do
     source 'screenrc.erb'
     variables(
@@ -118,20 +104,6 @@ end
 
   template "#{home_dir}/.tmux.conf" do
     source 'tmux.conf.erb'
-    mode '0640'
-    owner user
-    group user_group
-  end
-
-  template "#{home_dir}/bin/truecrypt-init.sh" do
-    source 'truecrypt-init.erb'
-    mode '0700'
-    owner user
-    group user_group
-  end
-
-  template "#{home_dir}/.mplayer/config" do
-    source 'mplayer-config.erb'
     mode '0640'
     owner user
     group user_group
@@ -162,7 +134,6 @@ end
     end
   end
 
-
   # Execute the Janus bootstrap installation from github.
   execute "install janus for #{user}" do
     cmd = "curl -Lo- http://bit.ly/janus-bootstrap | bash"
@@ -176,6 +147,55 @@ end
       command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
       creates "#{home_dir}/.janus/#{repo.split('/').last}"
     end
+  end
+end
+
+users.each do |user|
+  home_dir = "/home/#{user}"
+  user_group = 'users'
+
+=begin
+  template "#{home_dir}/.gitconfig" do
+    source 'gitconfig.erb'
+    variables(
+      :username => 'olek',
+      :name => 'Olek Poplavsky',
+      :email => 'olek@woodenbits.com'
+    )
+    mode '0640'
+    owner user
+    group user_group
+  end
+=end
+
+  directory "#{home_dir}/.tmuxstart" do
+    owner user
+    group user_group
+    mode '0700'
+    action :create
+  end
+
+  %w(general monologue ormivore).each do |name|
+    template "#{home_dir}/.tmuxstart/#{name}" do
+      source "tmuxstart/#{name}.erb"
+      mode '0600'
+      owner user
+      group user_group
+    end
+  end
+
+  template "#{home_dir}/bin/truecrypt-init.sh" do
+    source 'truecrypt-init.erb'
+    mode '0700'
+    owner user
+    group user_group
+  end
+
+  template "#{home_dir}/.mplayer/config" do
+    source 'mplayer-config.erb'
+    mode '0640'
+    owner user
+    group user_group
   end
 end
 

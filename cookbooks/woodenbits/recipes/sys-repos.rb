@@ -29,6 +29,7 @@ end
 #   eugenesan/ppa
 #   ppa:pmjdebruijn/gnome-color-manager-release
 [
+  'flacon/ppa', # flacon, splitting flac and ape files
   'jre-phoenix/ppa', # PeerGuardian, not yet for 14.10, force it to be 'trusty' in its apt file for now
   # 'scopes-packagers/ppa', # calculator scope, not yet for 14.10
   'webupd8team/java', # java

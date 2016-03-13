@@ -33,8 +33,10 @@ package 'network-manager-vpnc'
 package 'network-manager-openvpn'
 
 package 'nautilus-dropbox'
+package 'gnome-sushi' # preview on SPACE
 package 'txt2tags'
 package 'htmldoc'
+package 'youtube-dl'
 
 # ========== audio
 
@@ -46,6 +48,7 @@ package 'audacious'
 package 'deadbeef'
 package 'audacity'
 package 'flac'
+package 'flacon' # .flac and .ape splitting
 package 'asterisk-core-sounds-en-wav'
 
 # ========== infrared remote

@@ -213,6 +213,12 @@ input {
 #}
 
 audio_output {
+ type "pulse"
+ name "Local Pulse Output"
+ server "127.0.0.1"
+}
+
+audio_output {
  type "alsa"
  name "ALSA Device plughw:0,0 with mixer"
  device "plughw:0,0"
@@ -254,6 +260,16 @@ audio_output {
 
 audio_output {
   type "alsa"
+  name "ALSA Device plughw:4,0 with mixer"
+  device "plughw:4,0"
+  #format "44100:16:2"
+  mixer_type "software"
+  mixer_control "MPCM-MPD"
+  mixer_index "4"
+}
+
+audio_output {
+  type "alsa"
   name "ALSA Device plughw:0,0"
   device "plughw:0,0"
   mixer_type "none"
@@ -277,6 +293,13 @@ audio_output {
  type "alsa"
  name "ALSA Device plughw:3:0"
  device "plughw:3,0"
+ mixer_type "none"
+}
+
+audio_output {
+ type "alsa"
+ name "ALSA Device plughw:4:0"
+ device "plughw:4,0"
  mixer_type "none"
 }
 
@@ -305,6 +328,13 @@ audio_output {
  type "alsa"
  name "ALSA Device hw:3:0"
  device "hw:3,0"
+ mixer_type "none"
+}
+
+audio_output {
+ type "alsa"
+ name "ALSA Device hw:4:0"
+ device "hw:4,0"
  mixer_type "none"
 }
 

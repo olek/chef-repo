@@ -87,18 +87,28 @@ directory '/etc/auto.master.d' do
   action :create
 end
 
-template "/etc/auto.cifs" do
-  source "system/etc/auto.cifs.erb"
-  mode 0755
-end
+#template "/etc/auto.cifs" do
+#  source "system/etc/auto.cifs.erb"
+#  mode 0755
+#end
 
 template "/etc/mpd.conf" do
   source "system/etc/mpd.conf.erb"
   mode 0644
 end
 
-template "/etc/auto.master.d/cifs.autofs" do
-  source "system/etc/cifs.autofs.erb"
+#template "/etc/auto.master.d/cifs.autofs" do
+#  source "system/etc/cifs.autofs.erb"
+#  mode 0644
+#end
+
+#template "/etc/auto.master.d/smb.autofs" do
+#  source "system/etc/smb.autofs.erb"
+#  mode 0644
+#end
+
+template "/etc/auto.master.d/net.autofs" do
+  source "system/etc/net.autofs.erb"
   mode 0644
 end
 

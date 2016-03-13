@@ -42,6 +42,7 @@ package 'tmux'
 package 'wmctrl' # for window resize script resize.rb
 
 [
+  'multiload' # not great, but available by default
 #  'sysmonitor', # not available for 14.04 yet
 #  'ubuntuone' # same
 ].each do |name|
@@ -123,4 +124,5 @@ package 'asterisk-core-sounds-en-wav'
 # ========== color management
 
 package 'argyll'
+package 'dispcalgui'
 package 'gnome-color-manager'

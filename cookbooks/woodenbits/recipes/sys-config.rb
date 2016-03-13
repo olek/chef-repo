@@ -27,36 +27,36 @@ execute "turn off chef-client verbose logging" do
   not_if "grep 'verbose_logging false' /etc/chef/client.rb"
 end
 
-template "/etc/pm/power.d/000_trifty" do
-  source "system/etc/trifty.erb"
-  mode 0755
-end
+#template "/etc/pm/power.d/000_trifty" do
+#  source "system/etc/trifty.erb"
+#  mode 0755
+#end
 
-template "/etc/pm/power.d/95hdparm-arm" do
-  source "system/etc/95hdparm-arm.erb"
-  mode 0755
-end
+#template "/etc/pm/power.d/95hdparm-arm" do
+#  source "system/etc/95hdparm-arm.erb"
+#  mode 0755
+#end
 
-link "/etc/pm/sleep.d/95hdparm-arm" do
-  to "/etc/pm/power.d/95hdparm-arm"
-end
+#link "/etc/pm/sleep.d/95hdparm-arm" do
+#  to "/etc/pm/power.d/95hdparm-arm"
+#end
 
-template "/etc/pm/sleep.d/05_wake_up_network_manager_hack" do
-  source "system/etc/wake_up_network_manager_hack.erb"
-  mode 0755
-end
+#template "/etc/pm/sleep.d/05_wake_up_network_manager_hack" do
+#  source "system/etc/wake_up_network_manager_hack.erb"
+#  mode 0755
+#end
 
 template "/etc/modprobe.d/wlan.conf" do
   source "system/etc/modprobe.wlan.conf.erb"
   mode 0644
 end
 
-template "/usr/local/bin/adjust-scroll" do
-  source 'adjust-scroll.erb'
-  mode '0755'
-  owner 'root'
-  group 'root'
-end
+#template "/usr/local/bin/adjust-scroll" do
+#  source 'adjust-scroll.erb'
+#  mode '0755'
+#  owner 'root'
+#  group 'root'
+#end
 
 template "/usr/local/bin/resize.rb" do
   source 'resize.rb.erb'
@@ -112,7 +112,7 @@ template "/etc/auto.master.d/net.autofs" do
   mode 0644
 end
 
-%w(svim tvim).each do |script|
+%w(vims vimt).each do |script|
   template "/usr/local/bin/#{script}" do
     source "system/usr/local/#{script}.erb"
     mode '0755'

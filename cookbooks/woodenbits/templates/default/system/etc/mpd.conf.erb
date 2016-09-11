@@ -319,6 +319,16 @@ audio_output {
 
 audio_output {
  type "alsa"
+ name "ALSA Device hw:1:0 with DSF DOP turned on"
+ device "hw:1,0"
+ mixer_type "none"
+ dop "yes"
+ buffer_time     "2097152" #  2s; default 500000 microseconds (0.5 seconds).
+ period_time     "15000" # The  default  is  256000000  / sample_rate(kHz), or 5804 microseconds for CD-quality audio.
+}
+
+audio_output {
+ type "alsa"
  name "ALSA Device hw:2:0"
  device "hw:2,0"
  mixer_type "none"
@@ -338,6 +348,9 @@ audio_output {
  mixer_type "none"
 }
 
+#audio_buffer_size "16384" # KiB,  Default is 4096 (4 MiB).
+audio_buffer_size "120000" # KiB,  Default is 4096 (4 MiB).
+buffer_before_play "10%" # % of audio_buffer_size
 
 #
 # An example of an OSS output:

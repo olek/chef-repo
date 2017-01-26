@@ -36,6 +36,7 @@ end
   'starws-box/deadbeef-player', # deadbeef music player
 #  'pmjdebruijn/gnome-color-manager-release', # new argyll, not yet for 14.10
 #  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
+  'dhor/myway', # Photography tools
 ].each do |ppa_name|
   file_name = ppa_name.sub('/', '-ubuntu-')
   execute "enable #{ppa_name} repo" do

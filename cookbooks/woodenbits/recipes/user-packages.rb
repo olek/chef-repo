@@ -5,6 +5,7 @@
 
 include_recipe 'woodenbits::truecrypt'
 include_recipe 'woodenbits::audio-packages'
+include_recipe 'woodenbits::photo-packages'
 
 # ========== user tools
 
@@ -37,19 +38,6 @@ package 'gnome-sushi' # preview on SPACE
 package 'txt2tags'
 package 'htmldoc'
 package 'youtube-dl'
-
-# ========== audio
-
-package 'mpd'
-package 'mpc'
-package 'ncmpc'
-package 'sonata'
-package 'audacious'
-package 'deadbeef'
-package 'audacity'
-package 'flac'
-package 'flacon' # .flac and .ape splitting
-package 'asterisk-core-sounds-en-wav'
 
 # ========== infrared remote
 package 'lirc'

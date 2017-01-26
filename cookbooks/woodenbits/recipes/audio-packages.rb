@@ -1,7 +1,5 @@
 # Cookbook Name:: woodenbits
-# Recipe:: sys-packages
-
-# ========== audio
+# Recipe:: audio-packages
 
 # command line music server/client player
 package 'mpd'
@@ -14,6 +12,8 @@ package 'audacious'
 package 'deadbeef'
 package 'audacity'
 package 'flac'
+package 'flacon' # .flac and .ape splitting
+package 'asterisk-core-sounds-en-wav'
 
 # music tagger and library organizer
 package 'beets'

@@ -197,6 +197,18 @@ users.each do |user|
     owner user
     group user_group
   end
+
+  directory "#{home_dir}/.gconf/apps/rapid-photo-downloader" do
+    owner user
+    group user_group
+    mode '0750'
+    action :create
+  end
+
+  cookbook_file "#{home_dir}/.gconf/apps/rapid-photo-downloader/%gconf.xml" do
+    source "rapid-downloader-conf.xml"
+    mode 0600
+  end
 end
 
 # can not change gnome settings for non-current user
@@ -233,11 +245,6 @@ if user && user != 'root'
       user user
       not_if "git config --global #{k} | grep -q \'#{v}\'"
     end
-  end
-
-  cookbook_file "#{home_dir}/.gconf/apps/rapid-photo-downloader/%gconf.xml" do
-    source "rapid-downloader-conf.xml"
-    mode 0600
   end
 else
   Chef::Log.info "No gnome/git settings changes performed for user #{user.inspect}"

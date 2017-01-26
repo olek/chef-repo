@@ -234,6 +234,11 @@ if user && user != 'root'
       not_if "git config --global #{k} | grep -q \'#{v}\'"
     end
   end
+
+  cookbook_file "#{home_dir}/.gconf/apps/rapid-photo-downloader/%gconf.xml" do
+    source "rapid-downloader-conf.xml"
+    mode 0600
+  end
 else
   Chef::Log.info "No gnome/git settings changes performed for user #{user.inspect}"
 end

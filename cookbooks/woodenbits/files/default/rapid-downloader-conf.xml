@@ -1,0 +1,185 @@
+<?xml version="1.0"?>
+<gconf>
+	<entry name="main_window_maximized" mtime="1435551421" type="int" value="4"/>
+	<entry name="main_window_size_y" mtime="1435551848" type="int" value="1176"/>
+	<entry name="main_window_size_x" mtime="1435551848" type="int" value="1920"/>
+	<entry name="vpaned_pos" mtime="1441762415" type="int" value="24"/>
+	<entry name="stored_sequence_no" mtime="1456020006" type="int" value="1342"/>
+	<entry name="day_start" mtime="1435545772" type="string">
+		<stringvalue>3:0</stringvalue>
+	</entry>
+	<entry name="downloads_today" mtime="1456020006" type="list" ltype="string">
+		<li type="string">
+			<stringvalue>2016-02-21</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>285</stringvalue>
+		</li>
+	</entry>
+	<entry name="synchronize_raw_jpg" mtime="1435545659" type="bool" value="true"/>
+	<entry name="video_rename" mtime="1435545637" type="list" ltype="string">
+		<li type="string">
+			<stringvalue>Text</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>wb-</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue></stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Date time</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Video date</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>YYYYMMDD</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Text</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>-</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue></stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Sequences</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Downloads today</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Two digits</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Filename</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Extension</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>lowercase</stringvalue>
+		</li>
+	</entry>
+	<entry name="video_subfolder" mtime="1435545535" type="list" ltype="string">
+		<li type="string">
+			<stringvalue>Date time</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Video date</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>YYYY</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>/</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue></stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue></stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Date time</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Video date</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>MMDD</stringvalue>
+		</li>
+	</entry>
+	<entry name="video_download_folder" mtime="1435545504" type="string">
+		<stringvalue>/home/olek/Videos/Library</stringvalue>
+	</entry>
+	<entry name="image_rename" mtime="1435545648" type="list" ltype="string">
+		<li type="string">
+			<stringvalue>Text</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>wb-</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue></stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Date time</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Image date</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>YYYYMMDD</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Text</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>-</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue></stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Sequences</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Stored number</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Six digits</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Filename</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Extension</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>lowercase</stringvalue>
+		</li>
+	</entry>
+	<entry name="subfolder" mtime="1435545933" type="list" ltype="string">
+		<li type="string">
+			<stringvalue>Date time</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Image date</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>YYYY</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>/</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue></stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue></stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Date time</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>Image date</stringvalue>
+		</li>
+		<li type="string">
+			<stringvalue>MMDD</stringvalue>
+		</li>
+	</entry>
+	<entry name="device_location" mtime="1435551280" type="string">
+		<stringvalue>/home/olek/tmp/t4</stringvalue>
+	</entry>
+	<entry name="device_autodetection" mtime="1441761773" type="bool" value="true"/>
+	<entry name="download_folder" mtime="1435544545" type="string">
+		<stringvalue>/home/olek/Pictures/Library</stringvalue>
+	</entry>
+	<entry name="program_version" mtime="1435544440" type="string">
+		<stringvalue>0.4.10</stringvalue>
+	</entry>
+</gconf>

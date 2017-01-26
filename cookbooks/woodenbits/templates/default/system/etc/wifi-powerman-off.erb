@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Fixes compatability issues between Intel Centrino N6300 and Asus AC66U
+
+IWCONFIG=/sbin/iwconfig
+WLAN_IFACE=wlan0
+
+if [ ! -x $IWCONFIG ]; then
+    exit 1
+fi
+
+if [ "$IFACE" = $WLAN_IFACE ]; then
+    $IWCONFIG $IFACE power off
+fi

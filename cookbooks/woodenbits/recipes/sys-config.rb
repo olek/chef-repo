@@ -41,10 +41,10 @@ end
 #  to "/etc/pm/power.d/95hdparm-arm"
 #end
 
-#template "/etc/pm/sleep.d/05_wake_up_network_manager_hack" do
-#  source "system/etc/wake_up_network_manager_hack.erb"
-#  mode 0755
-#end
+template "/etc/network/if-up.d/wifi-powerman-off" do
+  source "system/etc/wifi-powerman-off.erb"
+  mode 0755
+end
 
 template "/etc/modprobe.d/wlan.conf" do
   source "system/etc/modprobe.wlan.conf.erb"

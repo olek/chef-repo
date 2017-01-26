@@ -108,6 +108,7 @@ bind_to_address "localhost"
 # of starting playback after startup.
 #
 #restore_paused "no"
+restore_paused "yes"
 #
 # This setting enables MPD to create playlists in a format usable by other
 # music players.
@@ -124,6 +125,7 @@ bind_to_address "localhost"
 # music_directory are changed.
 #
 #auto_update    "yes"
+auto_update    "no"
 #
 # Limit the depth of the directories being watched, 0 means only watch
 # the music directory itself.  There is no limit by default.
@@ -213,94 +215,217 @@ input {
 #}
 
 audio_output {
- type "pulse"
- name "Local Pulse Output"
- server "127.0.0.1"
+        type          "alsa"
+        name          "DAC iFi iDSD Micro"
+        device        "hw:Audio"
+        mixer_type    "none"
+        dsd_usb       "yes"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "15000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+}
+audio_output {
+        type          "alsa"
+        name          "DAC iFi iDSD Micro resampling to 176"
+        device        "hw:Audio"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "176400:24:2"
 }
 
 audio_output {
- type "alsa"
- name "ALSA Device plughw:0,0 with mixer"
- device "plughw:0,0"
- #format "44100:16:2"
- mixer_type "software"
- mixer_control "PCM-MPD"
- mixer_index "0"
+        type          "alsa"
+        name          "DAC iFi iDSD Micro resampling to 192"
+        device        "hw:Audio"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "192000:24:2"
+}
+audio_output {
+        type          "alsa"
+        name          "DAC iFi iDSD Micro resampling to 352.8"
+        device        "hw:Audio"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "352800:24:2"
 }
 
 audio_output {
-  type "alsa"
-  name "ALSA Device plughw:1,0 with mixer"
-  device "plughw:1,0"
-  #format "44100:16:2"
-  mixer_type "software"
-  mixer_control "PCM-MPD"
-  mixer_index "1"
+        type          "alsa"
+        name          "DAC iFi iDSD Micro resampling to 384"
+        device        "hw:Audio"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "384000:24:2"
+}
+audio_output {
+        type          "alsa"
+        name          "DAC iFi iDSD Micro resampling to 705.6"
+        device        "hw:Audio"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        #buffer_time   "2097152"
+        buffer_time   "185760"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        #period_time   "92880"
+        period_time   "24000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "705600:24:2"
 }
 
 audio_output {
-  type "alsa"
-  name "ALSA Device plughw:2,0 with mixer"
-  device "plughw:2,0"
-  #format "44100:16:2"
-  mixer_type "software"
-  mixer_control "PCM-MPD"
-  mixer_index "2"
+        type          "alsa"
+        name          "DAC iFi iDSD Micro resampling to 768"
+        device        "hw:Audio"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        #buffer_time   "2097152"
+        buffer_time   "185760"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "24000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "768000:24:2"
+}
+audio_output {
+        type          "alsa"
+        name          "DAC iFi iDSD Micro with native DSD - does not work"
+        device        "hw:Audio"
+        mixer_type    "none"
+        dsd_native    "yes"
+        dsd_native_type "2"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "15000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
 }
 
 audio_output {
-  type "alsa"
-  name "ALSA Device plughw:3,0 with mixer"
-  device "plughw:3,0"
-  #format "44100:16:2"
-  mixer_type "software"
-  mixer_control "MPCM-MPD"
-  mixer_index "3"
+        type          "alsa"
+        name          "DAC DACmini CX"
+        device        "hw:DACmini"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "15000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+}
+audio_output {
+        type          "alsa"
+        name          "MusicStreamer II"
+        device        "hw:II"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "50000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
 }
 
 audio_output {
-  type "alsa"
-  name "ALSA Device plughw:4,0 with mixer"
-  device "plughw:4,0"
-  #format "44100:16:2"
-  mixer_type "software"
-  mixer_control "MPCM-MPD"
-  mixer_index "4"
+        type          "alsa"
+        name          "DAC DA300USB"
+        device        "hw:DA300USB"
+        mixer_type    "none"
+        dsd_usb       "yes"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "50000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+}
+audio_output {
+        type          "alsa"
+        name          "DAC DA300USB resampling to 176"
+        device        "hw:DA300USB"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format         "176400:24:2"
 }
 
 audio_output {
-  type "alsa"
-  name "ALSA Device plughw:0,0"
-  device "plughw:0,0"
-  mixer_type "none"
-}
-
-audio_output {
- type "alsa"
- name "ALSA Device plughw:1:0"
- device "plughw:1,0"
- mixer_type "none"
-}
-
-audio_output {
- type "alsa"
- name "ALSA Device plughw:2:0"
- device "plughw:2,0"
- mixer_type "none"
-}
-
-audio_output {
- type "alsa"
- name "ALSA Device plughw:3:0"
- device "plughw:3,0"
- mixer_type "none"
-}
-
-audio_output {
- type "alsa"
- name "ALSA Device plughw:4:0"
- device "plughw:4,0"
- mixer_type "none"
+        type          "alsa"
+        name          "DAC DA300USB resampling to 192"
+        device        "hw:DA300USB"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "192000:24:2"
 }
 
 audio_output {
@@ -315,16 +440,6 @@ audio_output {
  name "ALSA Device hw:1:0"
  device "hw:1,0"
  mixer_type "none"
-}
-
-audio_output {
- type "alsa"
- name "ALSA Device hw:1:0 with DSF DOP turned on"
- device "hw:1,0"
- mixer_type "none"
- dop "yes"
- buffer_time     "2097152" #  2s; default 500000 microseconds (0.5 seconds).
- period_time     "15000" # The  default  is  256000000  / sample_rate(kHz), or 5804 microseconds for CD-quality audio.
 }
 
 audio_output {
@@ -348,9 +463,15 @@ audio_output {
  mixer_type "none"
 }
 
+audio_output {
+ type "pulse"
+ name "Local Pulse Output"
+ server "127.0.0.1"
+}
+
 #audio_buffer_size "16384" # KiB,  Default is 4096 (4 MiB).
 audio_buffer_size "120000" # KiB,  Default is 4096 (4 MiB).
-buffer_before_play "10%" # % of audio_buffer_size
+buffer_before_play "10%"   # % of audio_buffer_size
 
 #
 # An example of an OSS output:
@@ -468,6 +589,23 @@ buffer_before_play "10%" # % of audio_buffer_size
 # setting is disabled.
 #
 #samplerate_converter "Fastest Sinc Interpolator"
+
+
+#samplerate_converter "internal"
+
+#samplerate_converter "Linear Interpolator"
+#samplerate_converter "ZOH Interpolator"
+#samplerate_converter "Fastest Sinc Interpolator"
+#samplerate_converter "Medium Sinc Interpolator"
+#samplerate_converter "Best Sinc Interpolator"
+
+#samplerate_converter "soxr quick"
+#samplerate_converter "soxr low"
+#samplerate_converter "soxr medium"
+#samplerate_converter "soxr high"
+samplerate_converter "soxr very high"
+
+
 #
 ###############################################################################
 

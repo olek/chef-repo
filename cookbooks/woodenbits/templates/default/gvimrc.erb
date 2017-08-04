@@ -1,0 +1,73 @@
+" set the X11 font to use
+" set guifont=-misc-fixed-medium-r-normal--14-130-75-75-c-70-iso8859-1
+
+set mousehide		" Hide the mouse when typing text
+
+
+"Set font to Monaco 10pt
+"if MySys() == "mac"
+if has('macunix')
+  "set guifont=10x20
+  "set guifont=Lucida_Console:h8
+  "set guifont=Monaco:h14
+  set guifont=Menlo\ Regular:h14
+  "set guifont=Bitstream\ Vera\ Sans\ Mono:h14
+  "set nomacatsui " avoids problem with font rendering in vim 7.0
+  "set macatsui enc=utf-8
+  "set nomacatsui
+  set antialias
+  set enc=utf-8
+  "set termencoding=macroman
+  set guioptions-=m  "remove menu bar
+  set guioptions-=T  "remove toolbar
+  set guioptions-=r  "remove right-hand scroll bar
+  "set fuoptions=maxvert,maxhorz
+elseif has('unix')
+  " for Ubuntu, GTK2 GUI
+  "set gfn=Monospace\ 11
+  "set guifont=Ubuntu\ Mono\ Regular\ 12
+  set guifont=Liberation\ Mono\ 11
+endif
+
+" set the gui options to:
+"   g: grey inactive menu items
+"   m: display menu bar
+"   r: display scrollbar on right side of window
+"   b: display scrollbar at bottom of window
+"   t: enable tearoff menus on Win32
+"   T: enable toolbar on Win32
+" set go=gm
+" can't remove menu bar since in ubuntu 17.04 gvim does not have proper 'top app bar'
+" set guioptions-=m  "remove menu bar
+set guioptions-=T  "remove toolbar
+set guioptions-=r  "remove right-hand scroll bar
+
+"colo peachpuff
+"colo oceanblack
+"color oceandeep
+set background=light
+" color olek-autumn
+" colo desertEx
+" colo bclear
+color default
+
+"set lines=55
+"set columns=140
+"set lines=41 columns=137
+
+highlight WhiteSpaceEOL ctermbg=darkgreen guibg=lightgreen
+"match WhiteSpaceEOL /^\s*\t\s*\|\s\+$/
+"autocmd WinEnter * match WhiteSpaceEOL /^\s*\t\s*\|\s\+$/
+match WhiteSpaceEOL /^\s\+\t\+\|^\t\+\s\+\|\s\+$/
+"autocmd WinEnter * match WhiteSpaceEOL /^\s\+\t\+\|^\t\+\s\+\|\s\+$/
+
+" Prevents last window from being accidentaly closed
+if has('macunix')
+  macm File.Close key=<nop>
+end
+nnoremap <silent> <D-w> <Esc>:bd<CR>
+
+let s:gvimrc_after_local = expand($HOME . '/.gvimrc.after')
+if filereadable(s:gvimrc_after_local)
+  exec ':so ' . s:gvimrc_after_local
+endif

@@ -1,0 +1,93 @@
+#!/bin/bash
+
+# Sends a tmux and desktop notification after the completion
+# of the given command.
+
+converts()
+{
+    local t=$1
+
+    local d=$((t/60/60/24))
+    local h=$((t/60/60%24))
+    local m=$((t/60%60))
+    local s=$((t%60))
+
+    if [[ $d > 0 ]]; then
+            [[ $d = 1 ]] && echo -n "$d day " || echo -n "$d days "
+    fi
+    if [[ $h > 0 ]]; then
+            [[ $h = 1 ]] && echo -n "$h hour " || echo -n "$h hours "
+    fi
+    if [[ $m > 0 ]]; then
+            [[ $m = 1 ]] && echo -n "$m minute " || echo -n "$m minutes "
+    fi
+    if [[ $d = 0 && $h = 0 && $m < 10 ]]; then
+            [[ $s = 1 ]] && echo -n "$s second" || echo -n "$s seconds"
+    fi
+    echo
+}
+
+start=$SECONDS
+
+"$@"
+
+end=$SECONDS
+
+runtime=$((end-start))
+human_runtime=$(converts $runtime)
+
+if test $? -eq 0; then
+  verb="succeeded"
+  icon="face-embarrassed"
+  if (( $runtime > 1 )); then
+    icon="face-cool"
+  fi
+  if (( $runtime > 5 )); then
+    icon="face-smile"
+  fi
+  if (( $runtime > 15 )); then
+    icon="face-plain"
+  fi
+  if (( $runtime > 60 )); then
+    icon="face-smirk"
+  fi
+  if (( $runtime > 300 )); then
+    icon="face-sad"
+  fi
+  if (( $runtime > 600 )); then
+    icon="face-tired"
+  fi
+  if (( $runtime > 3600 )); then
+    icon="face-crying"
+  fi
+  if (( $runtime > 3600 )); then
+    icon="face-devilish"
+  fi
+else
+  verb="failed"
+  icon="error"
+fi
+
+simple_notification="'$@' $verb after ${human_runtime}"
+
+capitalized_verb=`echo ${verb:0:1} | tr  '[a-z]' '[A-Z]'`${verb:1}
+rich_notification="$@\n\t\n${capitalized_verb} after ${human_runtime}"
+
+echo ">>> $simple_notification"
+
+tmux display-message "${simple_notification}"
+
+if which osascript &> /dev/null; then
+  # MacOS
+  osascript -e "display notification \"${rich_notification}\" with title \"$1\""
+else
+  if which notify-send &> /dev/null; then
+    # Linux
+    notify-send -i $icon "$1" "${rich_notification}"
+  else
+    if which ntfy &> /dev/null; then
+      # Universal third-party
+      ntfy -t "$1" send "${simple_notification}"
+    fi
+  fi
+fi

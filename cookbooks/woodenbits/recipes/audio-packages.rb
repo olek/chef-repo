@@ -2,12 +2,16 @@
 # Recipe:: audio-packages
 
 # command line music server/client player
+
+#sometimes mpd is installed after my mpd.conf is in place and that triggers conflict resolution
+ENV['DEBIAN_FRONTEND'] = 'noninteractive'
 package 'mpd'
+ENV['DEBIAN_FRONTEND'] = 'interactive'
 package 'mpc'
 package 'ncmpc'
 
 # variety of music players / editors
-package 'sonata'
+#package 'sonata'
 package 'audacious'
 package 'deadbeef'
 package 'audacity'
@@ -26,3 +30,5 @@ package 'ruby-dev'
 # to split one flac into multiple: cuebreakpoints file.cue | shnsplit -o flac file.flac
 package 'cuetools'
 package 'shntool'
+
+#package 'radiotray'

@@ -5,3 +5,16 @@
 export TERM=xterm-256color
 
 eval "$(rbenv init -)"
+
+# bash autocompletion for global searches
+global_funcs() {
+  local cur
+  cur=${COMP_WORDS[COMP_CWORD]}
+  COMPREPLY=(`global -c $cur`)
+}
+
+complete -F global_funcs global
+complete -F global_funcs global-grep
+
+# receive automatic notifications for commands that take more than 10s to execute
+# eval "$(ntfy shell-integration)"

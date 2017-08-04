@@ -120,12 +120,15 @@ windows = `wmctrl -l -x | grep -v 'N/A'`.split("\n").map { |line| Window.new(lin
 
 windows.each do |window|
   if window.app == 'Gvim' && window.title =~ / - GVIM$/
-    window.resize 1100, '100%', false
-    window.align :right
+    #window.resize 1366, '100%', false
+    #window.align :right
+    window.resize 1270, '100%'
+    window.align :left
   end
 
   if window.app == 'Gnome-terminal' && window.title.include?(':')
-    window.resize 1366, 766 - Screen.wasted_height
+    #window.resize 1366, 766 - Screen.wasted_height
+    window.resize 1270, 1200 - Screen.wasted_height - 30
     window.align
   end
 
@@ -136,8 +139,12 @@ windows.each do |window|
   end
 
   if window.app == 'Firefox' && window.title =~ / - Pentadactyl$/ or
+      window.app == 'Firefox' && window.title =~ / - Mozilla Firefox$/ or
       window.app == 'Google-chrome' && window.title =~ / - Google Chrome$/ or
-      window.app == 'Chromium-browser' && window.title =~ / - Chromium$/
+      window.app == 'Chromium-browser' && window.title =~ / - Chromium$/ or
+      window.app == 'Slack' && window.title =~ /^Slack - / or
+      window.app == 'Evince' or
+      window.app == 'Eclipse' && window.title =~ /^Java - Eclipse SDK/
     window.resize 1366, '100%'
     window.align :right
   end

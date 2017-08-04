@@ -6,7 +6,11 @@
 # ========== essentials
 
 package 'aptitude'
-package 'ubuntu-restricted-extras'
+
+unless node[:hostname] == 'opoplavsky-wsl'
+  package 'ubuntu-restricted-extras'
+end
+
 package 'build-essential'
 
 # ruby, rake and git should be in dev, but must be here because of damn janus
@@ -54,17 +58,13 @@ package 'unity-scope-calculator'
 #package 'unity-scope-cities'
 #package 'unity-scope-rottentomatoes'
 
-#package 'unity-lens-shopping' do
+#package 'unity-scope-video-remote' do
 #  action :remove
 #end
 
-package 'unity-scope-video-remote' do
-  action :remove
-end
-
-package 'unity-scope-musicstores' do
-  action :remove
-end
+#package 'unity-scope-musicstores' do
+#  action :remove
+#end
 
 # ========== System tools
 
@@ -80,21 +80,23 @@ package 'gparted'
 package 'hfsprogs'
 package 'sshfs'
 package 'cifs-utils'
-#package 'fuse-exfat'
+package 'exfat-fuse'
 package 'autofs'
 package 'smbclient' # otherwise automount cifs does not work
 
-package 'apparmor-utils'
-package 'apparmor-profiles'
-package 'apparmor-notify'
+# NOTE not sure if this apparmor stuff is required anymore, commenting out on 20170727
+#package 'apparmor-utils'
+#package 'apparmor-profiles'
+#package 'apparmor-notify'
 
-execute "enable apparmor firefox profile" do
-  command 'aa-enforce /etc/apparmor.d/usr.bin.firefox'
-  not_if "aa-status | grep firefox"
-end
+#execute "enable apparmor firefox profile" do
+#  command 'aa-enforce /etc/apparmor.d/usr.bin.firefox'
+#  not_if "aa-status | grep firefox"
+#end
 
 package 'logrotate'
 package 'checkinstall'
+package 'python-pip'
 
 #execute 'restart pgld' do
 #  command 'pglcmd restart'

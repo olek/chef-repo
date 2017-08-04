@@ -1,74 +1,155 @@
+set nocompatible              " be iMproved, required
+filetype off                  " required
+
+" set the runtime path to include Vundle and initialize
+set rtp+=~/.vim/bundle/Vundle.vim
+call vundle#begin()
+" alternatively, pass a path where Vundle should install plugins
+"call vundle#begin('~/some/path/here')
+
+" let Vundle manage Vundle, required
+Plugin 'gmarik/Vundle.vim'
+
+" My Bundles here:
+"
+" General {{{
+Plugin 'mileszs/ack.vim'
+Plugin 'tsaleh/vim-align'
+Plugin 'tpope/vim-endwise'
+Plugin 'tpope/vim-fugitive'
+Plugin 'tpope/vim-haml'
+Plugin 'tpope/vim-rails'
+Plugin 'tpope/vim-sleuth'
+Plugin 'tpope/vim-repeat'
+Plugin 'tpope/vim-speeddating'
+Plugin 'tpope/vim-surround'
+Plugin 'tpope/vim-unimpaired'
+Plugin 'tpope/vim-fireplace'
+Plugin 'tpope/vim-leiningen'
+Plugin 'tpope/vim-projectionist'
+Plugin 'tpope/vim-dispatch'
+Plugin 'tpope/vim-abolish'
+Plugin 'guns/vim-sexp'
+"Plugin 'guns/vim-clojure-static' "included already, but lets use latest
+Plugin 'tpope/vim-sexp-mappings-for-regular-people'
+Plugin 'kien/rainbow_parentheses.vim'
+Plugin 'gregspurrier/vim-midje.git' " proper indent/highlight for midje
+"Plugin 'scrooloose/nerdcommenter'
+"Plugin 'scrooloose/nerdtree'
+"Plugin 'scrooloose/vim-space'
+"Plugin 'scrooloose/syntastic'
+"Plugin 'msanders/snipmate.vim'
+"Plugin 'sjl/threesome.vim'
+"Plugin 'nelstrom/vim-textobj-rubyblock'
+"Plugin 'kana/vim-textobj-user'
+Plugin 'chrismetcalf/vim-yankring'
+"Plugin 'michaeljsmith/vim-indent-object'
+"Plugin 'mirell/vim-matchit'
+Plugin 'wikimatze/hammer.vim'
+"Plugin 'ecomba/vim-ruby-refactoring'
+"Plugin 'kchmck/vim-coffee-script'
+"Plugin 'Lokaltog/vim-powerline'
+"Plugin 'kien/ctrlp.vim'
+"Plugin 'rson/vim-conque'
+"Plugin 'skwp/vim-ruby-conque'
+"Plugin 'jgdavey/tslime.vim'
+"Plugin 'jgdavey/vim-turbux'
+"Plugin 'vim-scripts/Tabbi'
+Plugin 'scrooloose/nerdcommenter'
+Plugin 'reedes/vim-one' " replacement for tvim/svim
+Plugin 'derekwyatt/vim-scala'
+" }}}
+
+" Colors {{{
+Plugin 'flazz/vim-colorschemes'
+" }}}
+
+" The following are examples of different formats supported.
+" Keep Plugin commands between vundle#begin/end.
+" plugin on GitHub repo
+" Plugin 'tpope/vim-fugitive'
+
+" plugin from http://vim-scripts.org/vim/scripts.html
+" Plugin 'L9'
+
+" Git plugin not hosted on GitHub
+" Plugin 'git://git.wincent.com/command-t.git'
+
+" git repos on your local machine (i.e. when working on your own plugin)
+" Plugin 'file:///home/gmarik/path/to/plugin'
+
+" The sparkup vim script is in a subdirectory of this repo called vim.
+" Pass the path to set the runtimepath properly.
+" Plugin 'rstacruz/sparkup', {'rtp': 'vim/'}
+
+" Avoid a name conflict with L9
+" Plugin 'user/L9', {'name': 'newL9'}
+
+" All of your Plugins must be added before the following line
+call vundle#end()            " required
+filetype plugin indent on    " required
+" To ignore plugin indent changes, instead use:
+"filetype plugin on
+"
+" Brief help
+" :PluginList       - lists configured plugins
+" :PluginInstall    - installs plugins; append `!` to update or just :PluginUpdate
+" :PluginSearch foo - searches for foo; append `!` to refresh local cache
+" :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
+"
+" see :h vundle for more details or wiki for FAQ
+" Put your non-Plugin stuff after this line
+
 set ff=unix
 
 set backupdir=~/tmp/vi,~/tmp,.
 set directory=~/tmp/vi,~/tmp,.
 
-set nocompatible
-set autoread
-set smartindent
-set shiftround
-set shiftwidth=2
-set tabstop=2
-set expandtab
-set autowrite
-set history=10000
-set viminfo='30,f1,:500,\/500
-set winheight=100
-set equalalways
+set history=1000
+set noequalalways winheight=9999 helpheight=9999
+let netrw_winsize = 9999
+
 set textwidth=100
-set comments=n:#
 set formatoptions=tcoql
 set smarttab
 set more
 set nostartofline
 set showmatch
-set hlsearch
 set laststatus=2
 set cmdheight=2
 
 " allow backspacing over everything in insert mode
 set backspace=indent,eol,start
 
-set backup      " keep a backup file
-set ruler       " show the cursor position all the time
-set showcmd     " display incomplete commands
-set incsearch       " do incremental searching
+set backup		" keep a backup file
+set ruler		" show the cursor position all the time
+set number              " Show line numbers
+set showcmd		" display incomplete commands
+set incsearch		" do incremental searching
+
+syntax on
 
 set nrformats-=octal
+set encoding=utf-8    " Set default encoding to UTF-8
 
-" Don't use Ex mode, use Q for formatting
-map Q gq
-
-" Switch syntax highlighting on, when the terminal has colors
-" Also switch on highlighting the last used search pattern.
-if &t_Co > 2 || has("gui_running")
-  syntax on
-  set hlsearch
+if exists('+macmeta')
+  set macmeta
 endif
 
-" Enable file type detection.
-" Use the default filetype settings, so that mail gets 'tw' set to 72,
-" 'cindent' is on in C files, etc.
-" Also load indent files, to automatically do language-dependent indenting.
-filetype plugin indent on
-
-" For all text files set 'textwidth' to 78 characters.
-autocmd FileType text setlocal textwidth=78
-
-autocmd FileType text set ff=unix
-
-autocmd BufRead,BufNewFile *.haml         set filetype=haml
-
-"autocmd FileType ruby,eruby,yaml,haml,javascript set ai shiftwidth=2 tabstop=2 et
-
+" enable jumping to the end of ruby block with %
+runtime macros/matchit.vim
 
 " When editing a file, always jump to the last known cursor position.
 " Don't do it when the position is invalid or when inside an event handler
 " (happens when dropping a file on gvim).
-autocmd BufReadPost *
-  \ if line("'\"") > 0 && line("'\"") <= line("$") |
-  \   exe "normal g" |
+" Do not remember position for git commit messages
+"   " see :help last-position-jump
+au BufReadPost *
+  \ if &filetype !~ '^git\c' && line("'\"") > 0 && line("'\"") <= line("$") |
+  \   exe "normal! g`\"" |
   \ endif
+
+"autocmd BufWritePre * :%s/\s\+$//e
 
 " Usage:  :let ma = Mark() ... execute ma
 " has the same effect as  :normal ma ... :normal 'a
@@ -118,29 +199,292 @@ function! StripTrailingSpaces()
     exe currPos
   endif
 endfunction
-
 " Remove trailing blanks upon saving except from lines containing sigdashes
 "au BufWritePre * silent! call StripTrailingSpaces()
-au BufWritePre * call StripTrailingSpaces()
+autocmd BufWritePre * call StripTrailingSpaces()
 
 
-set winaltkeys=no
-map <M-w> :q<CR>
-map <M-s> :w<CR>
-
-
+"   Obsolete!
 "   Edit another file in the same directory as the current file
 "   uses expression to extract path from current file's path
 "  (thanks Douglas Potts)
 if has("unix")
     map <F2> :split <C-R>=expand("%:p:h") . "/" <CR>
     map <S-F2> :edit <C-R>=expand("%:p:h") . "/" <CR>
-    map <F3> :edit <C-R>=expand("%:p:h") . "/" <CR>
 else
     map <F2> :split <C-R>=expand("%:p:h") . "\" <CR>
     map <S-F2> :edit <C-R>=expand("%:p:h") . "\" <CR>
-    map <F3> :edit <C-R>=expand("%:p:h") . "\" <CR>
 endif
 
 " use "\f" for returning to edit previous file
 map \f <C-^>
+
+" ====== allowing to search for ruby or rails doc right from the VI
+"let g:browser = 'firefox -new-tab '
+let g:browser = 'open '
+" Open the Ruby ApiDock page for the word under cursor, in a new Firefox tab
+function! OpenRubyDoc(keyword)
+  let url = 'http://apidock.com/ruby/'.a:keyword
+  "exec '!'.g:browser.' '.url.' &'
+  exec '!'.g:browser.' '.url
+endfunction
+noremap RB :call OpenRubyDoc(expand('<cword>'))<CR>
+
+" Open the Rails ApiDock page for the word under cursos, in a new Firefox tab
+function! OpenRailsDoc(keyword)
+  let url = 'http://apidock.com/rails/'.a:keyword
+  "exec '!'.g:browser.' '.url.' &'
+  exec '!'.g:browser.' '.url
+endfunction
+noremap RR :call OpenRailsDoc(expand('<cword>'))<CR>
+
+" clear search matching
+noremap <leader><space> :noh<cr>:call clearmatches()<cr>
+
+
+" vim-indentobject
+" let g:indentobject_meaningful_indentation = ["haml", "sass", "python", "yaml", "markdown"]
+
+" Fugitive
+" ,g for Ggrep
+nmap <leader>g :Ggrep
+
+" ,f for global git serach for word under the cursor (with highlight)
+nmap <leader>f :let @/="\\<<C-R><C-W>\\>"<CR>:set hls<CR>:silent Ggrep -w "<C-R><C-W>"<CR>:ccl<CR>:cw<CR><CR>
+
+" same in visual mode
+:vmap <leader>f y:let @/=escape(@", '\\[]$^*.')<CR>:set hls<CR>:silent Ggrep -F "<C-R>=escape(@", '\\"#')<CR>"<CR>:ccl<CR>:cw<CR><CR>
+
+" Hammer
+nmap <leader>p :Hammer<cr>
+
+
+" Cmd-Shift-R for RSpec
+" nmap <silent> <D-R> :call RunRspecCurrentFileConque()<CR>
+" Cmd-Shift-L for RSpec Current Line
+" nmap <silent> <D-L> :call RunRspecCurrentLineConque()<CR>
+" ,Cmd-R for Last conque command
+" nmap <silent> <D-P> :call RunLastConqueCommand()<CR>
+
+let g:rbpt_colorpairs = [
+    \ ['brown',       'RoyalBlue3'],
+    \ ['Darkblue',    'SeaGreen3'],
+    \ ['darkgray',    'DarkOrchid3'],
+    \ ['darkgreen',   'firebrick3'],
+    \ ['darkcyan',    'RoyalBlue3'],
+    \ ['darkred',     'SeaGreen3'],
+    \ ['darkmagenta', 'DarkOrchid3'],
+    \ ['brown',       'firebrick3'],
+    \ ['gray',        'RoyalBlue3'],
+    \ ['black',       'SeaGreen3'],
+    \ ['darkmagenta', 'DarkOrchid3'],
+    \ ['Darkblue',    'firebrick3'],
+    \ ['darkgreen',   'RoyalBlue3'],
+    \ ['darkcyan',    'SeaGreen3'],
+    \ ['darkred',     'DarkOrchid3'],
+    \ ['red',         'firebrick3'],
+    \ ]
+
+let g:rbpt_max = 16
+let g:rbpt_loadcmd_toggle = 0
+
+au VimEnter * RainbowParenthesesToggle
+au Syntax * RainbowParenthesesLoadRound
+au Syntax * RainbowParenthesesLoadSquare
+au Syntax * RainbowParenthesesLoadBraces
+
+autocmd FileType clojure setlocal lispwords+=ns,authorize,etaggable,GET,POST,PUT,DELETE,HEAD,ANY,context,with-meta,if-let,if-not,when-let,when-not,fn,loop,condp,dotrace,doseq,binding,catch,trace,testing,locking,proxy,reify,doto,use-fixtures,as->,fetch,while,go-loop
+
+" ==============================================================================
+" ==============================================================================
+" ==============================================================================
+
+""
+"" General Janus Mappings (Normal, Visual, Operator-pending)
+""
+
+" use :w!! to write to a file using sudo if you forgot to 'sudo vim file'
+" (it will prompt for sudo password when writing)
+cmap w!! %!sudo tee > /dev/null %
+
+" Toggle paste mode
+nmap <silent> <F4> :set invpaste<CR>:set paste?<CR>
+imap <silent> <F4> <ESC>:set invpaste<CR>:set paste?<CR>
+
+" format the entire file
+nmap <leader>fef ggVG=
+
+" upper/lower word
+nmap <leader>u mQviwU`Q
+nmap <leader>l mQviwu`Q
+
+" upper/lower first char of word
+nmap <leader>U mQgewvU`Q
+nmap <leader>L mQgewvu`Q
+
+" cd to the directory containing the file in the buffer
+nmap <silent> <leader>cd :lcd %:h<CR>
+
+" Create the directory containing the file in the buffer
+nmap <silent> <leader>md :!mkdir -p %:p:h<CR>
+
+" Some helpers to edit mode
+" http://vimcasts.org/e/14
+cnoremap %% <C-R>=expand('%:h').'/'<cr>
+map <leader>ew :e %%
+map <leader>es :sp %%
+map <leader>ev :vsp %%
+map <leader>et :tabe %%
+
+" Swap two words
+nmap <silent> gw :s/\(\%#\w\+\)\(\_W\+\)\(\w\+\)/\3\2\1/<CR>`'
+
+" Underline the current line with '='
+nmap <silent> <leader>ul :t.\|s/./=/g\|:nohls<cr>
+
+" set text wrapping toggles
+nmap <silent> <leader>tw :set invwrap<CR>:set wrap?<CR>
+
+" find merge conflict markers
+nmap <silent> <leader>fc <ESC>/\v^[<=>]{7}( .*\|$)<CR>
+
+" Map the arrow keys to be based on display lines, not physical lines
+" map <Down> gj
+" map <Up> gk
+
+" Toggle hlsearch with <leader>hs
+nmap <leader>hs :set hlsearch! hlsearch?<CR>
+
+" Adjust viewports to the same size
+map <Leader>= <C-w>=
+
+if has("gui_macvim") && has("gui_running")
+  " Map command-[ and command-] to indenting or outdenting
+  " while keeping the original selection in visual mode
+  vmap <D-]> >gv
+  vmap <D-[> <gv
+
+  nmap <D-]> >>
+  nmap <D-[> <<
+
+  omap <D-]> >>
+  omap <D-[> <<
+
+  imap <D-]> <Esc>>>i
+  imap <D-[> <Esc><<i
+
+  " Bubble single lines
+  nmap <D-Up> [e
+  nmap <D-Down> ]e
+  nmap <D-k> [e
+  nmap <D-j> ]e
+
+  " Bubble multiple lines
+  vmap <D-Up> [egv
+  vmap <D-Down> ]egv
+  vmap <D-k> [egv
+  vmap <D-j> ]egv
+
+  " Map Command-# to switch tabs
+  map  <D-0> 0gt
+  imap <D-0> <Esc>0gt
+  map  <D-1> 1gt
+  imap <D-1> <Esc>1gt
+  map  <D-2> 2gt
+  imap <D-2> <Esc>2gt
+  map  <D-3> 3gt
+  imap <D-3> <Esc>3gt
+  map  <D-4> 4gt
+  imap <D-4> <Esc>4gt
+  map  <D-5> 5gt
+  imap <D-5> <Esc>5gt
+  map  <D-6> 6gt
+  imap <D-6> <Esc>6gt
+  map  <D-7> 7gt
+  imap <D-7> <Esc>7gt
+  map  <D-8> 8gt
+  imap <D-8> <Esc>8gt
+  map  <D-9> 9gt
+  imap <D-9> <Esc>9gt
+else
+  " Map command-[ and command-] to indenting or outdenting
+  " while keeping the original selection in visual mode
+  vmap <A-]> >gv
+  vmap <A-[> <gv
+
+  nmap <A-]> >>
+  nmap <A-[> <<
+
+  omap <A-]> >>
+  omap <A-[> <<
+
+  imap <A-]> <Esc>>>i
+  imap <A-[> <Esc><<i
+
+  " Bubble single lines
+  nmap <C-Up> [e
+  nmap <C-Down> ]e
+  nmap <C-k> [e
+  nmap <C-j> ]e
+
+  " Bubble multiple lines
+  vmap <C-Up> [egv
+  vmap <C-Down> ]egv
+  vmap <C-k> [egv
+  vmap <C-j> ]egv
+
+  " Make shift-insert work like in Xterm
+  map <S-Insert> <MiddleMouse>
+  map! <S-Insert> <MiddleMouse>
+
+  " Map Control-# to switch tabs
+  map  <C-0> 0gt
+  imap <C-0> <Esc>0gt
+  map  <C-1> 1gt
+  imap <C-1> <Esc>1gt
+  map  <C-2> 2gt
+  imap <C-2> <Esc>2gt
+  map  <C-3> 3gt
+  imap <C-3> <Esc>3gt
+  map  <C-4> 4gt
+  imap <C-4> <Esc>4gt
+  map  <C-5> 5gt
+  imap <C-5> <Esc>5gt
+  map  <C-6> 6gt
+  imap <C-6> <Esc>6gt
+  map  <C-7> 7gt
+  imap <C-7> <Esc>7gt
+  map  <C-8> 8gt
+  imap <C-8> <Esc>8gt
+  map  <C-9> 9gt
+  imap <C-9> <Esc>9gt
+endif
+
+""
+"" Command-Line Mappings
+""
+
+" Insert the current directory into a command-line path
+cmap <C-P> <C-R>=expand("%:p:h") . "/"<CR>
+
+
+""
+"" Janus Basic Setup
+""
+
+" List chars
+set listchars=""                  " Reset the listchars
+set listchars=tab:\ \             " a tab should display as "  ", trailing whitespace as "."
+set listchars+=trail:.            " show trailing spaces as dots
+set listchars+=extends:>          " The character to show in the last column when wrap is
+                                  " off and the line continues beyond the right of the screen
+set listchars+=precedes:<         " The character to show in the last column when wrap is
+                                  " off and the line continues beyond the right of the screen
+""
+"" Searching
+""
+
+set hlsearch    " highlight matches
+set incsearch   " incremental searching
+"set ignorecase  " searches are case insensitive...
+"set smartcase   " ... unless they contain at least one capital letter

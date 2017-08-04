@@ -1,8 +1,9 @@
 # Cookbook Name:: woodenbits
 # Recipe:: rbenv
 
-rbenv_ruby = '1.9.3-p545'
-user = 'olek'
+#rbenv_ruby = '1.9.3-p545'
+rbenv_ruby = '2.3.1'
+user = node[:etc][:passwd].key?('opoplavsky') ? 'opoplavsky' : 'olek'
 user_home = "/home/#{user}"
 
 rbenv_bin = "#{user_home}/.rbenv/bin/rbenv"

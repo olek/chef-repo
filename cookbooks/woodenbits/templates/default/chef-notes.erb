@@ -29,9 +29,27 @@ This file contains notes on manual configuration changes that chef does not do
 
 - make alt-tab switch only applications and disable delayed window shifting
   run Compiz config settings manager
-  select ubuntu unity plugin
+  search for unity
+  select unity plugin
   select switcher tab
   uncheck 'timed automatic to show live preview in the switcher'
+
+- switch Win/Cmd and Alt keys to stay consistent with mac keyboard
+  run Gnome Tweak Tool
+  select Typing section
+  select Alt/Win behavior row
+  select 'alt is swapped with Win' option
+
+- configure pulseaudio to work with higher bitrates
+  edit /etc/pulse/daemon.conf
+  > nice-level = -15
+  > resample-method = src-sinc-best-quality # s/best/medium/ for lower CPU usage
+  > default-sample-format = s32le
+  > default-sample-rate = 176000
+  > alternate-sample-rate = 192000
+  In mpd 9.x (ubuntu 17.04 and higher) (re) sample rate can be doubled.
+  restart pulseaudio by running 'pulseaudio --kill' as normal user
+  check current sample rate by running 'pacmd list-sinks | grep sample'
 
 - customize file /etc/uswsusp.conf to not do compression and to set image size to 1
   either setting is more than questionable now, just let it be

@@ -3,6 +3,8 @@
 
 #Chef::Log.info "fqdn = #{node[:fqdn]}, hostname = #{node[:hostname]}"
 
+hostname = node[:hostname]
+
 directory '/etc/pgl' do
   mode '0755'
   action :create
@@ -11,15 +13,6 @@ end
 directory '/vaults' do
   mode '0755'
   action :create
-end
-
-%w(pglcmd.conf blocklists.list allow.p2p).each do |fname|
-  template "/etc/pgl/#{fname}" do
-    source "system/etc/pgl-#{fname}.erb"
-    mode 0644
-    owner 'root'
-    group 'root'
-  end
 end
 
 execute "turn off chef-client verbose logging" do
@@ -41,14 +34,21 @@ end
 #  to "/etc/pm/power.d/95hdparm-arm"
 #end
 
-template "/etc/network/if-up.d/wifi-powerman-off" do
-  source "system/etc/wifi-powerman-off.erb"
-  mode 0755
-end
+if hostname == 'tenebrus'
+  template "/etc/network/if-up.d/wifi-powerman-off" do
+    source "system/etc/wifi-powerman-off.erb"
+    mode 0755
+  end
 
-template "/etc/modprobe.d/wlan.conf" do
-  source "system/etc/modprobe.wlan.conf.erb"
-  mode 0644
+  template "/etc/modprobe.d/wlan.conf" do
+    source "system/etc/modprobe.wlan.conf.erb"
+    mode 0644
+  end
+
+  execute "enable ExpressCard SATA adapter" do
+    command 'echo "acpiphp" >> /etc/modules'
+    not_if %q(grep -e '^acpiphp' /etc/modules)
+  end
 end
 
 #template "/usr/local/bin/adjust-scroll" do
@@ -72,14 +72,25 @@ template "/usr/local/bin/tmuxstart" do
   group 'root'
 end
 
-template "/etc/pm/config.d/00_sleep" do
-  source "system/etc/pm-config.erb"
-  mode 0755
-end
+unless hostname == 'opoplavsky-wsl'
+  %w(pglcmd.conf blocklists.list allow.p2p).each do |fname|
+    template "/etc/pgl/#{fname}" do
+      source "system/etc/pgl-#{fname}.erb"
+      mode 0644
+      owner 'root'
+      group 'root'
+    end
+  end
 
-template "/etc/sysctl.d/60-local.conf" do
-  source "system/etc/sysctl.d.conf.erb"
-  mode 0644
+  template "/etc/pm/config.d/00_sleep" do
+    source "system/etc/pm-config.erb"
+    mode 0755
+  end
+
+  template "/etc/sysctl.d/60-local.conf" do
+    source "system/etc/sysctl.d.conf.erb"
+    mode 0644
+  end
 end
 
 directory '/etc/auto.master.d' do
@@ -117,11 +128,6 @@ end
     source "system/usr/local/#{script}.erb"
     mode '0755'
   end
-end
-
-execute "enable ExpressCard SATA adapter" do
-  command 'echo "acpiphp" >> /etc/modules'
-  not_if %q(grep -e '^acpiphp' /etc/modules)
 end
 
 =begin

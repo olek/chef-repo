@@ -1,7 +1,16 @@
 # Cookbook Name:: woodenbits
 # Recipe:: user-config
 
-users = ['olek']
+users =
+  if node[:sessions]
+    node[:sessions][:by_user].keys - ['root']
+  else
+    if node[:etc][:passwd].key?('opoplavsky')
+      ['opoplavsky']
+    else
+      []
+    end
+  end
 
 git_configs = {
   "alias.br" => "branch",
@@ -58,11 +67,24 @@ template '/etc/sudoers.d/truecrypt' do
   mode 0440
 end
 
+template "/root/chef-notes.txt" do
+  source 'chef-notes.erb'
+  mode '0600'
+  owner 'root'
+  group 'root'
+end
+
+directory '/root/install' do
+  mode '0755'
+  action :create
+end
+
+
 (users + ['root']).each do |user|
   home_dir = user == 'root' ? '/root' : "/home/#{user}"
-  user_group = user == 'root' ? 'root' : 'users'
+  user_group = `id --group --name #{user}`.chomp
 
-  %w(tmp tmp/vi build .bashrc.d .janus .mplayer).each do |dir|
+  %w(tmp tmp/vi .vim .vim/bundle build .bashrc.d .mplayer).each do |dir|
     directory "#{home_dir}/#{dir}" do
       owner user
       group user_group
@@ -90,6 +112,7 @@ end
     mode '0600'
     owner user
     group user_group
+    action :create_if_missing
   end
 
   template "#{home_dir}/.screenrc" do
@@ -109,7 +132,7 @@ end
     group user_group
   end
 
-  %w(inputrc bashrc vimrc.before vimrc.after gvimrc.after gemrc irbrc).each do |name|
+  %w(inputrc bashrc vimrc gvimrc gemrc irbrc).each do |name|
     template "#{home_dir}/.#{name}" do
       source "#{name}.erb"
       mode '0640'
@@ -128,31 +151,38 @@ end
   end
 
   # killing old files
-  %w(10-path 20-functions).each do |name|
-    file "#{home_dir}/.bashrc.d/#{name}" do
-      action :delete
-    end
-  end
+  #%w(10-path 20-functions).each do |name|
+  #  file "#{home_dir}/.bashrc.d/#{name}" do
+  #    action :delete
+  #  end
+  #end
 
   # Execute the Janus bootstrap installation from github.
-  execute "install janus for #{user}" do
-    cmd = "curl -Lo- http://bit.ly/janus-bootstrap | bash"
-    command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
-    creates "#{home_dir}/.vim/bootstrap.sh"
-  end
+  #execute "install janus for #{user}" do
+  #  cmd = "curl -Lo- http://bit.ly/janus-bootstrap | bash"
+  #  command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
+  #  creates "#{home_dir}/.vim/bootstrap.sh"
+  #end
 
-  %w(jgdavey/tslime.vim olek/vim-turbux).each do |repo|
-    execute "clone #{repo} for #{user}" do
-      cmd = "cd ~/.janus && git clone http://github.com/#{repo}.git"
-      command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
-      creates "#{home_dir}/.janus/#{repo.split('/').last}"
-    end
+  #%w(jgdavey/tslime.vim olek/vim-turbux).each do |repo|
+  #  execute "clone #{repo} for #{user}" do
+  #    cmd = "cd ~/.janus && git clone http://github.com/#{repo}.git"
+  #    command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
+  #    creates "#{home_dir}/.janus/#{repo.split('/').last}"
+  #  end
+  #end
+
+  # Install Vundle from github.
+  execute "install Vundle for #{user}" do
+    cmd = "git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim"
+    command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
+    creates "#{home_dir}/.vim/bundle/Vundle.vim"
   end
 end
 
 users.each do |user|
   home_dir = "/home/#{user}"
-  user_group = 'users'
+  user_group = `id --group --name #{user}`.chomp
 
 =begin
   template "#{home_dir}/.gitconfig" do
@@ -186,7 +216,14 @@ users.each do |user|
 
   template "#{home_dir}/bin/truecrypt-init.sh" do
     source 'truecrypt-init.erb'
-    mode '0700'
+    mode '0500'
+    owner user
+    group user_group
+  end
+
+  template "#{home_dir}/bin/timed" do
+    source 'timed.erb'
+    mode '0500'
     owner user
     group user_group
   end
@@ -201,6 +238,7 @@ users.each do |user|
   directory "#{home_dir}/.gconf/apps/rapid-photo-downloader" do
     owner user
     group user_group
+    recursive true
     mode '0750'
     action :create
   end
@@ -208,26 +246,24 @@ users.each do |user|
   cookbook_file "#{home_dir}/.gconf/apps/rapid-photo-downloader/%gconf.xml" do
     source "rapid-downloader-conf.xml"
     mode 0600
+    action :create_if_missing
   end
+
+  ## install ntfy package - not desirable anymore since its shell integration is broken for me
+  #execute "install ntfy for #{user}" do
+  #  cmd = "pip install ntfy"
+  #  command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
+  #  creates "#{home_dir}/.local/bin/ntfy"
+  #end
 end
 
 # can not change gnome settings for non-current user
-user = node[:current_user]
-user_group = `id --group --name #{user}`.chomp
-home_dir = user == 'root' ? '/root' : "/home/#{user}"
 
-if user && user != 'root'
+users.each do |user|
   sudo = "sudo -H -u #{user} /bin/bash -c"
   execute "disable auto-mount pop-up for user #{user}" do
     command %Q(#{sudo} "gsettings set org.gnome.desktop.media-handling automount-open false")
     not_if %Q(#{sudo} "gsettings get org.gnome.desktop.media-handling automount-open | grep -q false")
-  end
-
-  template "#{home_dir}/chef-notes.txt" do
-    source 'chef-notes.erb'
-    mode '0600'
-    owner user
-    group user_group
   end
 
   local_git_configs = git_configs
@@ -246,6 +282,4 @@ if user && user != 'root'
       not_if "git config --global #{k} | grep -q \'#{v}\'"
     end
   end
-else
-  Chef::Log.info "No gnome/git settings changes performed for user #{user.inspect}"
 end

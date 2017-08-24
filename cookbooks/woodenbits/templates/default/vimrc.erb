@@ -1,6 +1,7 @@
 set nocompatible              " be iMproved, required
 filetype off                  " required
 
+<%- unless @is_root -%>
 " set the runtime path to include Vundle and initialize
 set rtp+=~/.vim/bundle/Vundle.vim
 call vundle#begin()
@@ -99,6 +100,7 @@ filetype plugin indent on    " required
 "
 " see :h vundle for more details or wiki for FAQ
 " Put your non-Plugin stuff after this line
+<%- end -%>
 
 set ff=unix
 
@@ -219,6 +221,7 @@ endif
 " use "\f" for returning to edit previous file
 map \f <C-^>
 
+<%- unless @is_root -%>
 " ====== allowing to search for ruby or rails doc right from the VI
 "let g:browser = 'firefox -new-tab '
 let g:browser = 'open '
@@ -294,6 +297,7 @@ au Syntax * RainbowParenthesesLoadSquare
 au Syntax * RainbowParenthesesLoadBraces
 
 autocmd FileType clojure setlocal lispwords+=ns,authorize,etaggable,GET,POST,PUT,DELETE,HEAD,ANY,context,with-meta,if-let,if-not,when-let,when-not,fn,loop,condp,dotrace,doseq,binding,catch,trace,testing,locking,proxy,reify,doto,use-fixtures,as->,fetch,while,go-loop
+<%- end -%>
 
 " ==============================================================================
 " ==============================================================================

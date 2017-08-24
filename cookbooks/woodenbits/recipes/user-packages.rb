@@ -29,9 +29,10 @@ end
 
 package 'google-chrome-stable'
 package 'chromium-browser'
+package 'brave'
 
-#package 'python-gpgme' # for dropbox
-#package 'nautilus-dropbox'
+package 'python-gpgme' # for dropbox
+package 'nautilus-dropbox'
 
 package 'vlc'
 package 'smplayer'
@@ -45,6 +46,10 @@ package 'smplayer'
 package 'txt2tags'
 package 'htmldoc'
 package 'youtube-dl'
+
+# mkusb allows creating live usb drives with persistence on them
+package 'mkusb'
+package 'usb-pack-efi'
 
 # ========== emulators / virtualization
 

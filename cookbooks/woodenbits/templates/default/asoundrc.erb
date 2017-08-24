@@ -1,0 +1,15 @@
+# Prevents those DACs from showing in Control Panel / Audio as 'Digital ouput (S/PDIF)'
+# https://bugs.launchpad.net/ubuntu/+source/alsa-lib/+bug/1002952
+
+cards.USB-Audio.pcm.iec958_device."Yeti Stereo Microphone" 999
+cards.USB-Audio.pcm.iec958_device."iFi (by AMR) HD USB Audio" 999
+
+pcm.ifi-upsampled {
+  type plug
+  slave {
+    pcm "hw:Audio"
+    format S32_LE
+    channels 2
+    rate 705600
+  }
+}

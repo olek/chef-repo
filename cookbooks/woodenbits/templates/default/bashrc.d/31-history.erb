@@ -1,0 +1,12 @@
+export HISTCONTROL=ignorespace:erasedups
+export HISTIGNORE="l:ll:la:lla:pwd:isp"
+export HISTFILESIZE=100000000 # 100MB
+export HISTSIZE=1000000 # 1 million
+
+# do not override history file with "newer" history!
+# append instead of rewrite
+shopt -s histappend
+
+# save history after every command to avoid losing it on crashes
+# and to make it instantly accessible in other terminals
+export PROMPT_COMMAND="history -a;$PROMPT_COMMAND"

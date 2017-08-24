@@ -1,9 +1,4 @@
-#export RUBY_GC_MALLOC_LIMIT=100000000
-#export RUBY_HEAP_MIN_SLOTS=500000
-#export RUBY_FREE_MIN=100000
-
-export TERM=xterm-256color
-
+<%- unless @is_root -%>
 eval "$(rbenv init -)"
 
 # bash autocompletion for global searches
@@ -18,3 +13,4 @@ complete -F global_funcs global-grep
 
 # receive automatic notifications for commands that take more than 10s to execute
 # eval "$(ntfy shell-integration)"
+<%- end -%>

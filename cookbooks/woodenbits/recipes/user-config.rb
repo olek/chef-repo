@@ -84,7 +84,7 @@ end
   home_dir = user == 'root' ? '/root' : "/home/#{user}"
   user_group = `id --group --name #{user}`.chomp
 
-  %w(tmp tmp/vi .vim .vim/bundle build .bashrc.d .mplayer).each do |dir|
+  %w(tmp tmp/vi .vim .vim/bundle build .bashrc.d).each do |dir|
     directory "#{home_dir}/#{dir}" do
       owner user
       group user_group
@@ -132,18 +132,24 @@ end
     group user_group
   end
 
-  %w(inputrc bashrc vimrc gvimrc gemrc irbrc).each do |name|
+  %w(inputrc bashrc vimrc gvimrc).each do |name|
     template "#{home_dir}/.#{name}" do
       source "#{name}.erb"
+      variables(
+        :is_root => user == 'root'
+      )
       mode '0640'
       owner user
       group user_group
     end
   end
 
-  %w(05-settings 10-functions 20-path 30-aliases 40-prompt 50-other).each do |name|
+  %w(10-functions 20-aliases 20-path 20-prompt 20-settings 30-autocompletion 31-history).each do |name|
     template "#{home_dir}/.bashrc.d/#{name}" do
       source "bashrc.d/#{name}.erb"
+      variables(
+        :is_root => user == 'root'
+      )
       mode '0740'
       owner user
       group user_group
@@ -151,11 +157,11 @@ end
   end
 
   # killing old files
-  #%w(10-path 20-functions).each do |name|
-  #  file "#{home_dir}/.bashrc.d/#{name}" do
-  #    action :delete
-  #  end
-  #end
+  %w(05-settings 30-aliases 40-prompt 50-other).each do |name|
+    file "#{home_dir}/.bashrc.d/#{name}" do
+      action :delete
+    end
+  end
 
   # Execute the Janus bootstrap installation from github.
   #execute "install janus for #{user}" do
@@ -198,11 +204,13 @@ users.each do |user|
   end
 =end
 
-  directory "#{home_dir}/.tmuxstart" do
-    owner user
-    group user_group
-    mode '0700'
-    action :create
+  %w(.mplayer .tmuxstart).each do |dir|
+    directory "#{home_dir}/#{dir}" do
+      owner user
+      group user_group
+      mode '0700'
+      action :create
+    end
   end
 
   %w(general monologue ormivore).each do |name|
@@ -233,6 +241,15 @@ users.each do |user|
     mode '0640'
     owner user
     group user_group
+  end
+
+  %w(gemrc irbrc asoundrc).each do |name|
+    template "#{home_dir}/.#{name}" do
+      source "#{name}.erb"
+      mode '0640'
+      owner user
+      group user_group
+    end
   end
 
   directory "#{home_dir}/.gconf/apps/rapid-photo-downloader" do

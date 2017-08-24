@@ -1,4 +1,6 @@
+<%- unless @is_root -%>
 prepend_to_path $HOME/bin
 prepend_to_path $HOME/.local/bin
 prepend_to_path /vaults/scc/bin
 prepend_to_path $HOME/.rbenv/bin
+<%- end -%>

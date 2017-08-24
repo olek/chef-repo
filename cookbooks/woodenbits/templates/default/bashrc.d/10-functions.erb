@@ -1,3 +1,4 @@
+<%- unless @is_root -%>
 function tc-mount {
   CMD_VAULT="$1"
   shift
@@ -195,7 +196,7 @@ grep-sql() { fgrep --color=auto "$1" * -r $2 $3 $4 --include=\*\\\.\*sql  $dir_e
 grep-ext() { fgrep --color=auto "$2" * -r $3 $4 $5 --include=\*\\\.$1 $dir_excludes; }
 
 global-grep() { global -xr "$1" | gawk -v ctx=${2:-1} '{printf "echo; echo %3$s; nl -ba -nln %3$s | grep -C%4$s \"^%2$s .*\" | grep -C%4$s --color=auto \"%1$s\\|^%2$s\"\n",$1,$2,$3,ctx}' | sh ; }
-
+<%- end -%>
 
 short_dir ()
 {

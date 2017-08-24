@@ -1,0 +1,38 @@
+alias ll='ls -lF'
+alias lla='ls -alF'
+alias l='ls -F'
+alias la='ls -FA'
+
+
+alias mem-top='ps -eo pmem,rss,comm --sort=-rss | head'
+alias du-top='sudo find / -type f -size +50000k -exec ls -lh {} \;'
+# remove previous line from history, not very effective with 'histappend -a' on every step
+alias hh='history -d $(($HISTCMD-2)) && history -d $(($HISTCMD-1))'
+
+# see bug https://bugs.launchpad.net/ubuntu/+source/vim/+bug/776499
+# alias gvim="gvim --remote-send '<C-w>n'; UBUNTU_MENUPROXY= gvim --remote-silent"
+
+alias dstat-power="dstat --time --battery --power --battery-remain --fan --dstat-cpu --cpufreq --top-cpu --top-mem --top-io"
+
+<%- unless @is_root -%>
+# alias hfs-drive-cleanup='rm -fr .Trashes .fseventsd .Spotlight-V100; \
+# mkdir .fseventsd; \
+# for i in .Trashes .fseventsd/no_log .metadata_never_index; do \
+# touch $i; chmod 444 $i; chown olek:users $i; done;
+# find . -user 99 -or -group 99 -exec chown olek:users {} \;;
+# chown olek:users .'
+
+# ModCloth era
+alias isp='echo -e "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"'
+alias bi='bundle install --path vendor/bundle'
+alias tbi='time bundle install --path vendor/bundle'
+alias be='bundle exec'
+alias tbe='time bundle exec'
+#alias vmf="set -o vi; export EDITOR=vim; echo 'bind -v' > ~/.editrc; echo 'set editing-mode vi' > ~/.inputrc"
+#alias dvmf="set -o emacs; unset EDITOR; rm ~/.editrc; rm ~/.inputrc"
+alias gems-kill='for i in $(gem list --no-versions); do gem uninstall -aIx $i; done'
+alias gems-clean='gems-kill; gem install bundler tmuxinator && rbenv rehash'
+# ModCloth era end
+
+alias mcurl="curl --write-out \"\nhttp-code: %{http_code}, content-type: '%{content_type}', total time: %{time_total}, app connect time: %{time_appconnect}, pretransfer time: %{time_pretransfer}, starttransfer time: %{time_starttransfer}\n\""
+<%- end -%>

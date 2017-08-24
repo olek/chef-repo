@@ -42,6 +42,9 @@ endif
 set guioptions-=T  "remove toolbar
 set guioptions-=r  "remove right-hand scroll bar
 
+<%- if @is_root -%>
+color torte
+<%- else -%>
 "colo peachpuff
 "colo oceanblack
 "color oceandeep
@@ -50,6 +53,7 @@ set background=light
 " colo desertEx
 " colo bclear
 color default
+<%- end -%>
 
 "set lines=55
 "set columns=140

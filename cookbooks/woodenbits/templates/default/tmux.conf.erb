@@ -1,13 +1,17 @@
 set -g prefix `
 bind-key ` send-prefix
 
+# use < and > to move window (index) left and right
+bind-key    -T prefix <                swap-window -t -1
+bind-key    -T prefix >                swap-window -t +1
+
+# integration with tmuxstart
+bind S command-prompt -p "Make/attach session:" "new-window 'tmuxstart \'%%\''"
+
 set -g default-terminal "screen-256color"
 
 # Set that silly Esc-Wait off, so VI works again properly
 set-option -sg  escape-time 0
-
-# integration with tmuxstart
-bind S command-prompt -p "Make/attach session:" "new-window 'tmuxstart \'%%\''"
 
 # lighten the BG color of status bar to make it easier to read
 set -g status-bg brightgreen

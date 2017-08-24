@@ -14,6 +14,7 @@ This file contains notes on manual configuration changes that chef does not do
   file -> new profile woodenbits, based on default
   change is color scheme to 'black on white'
   while in there, change terminal to have deeper scroll buffer (default 512 is not enough, 5k is good)
+  change default term size to something like 105x33
   edit -> profiles -> make woodenbits default
 
 - in 'text entry' preferences add ukrainian kbd, make double-shift switch layout
@@ -31,6 +32,7 @@ This file contains notes on manual configuration changes that chef does not do
   run Compiz config settings manager
   search for unity
   select unity plugin
+  in general tab, check 'enable low graphics mode' (bottom) for spartan aesthetics
   select switcher tab
   uncheck 'timed automatic to show live preview in the switcher'
 
@@ -40,10 +42,11 @@ This file contains notes on manual configuration changes that chef does not do
   select Alt/Win behavior row
   select 'alt is swapped with Win' option
 
-- configure pulseaudio to work with higher bitrates
-  edit /etc/pulse/daemon.conf
+- configure pulseaudio to work with higher bitrates (leaving sample rates default is safer)
+  edit /etc/pulse/daemon.conf, or even better vi ~/.config/pulse/daemon.conf and vi ~/.config/pulse/client.conf
+  TODO make templates for those
   > nice-level = -15
-  > resample-method = src-sinc-best-quality # s/best/medium/ for lower CPU usage
+  > resample-method = speex-float-10 # -5 for lower CPU usage
   > default-sample-format = s32le
   > default-sample-rate = 176000
   > alternate-sample-rate = 192000
@@ -69,8 +72,8 @@ This file contains notes on manual configuration changes that chef does not do
   - get vaults
   - mount them using tc-mount command
   - start trucrypt UI and add all mounted as favorites
-  - in 'Startup Applications" add ~/bit/truecrypt-init.sh
+  - in 'Startup Applications" add ~/bin/truecrypt-init.sh
 
-- install dropbox and google voice plugins as outlined in
+- install google voice plugins as outlined in
   http://www.techdrivein.com/2012/06/25-things-i-did-after-installing-ubuntu.html
-  Note: this can be automated somehow, but not to great extent.
+  Note: this can be automated somehow, but not to a great extent.

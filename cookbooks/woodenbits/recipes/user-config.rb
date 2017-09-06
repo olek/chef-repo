@@ -213,6 +213,22 @@ users.each do |user|
     end
   end
 
+  directory "#{home_dir}/.config/autokey/data/Shortcuts" do
+    owner user
+    group user_group
+    mode '0700'
+    action :create
+    only_if { ::File.exist?("#{home_dir}/.config/autokey/data") }
+  end
+
+  template "#{home_dir}/.config/autokey/data/Shortcuts/quit-chrome.py" do
+    source 'autokey-quit-chrome.py.erb'
+    mode '0600'
+    owner user
+    group user_group
+    only_if { ::File.exist?("#{home_dir}/.config/autokey/data/Shortcuts") }
+  end
+
   %w(general monologue ormivore).each do |name|
     template "#{home_dir}/.tmuxstart/#{name}" do
       source "tmuxstart/#{name}.erb"

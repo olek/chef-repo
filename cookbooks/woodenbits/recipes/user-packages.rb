@@ -47,9 +47,7 @@ package 'txt2tags'
 package 'htmldoc'
 package 'youtube-dl'
 
-# mkusb allows creating live usb drives with persistence on them
-package 'mkusb'
-package 'usb-pack-efi'
+package 'autokey-gtk'
 
 # ========== emulators / virtualization
 

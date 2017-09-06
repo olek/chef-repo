@@ -67,8 +67,11 @@ class Window
 
     if opts.include?(:right)
       x = Screen.width - @width
-    elsif opts.include?(:center)
+    end
+
+    if opts.include?(:center)
       x = (Screen.width - @width) / 2
+      y = (Screen.height - @height) / 2
     end
 
     wmctrl "-r #{@id} -e 1,#{x},#{y},-1,-1"
@@ -121,7 +124,7 @@ windows = `wmctrl -l -x | grep -v 'N/A'`.split("\n").map { |line| Window.new(lin
 windows.each do |window|
   if window.app == 'Gvim' && window.title =~ / - GVIM$/
     #window.resize 1366, '100%', false
-    window.resize 1270, '100%'
+    window.resize 1366, '100%'
     window.align :right
   end
 
@@ -129,6 +132,21 @@ windows.each do |window|
     #window.resize 1366, 766 - Screen.wasted_height
     window.resize 1270, 1200 - Screen.wasted_height - 30
     window.align
+  end
+
+  if window.app == 'Xsensors'
+    window.resize 200, '100%'
+    window.align :right
+  end
+
+  if window.app == 'Insomnia'
+    window.resize '50%', '50%'
+    window.align
+  end
+
+  if window.app == 'Nautilus'
+    window.resize '50%', '80%'
+    window.align :right, false
   end
 
   if window.app == 'Deluge' && window.title == 'Deluge' or
@@ -142,6 +160,7 @@ windows.each do |window|
       window.app == 'Firefox' && window.title =~ / - Mozilla Firefox/ or
       window.app == 'Google-chrome' && window.title =~ / - Google Chrome$/ or
       window.app == 'Chromium-browser' && window.title =~ / - Chromium$/ or
+      window.app == 'brave' or
       window.app == 'Slack' && window.title =~ /^Slack - / or
       window.app == 'Evince' or
       window.app == 'Eclipse' && window.title =~ /^Java - Eclipse SDK/

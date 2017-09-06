@@ -85,7 +85,6 @@ end
 #  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
   'dhor/myway', # Photography tools
   'pmjdebruijn/darktable-release', # Fresh darktable
-  'mkusb/ppa', # making persistent live usb drives
 ].each do |ppa_name|
   file_name = ppa_name.sub('/', '-ubuntu-')
   execute "enable #{ppa_name} repo" do

@@ -10,5 +10,5 @@ package 'photini' # metadata editor; extra repo dhor/myway
 #package 'ddroom' # candidate raw processor; extra repo dhor/myway
 #package 'photoflow-git' # candidate raw processor; extra repo dhor/myway
 package 'mapivi' # photo management tool for JPEG; extra repo dhor/myway
-package 'nufraw' # ufraw with alt UI; extra repo dhor/myway
+#package 'nufraw' # ufraw with alt UI; extra repo dhor/myway; N/A for 17.04
 #package 'ufraw' # candidate raw processor

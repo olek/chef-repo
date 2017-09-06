@@ -27,7 +27,7 @@ execute "enable multiverse repo" do
   filename = "#{src_dir}/#{codename}-multiverse.list"
 
   command %Q(
-    echo "deb #{canonical_host} #{codename} partner" >> #{filename}
+    echo "deb #{canonical_host} #{codename} multiverse" >> #{filename}
     chmod 644 #{filename}
   )
 
@@ -35,19 +35,20 @@ execute "enable multiverse repo" do
   creates filename
 end
 
-execute "enable chrome repo" do
-  filename = "#{src_dir}/google.list"
+# Google repo seems to be available in default install since 17.04 ?
+#execute "enable chrome repo" do
+#  filename = "#{src_dir}/google.list"
 
-  command %Q(
-    wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
-    echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> #{filename}
-    chmod 644 #{filename}
-  )
+#  command %Q(
+#    wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
+#    echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> #{filename}
+#    chmod 644 #{filename}
+#  )
 
-  notifies :run, 'execute[update apt]', :immediately
-  creates filename
-  not_if { ::File.exist?("#{src_dir}/google_chrome_stable.list") }
-end
+#  notifies :run, 'execute[update apt]', :immediately
+#  creates filename
+#  not_if { ::File.exist?("#{src_dir}/google_chrome_stable.list") }
+#end
 
 execute "enable brave repo" do
   filename = "#{src_dir}/#{codename}-brave.list"

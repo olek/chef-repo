@@ -3,10 +3,7 @@
 
 # command line music server/client player
 
-#sometimes mpd is installed after my mpd.conf is in place and that triggers conflict resolution
-ENV['DEBIAN_FRONTEND'] = 'noninteractive'
 package 'mpd'
-ENV['DEBIAN_FRONTEND'] = 'interactive'
 package 'mpc'
 package 'ncmpc'
 

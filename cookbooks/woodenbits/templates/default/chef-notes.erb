@@ -44,6 +44,7 @@ This file contains notes on manual configuration changes that chef does not do
 
 - configure pulseaudio to work with higher bitrates (leaving sample rates default is safer)
   edit /etc/pulse/daemon.conf, or even better vi ~/.config/pulse/daemon.conf and vi ~/.config/pulse/client.conf
+  detect supported resampling algos: pulseaudio --dump-resample-methods
   TODO make templates for those
   > nice-level = -15
   > resample-method = speex-float-10 # -5 for lower CPU usage

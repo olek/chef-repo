@@ -82,10 +82,12 @@ unless hostname == 'opoplavsky-wsl'
     end
   end
 
-  template "/etc/pm/config.d/00_sleep" do
-    source "system/etc/pm-config.erb"
-    mode 0755
-  end
+  # TODO figure out what to do with sleep configuration
+  # for now, disable customization
+  #template "/etc/pm/config.d/00_sleep" do
+  #  source "system/etc/pm-config.erb"
+  #  mode 0755
+  #end
 
   template "/etc/sysctl.d/60-local.conf" do
     source "system/etc/sysctl.d.conf.erb"
@@ -106,6 +108,8 @@ end
 template "/etc/mpd.conf" do
   source "system/etc/mpd.conf.erb"
   mode 0644
+  # avoid installing config before package to avoid conflicts
+  only_if { ::File.exist?("/usr/bin/mpd") }
 end
 
 #template "/etc/auto.master.d/cifs.autofs" do

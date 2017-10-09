@@ -43,11 +43,11 @@ module Screen
 end
 
 class Window
-  attr_reader :app, :title
+  attr_reader :app, :subapp, :title
 
   def initialize(line)
     words = line.split
-    @id, @app, @title = words[0], words[2].split('.').last, words[4..-1].join(' ')
+    @id, @subapp, @app, @title = words[0], words[2].split('.').first, words[2].split('.').last, words[4..-1].join(' ')
   end
 
   def move(x, y=-1)
@@ -130,7 +130,11 @@ windows.each do |window|
 
   if window.app == 'Gnome-terminal' && window.title.include?(':')
     #window.resize 1366, 766 - Screen.wasted_height
-    window.resize 1270, 1200 - Screen.wasted_height - 30
+    window.resize 1366, '100%'
+
+    # Config for time when I would connect from my mac with NoMachine, because this term size is
+    # same as my typical terminal window on Mac.
+    # window.resize 1270, 1200 - Screen.wasted_height - 30
     window.align
   end
 
@@ -144,7 +148,8 @@ windows.each do |window|
     window.align
   end
 
-  if window.app == 'Nautilus'
+  # avoiding 'desktop_window' subapp that is a launcher bar
+  if window.app == 'Nautilus' && window.subapp == 'nautilus'
     window.resize '50%', '80%'
     window.align :right, false
   end

@@ -63,6 +63,19 @@ execute "enable brave repo" do
   creates filename
 end
 
+execute "enable docker repo" do
+  filename = "#{src_dir}/#{codename}-docker.list"
+
+  command %Q(
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+    echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu #{codename} stable" >> #{filename}
+    chmod 644 #{filename}
+  )
+
+  notifies :run, 'execute[update apt]', :immediately
+  creates filename
+end
+
 # it is better to pick up dropbox from multiverse repo
 #execute "enable dropbox repo" do
 #  command %Q(

@@ -46,7 +46,6 @@ Plugin 'gregspurrier/vim-midje.git' " proper indent/highlight for midje
 Plugin 'chrismetcalf/vim-yankring'
 "Plugin 'michaeljsmith/vim-indent-object'
 "Plugin 'mirell/vim-matchit'
-Plugin 'wikimatze/hammer.vim'
 "Plugin 'ecomba/vim-ruby-refactoring'
 "Plugin 'kchmck/vim-coffee-script'
 "Plugin 'Lokaltog/vim-powerline'
@@ -67,6 +66,7 @@ Plugin 'flazz/vim-colorschemes'
 
 " The following are examples of different formats supported.
 " Keep Plugin commands between vundle#begin/end.
+
 " plugin on GitHub repo
 " Plugin 'tpope/vim-fugitive'
 
@@ -111,9 +111,11 @@ set history=1000
 set noequalalways winheight=9999 helpheight=9999
 let netrw_winsize = 9999
 
-set textwidth=100
+set textwidth=132
 set formatoptions=tcoql
 set smarttab
+set autoindent
+set shiftround " round up broken indentation when shifting
 set more
 set nostartofline
 set showmatch
@@ -146,10 +148,12 @@ runtime macros/matchit.vim
 " (happens when dropping a file on gvim).
 " Do not remember position for git commit messages
 "   " see :help last-position-jump
-au BufReadPost *
+autocmd BufReadPost *
   \ if &filetype !~ '^git\c' && line("'\"") > 0 && line("'\"") <= line("$") |
   \   exe "normal! g`\"" |
   \ endif
+
+<%- unless @is_root -%>
 
 "autocmd BufWritePre * :%s/\s\+$//e
 
@@ -201,27 +205,14 @@ function! StripTrailingSpaces()
     exe currPos
   endif
 endfunction
+
 " Remove trailing blanks upon saving except from lines containing sigdashes
 "au BufWritePre * silent! call StripTrailingSpaces()
 autocmd BufWritePre * call StripTrailingSpaces()
 
-
-"   Obsolete!
-"   Edit another file in the same directory as the current file
-"   uses expression to extract path from current file's path
-"  (thanks Douglas Potts)
-if has("unix")
-    map <F2> :split <C-R>=expand("%:p:h") . "/" <CR>
-    map <S-F2> :edit <C-R>=expand("%:p:h") . "/" <CR>
-else
-    map <F2> :split <C-R>=expand("%:p:h") . "\" <CR>
-    map <S-F2> :edit <C-R>=expand("%:p:h") . "\" <CR>
-endif
-
 " use "\f" for returning to edit previous file
 map \f <C-^>
 
-<%- unless @is_root -%>
 " ====== allowing to search for ruby or rails doc right from the VI
 "let g:browser = 'firefox -new-tab '
 let g:browser = 'open '
@@ -258,10 +249,6 @@ nmap <leader>f :let @/="\\<<C-R><C-W>\\>"<CR>:set hls<CR>:silent Ggrep -w "<C-R>
 " same in visual mode
 :vmap <leader>f y:let @/=escape(@", '\\[]$^*.')<CR>:set hls<CR>:silent Ggrep -F "<C-R>=escape(@", '\\"#')<CR>"<CR>:ccl<CR>:cw<CR><CR>
 
-" Hammer
-nmap <leader>p :Hammer<cr>
-
-
 " Cmd-Shift-R for RSpec
 " nmap <silent> <D-R> :call RunRspecCurrentFileConque()<CR>
 " Cmd-Shift-L for RSpec Current Line
@@ -291,12 +278,24 @@ let g:rbpt_colorpairs = [
 let g:rbpt_max = 16
 let g:rbpt_loadcmd_toggle = 0
 
-au VimEnter * RainbowParenthesesToggle
-au Syntax * RainbowParenthesesLoadRound
-au Syntax * RainbowParenthesesLoadSquare
-au Syntax * RainbowParenthesesLoadBraces
+autocmd VimEnter * RainbowParenthesesToggle
+autocmd Syntax * RainbowParenthesesLoadRound
+autocmd Syntax * RainbowParenthesesLoadSquare
+autocmd Syntax * RainbowParenthesesLoadBraces
 
 autocmd FileType clojure setlocal lispwords+=ns,authorize,etaggable,GET,POST,PUT,DELETE,HEAD,ANY,context,with-meta,if-let,if-not,when-let,when-not,fn,loop,condp,dotrace,doseq,binding,catch,trace,testing,locking,proxy,reify,doto,use-fixtures,as->,fetch,while,go-loop
+
+" TODO find out why setlocal did not work for next 2 lines
+autocmd FileType java setlocal expandtab shiftwidth=4 softtabstop=4
+autocmd FileType xml setlocal expandtab shiftwidth=4 softtabstop=4
+"autocmd FileType xml setlocal equalprg=xmllint\ --format\ --recover\ -\ 2>/dev/null
+
+" ==============================================================================
+" Inspired by Janus
+
+" format the entire file, come back to same line, center
+nmap <leader>fef mzggVG='zzz
+
 <%- end -%>
 
 " ==============================================================================
@@ -316,7 +315,7 @@ nmap <silent> <F4> :set invpaste<CR>:set paste?<CR>
 imap <silent> <F4> <ESC>:set invpaste<CR>:set paste?<CR>
 
 " format the entire file
-nmap <leader>fef ggVG=
+" nmap <leader>fef ggVG=
 
 " upper/lower word
 nmap <leader>u mQviwU`Q
@@ -353,6 +352,7 @@ nmap <silent> <leader>tw :set invwrap<CR>:set wrap?<CR>
 nmap <silent> <leader>fc <ESC>/\v^[<=>]{7}( .*\|$)<CR>
 
 " Map the arrow keys to be based on display lines, not physical lines
+" Olek - do not like that at all
 " map <Down> gj
 " map <Up> gk
 
@@ -438,30 +438,32 @@ else
   vmap <C-j> ]egv
 
   " Make shift-insert work like in Xterm
-  map <S-Insert> <MiddleMouse>
-  map! <S-Insert> <MiddleMouse>
+  " Olek - insert key is disabled anyway
+  " map <S-Insert> <MiddleMouse>
+  " map! <S-Insert> <MiddleMouse>
 
   " Map Control-# to switch tabs
-  map  <C-0> 0gt
-  imap <C-0> <Esc>0gt
-  map  <C-1> 1gt
-  imap <C-1> <Esc>1gt
-  map  <C-2> 2gt
-  imap <C-2> <Esc>2gt
-  map  <C-3> 3gt
-  imap <C-3> <Esc>3gt
-  map  <C-4> 4gt
-  imap <C-4> <Esc>4gt
-  map  <C-5> 5gt
-  imap <C-5> <Esc>5gt
-  map  <C-6> 6gt
-  imap <C-6> <Esc>6gt
-  map  <C-7> 7gt
-  imap <C-7> <Esc>7gt
-  map  <C-8> 8gt
-  imap <C-8> <Esc>8gt
-  map  <C-9> 9gt
-  imap <C-9> <Esc>9gt
+  " Olek - switched Ctrl to Alt
+  map  <A-0> 0gt
+  imap <A-0> <Esc>0gt
+  map  <A-1> 1gt
+  imap <A-1> <Esc>1gt
+  map  <A-2> 2gt
+  imap <A-2> <Esc>2gt
+  map  <A-3> 3gt
+  imap <A-3> <Esc>3gt
+  map  <A-4> 4gt
+  imap <A-4> <Esc>4gt
+  map  <A-5> 5gt
+  imap <A-5> <Esc>5gt
+  map  <A-6> 6gt
+  imap <A-6> <Esc>6gt
+  map  <A-7> 7gt
+  imap <A-7> <Esc>7gt
+  map  <A-8> 8gt
+  imap <A-8> <Esc>8gt
+  map  <A-9> 9gt
+  imap <A-9> <Esc>9gt
 endif
 
 ""

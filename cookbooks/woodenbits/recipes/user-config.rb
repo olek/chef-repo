@@ -2,14 +2,10 @@
 # Recipe:: user-config
 
 users =
-  if node[:sessions]
-    node[:sessions][:by_user].keys - ['root']
+  if node[:etc][:passwd].key?('opoplavsky')
+    ['opoplavsky']
   else
-    if node[:etc][:passwd].key?('opoplavsky')
-      ['opoplavsky']
-    else
-      []
-    end
+    `awk -F'[/:]' '{if ($3 >= 1000 && $3 <= 1010) print $1}' /etc/passwd`.split
   end
 
 git_configs = {
@@ -100,21 +96,6 @@ end
     action :create
   end
 
-  directory "#{home_dir}/.ssh" do
-    owner user
-    group user_group
-    mode '0700'
-    action :create
-  end
-
-  template "#{home_dir}/.ssh/config" do
-    source 'ssh-config.erb'
-    mode '0600'
-    owner user
-    group user_group
-    action :create_if_missing
-  end
-
   template "#{home_dir}/.screenrc" do
     source 'screenrc.erb'
     variables(
@@ -190,20 +171,6 @@ users.each do |user|
   home_dir = "/home/#{user}"
   user_group = `id --group --name #{user}`.chomp
 
-=begin
-  template "#{home_dir}/.gitconfig" do
-    source 'gitconfig.erb'
-    variables(
-      :username => 'olek',
-      :name => 'Olek Poplavsky',
-      :email => 'olek@woodenbits.com'
-    )
-    mode '0640'
-    owner user
-    group user_group
-  end
-=end
-
   %w(.mplayer .tmuxstart).each do |dir|
     directory "#{home_dir}/#{dir}" do
       owner user
@@ -229,22 +196,6 @@ users.each do |user|
     only_if { ::File.exist?("#{home_dir}/.config/autokey/data/Shortcuts") }
   end
 
-  %w(general monologue ormivore).each do |name|
-    template "#{home_dir}/.tmuxstart/#{name}" do
-      source "tmuxstart/#{name}.erb"
-      mode '0600'
-      owner user
-      group user_group
-    end
-  end
-
-  template "#{home_dir}/bin/truecrypt-init.sh" do
-    source 'truecrypt-init.erb'
-    mode '0500'
-    owner user
-    group user_group
-  end
-
   template "#{home_dir}/bin/timed" do
     source 'timed.erb'
     mode '0500'
@@ -259,60 +210,109 @@ users.each do |user|
     group user_group
   end
 
-  %w(gemrc irbrc asoundrc).each do |name|
-    template "#{home_dir}/.#{name}" do
-      source "#{name}.erb"
-      mode '0640'
-      owner user
-      group user_group
-    end
-  end
-
-  directory "#{home_dir}/.gconf/apps/rapid-photo-downloader" do
-    owner user
-    group user_group
-    recursive true
-    mode '0750'
-    action :create
-  end
-
-  cookbook_file "#{home_dir}/.gconf/apps/rapid-photo-downloader/%gconf.xml" do
-    source "rapid-downloader-conf.xml"
-    mode 0600
-    action :create_if_missing
-  end
-
-  ## install ntfy package - not desirable anymore since its shell integration is broken for me
-  #execute "install ntfy for #{user}" do
-  #  cmd = "pip install ntfy"
-  #  command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
-  #  creates "#{home_dir}/.local/bin/ntfy"
-  #end
 end
 
 # can not change gnome settings for non-current user
 
 users.each do |user|
-  sudo = "sudo -H -u #{user} /bin/bash -c"
-  execute "disable auto-mount pop-up for user #{user}" do
-    command %Q(#{sudo} "gsettings set org.gnome.desktop.media-handling automount-open false")
-    not_if %Q(#{sudo} "gsettings get org.gnome.desktop.media-handling automount-open | grep -q false")
-  end
+  if user == 'olek' || user == 'opoplavsky'
+    home_dir = "/home/#{user}"
+    user_group = `id --group --name #{user}`.chomp
 
-  local_git_configs = git_configs
-
-  if user == 'olek'
-    local_git_configs = git_configs.merge(
-      'user.name' => 'Olek Poplavsky',
-      'user.email' => 'olek@woodenbits.com'
-    )
-  end
-
-  local_git_configs.each do |k, v|
-    execute "set global git config #{k}" do
-      command "git config --global #{k} \'#{v}\'"
-      user user
-      not_if "git config --global #{k} | grep -q \'#{v}\'"
+    sudo = "sudo -H -u #{user} /bin/bash -c"
+    execute "disable auto-mount pop-up for user #{user}" do
+      command %Q(#{sudo} "gsettings set org.gnome.desktop.media-handling automount-open false")
+      not_if %Q(#{sudo} "gsettings get org.gnome.desktop.media-handling automount-open | grep -q false")
     end
+
+=begin
+  template "#{home_dir}/.gitconfig" do
+    source 'gitconfig.erb'
+    variables(
+      :username => 'olek',
+      :name => 'Olek Poplavsky',
+      :email => 'olek@woodenbits.com'
+    )
+    mode '0640'
+    owner user
+    group user_group
+  end
+=end
+
+    local_git_configs = git_configs
+
+      local_git_configs = git_configs.merge(
+        'user.name' => 'Olek Poplavsky',
+        'user.email' => 'olek@woodenbits.com'
+      )
+
+    local_git_configs.each do |k, v|
+      execute "set global git config #{k}" do
+        command "git config --global #{k} \'#{v}\'"
+        user user
+        not_if "git config --global #{k} | grep -q \'#{v}\'"
+      end
+    end
+
+    directory "#{home_dir}/.ssh" do
+      owner user
+      group user_group
+      mode '0700'
+      action :create
+    end
+
+    template "#{home_dir}/.ssh/config" do
+      source 'ssh-config.erb'
+      mode '0600'
+      owner user
+      group user_group
+      action :create_if_missing
+    end
+
+    %w(general monologue ormivore).each do |name|
+      template "#{home_dir}/.tmuxstart/#{name}" do
+        source "tmuxstart/#{name}.erb"
+        mode '0600'
+        owner user
+        group user_group
+      end
+    end
+
+    template "#{home_dir}/bin/truecrypt-init.sh" do
+      source 'truecrypt-init.erb'
+      mode '0500'
+      owner user
+      group user_group
+    end
+
+    %w(gemrc irbrc asoundrc).each do |name|
+      template "#{home_dir}/.#{name}" do
+        source "#{name}.erb"
+        mode '0640'
+        owner user
+        group user_group
+      end
+    end
+
+    directory "#{home_dir}/.gconf/apps/rapid-photo-downloader" do
+      owner user
+      group user_group
+      recursive true
+      mode '0750'
+      action :create
+    end
+
+    cookbook_file "#{home_dir}/.gconf/apps/rapid-photo-downloader/%gconf.xml" do
+      source "rapid-downloader-conf.xml"
+      mode 0600
+      action :create_if_missing
+    end
+
+    ## install ntfy package - not desirable anymore since its shell integration is broken for me
+    #execute "install ntfy for #{user}" do
+    #  cmd = "pip install ntfy"
+    #  command %Q(sudo -H -u #{user} /bin/bash -c "#{cmd}")
+    #  creates "#{home_dir}/.local/bin/ntfy"
+    #end
   end
 end

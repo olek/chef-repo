@@ -190,10 +190,10 @@ function js-beautify-in-place {
 file_excludes='--exclude=\*\\\.log --exclude=\*\\\.class --exclude=\*\\\.jar'
 dir_excludes='--exclude-dir=target'
 grep-src() { fgrep --color=auto "$1" * -r $2 $3 $4 -I $file_excludes $dir_excludes; }
-grep-java() { fgrep --color=auto "$1" * -r $2 $3 $4 --include=\*\\\.java $dir_excludes; }
-grep-xml() { fgrep --color=auto "$1" * -r $2 $3 $4 --include=\*\\\.xml $dir_excludes; }
-grep-sql() { fgrep --color=auto "$1" * -r $2 $3 $4 --include=\*\\\.\*sql  $dir_excludes; }
-grep-ext() { fgrep --color=auto "$2" * -r $3 $4 $5 --include=\*\\\.$1 $dir_excludes; }
+grep-java() { fgrep --color=auto "$1" * -r $2 $3 $4 --include=\*\\\.java; }
+grep-xml() { fgrep --color=auto "$1" * -r $2 $3 $4 --include=\*\\\.xml; }
+grep-sql() { fgrep --color=auto "$1" * -r $2 $3 $4 --include=\*\\\.\*sql; }
+grep-ext() { fgrep --color=auto "$2" * -r $3 $4 $5 --include=\*\\\.$1; }
 
 global-grep() { global -xr "$1" | gawk -v ctx=${2:-1} '{printf "echo; echo %3$s; nl -ba -nln %3$s | grep -C%4$s \"^%2$s .*\" | grep -C%4$s --color=auto \"%1$s\\|^%2$s\"\n",$1,$2,$3,ctx}' | sh ; }
 <%- end -%>

@@ -31,12 +31,14 @@ start=$SECONDS
 
 "$@"
 
+exit_code=$?
+
 end=$SECONDS
 
 runtime=$((end-start))
 human_runtime=$(converts $runtime)
 
-if test $? -eq 0; then
+if test $exit_code -eq 0; then
   verb="succeeded"
   icon="face-embarrassed"
   if (( $runtime > 1 )); then
@@ -91,3 +93,5 @@ else
     fi
   fi
 fi
+
+exit $exit_code

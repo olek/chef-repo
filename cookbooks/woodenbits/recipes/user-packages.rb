@@ -18,7 +18,8 @@ unless node[:hostname] == 'opoplavsky-wsl'
   package 'deluge'
 
   # ========== infrared remote
-  package 'lirc'
+  # causes lots of errors in syslog, causes tenebrus to freeze after actually using remote
+  # package 'lirc'
   package 'evtest'
 
   # multiverse repo

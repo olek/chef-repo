@@ -2,7 +2,7 @@
 # Recipe:: rbenv
 
 #rbenv_ruby = '1.9.3-p545'
-rbenv_ruby = '2.3.1'
+rbenv_ruby = '2.4.2'
 user = node[:etc][:passwd].key?('opoplavsky') ? 'opoplavsky' : 'olek'
 user_home = "/home/#{user}"
 

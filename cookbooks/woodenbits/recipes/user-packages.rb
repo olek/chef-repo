@@ -54,6 +54,7 @@ package 'autokey-gtk'
 
 #package 'dosbox'
 #package 'wine'
+#package 'libnss-resolve:i386' # to get DNS resolution to work in Wine for some apps, like EAC
 #package 'wine-gecko'
 
 # ========== synergy

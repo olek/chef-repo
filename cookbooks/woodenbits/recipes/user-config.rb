@@ -15,7 +15,6 @@ git_configs = {
   "alias.co" => "checkout",
   "alias.cp" => "cherry-pick",
   "alias.dc" => "diff --cached",
-  "alias.di" => "diff",
   "alias.g" => "log --pretty=format:\"%h %an - %s\" --graph",
   "alias.gg" => "log --pretty=format:\"%H %an - %s\" --graph",
   "alias.lc" => "log ORIG_HEAD.. --stat --no-merges",
@@ -23,7 +22,9 @@ git_configs = {
   "alias.st" => "status",
   "alias.s" => "status --short",
   "alias.w" => "whatchanged",
+  "alias.up" => "push -u origin HEAD",
   "alias.pull-ff" => "pull --ff-only",
+  "alias.unstash" => "!git stash show -p | git apply -R",
   "alias.edit-unmerged" => "!f() { git ls-files --unmerged | cut -f2 | sort -u ; }; tvim `f`",
   "alias.add-unmerged" => "!f() { git ls-files --unmerged | cut -f2 | sort -u ; }; git add `f`",
 #  "alias.down" => "!sh -c \"CURRENT=$(git symbolic-ref HEAD | sed -e s@.*/@@) && (git pull --ff-only || (git fetch origin && git rebase --preserve-merges origin/$CURRENT))\"",
@@ -50,6 +51,7 @@ git_configs = {
   "diff.tool" => "diffmerge",
   "difftool.diffmerge.cmd" => "diffmerge \"$LOCAL\" \"$REMOTE\"",
   "merge.tool" => "diffmerge",
+  "merge.ff" => "only",
   "mergetool.diffmerge.cmd" => "diffmerge --merge --result=\"$MERGED\" \"$LOCAL\" \"$(if test -f \"$BASE\"; then echo \"$BASE\"; else echo \"$LOCAL\"; fi)\" \"$REMOTE\"",
   "mergetool.diffmerge.trustExitCode" => "true",
 }
@@ -80,7 +82,7 @@ end
   home_dir = user == 'root' ? '/root' : "/home/#{user}"
   user_group = `id --group --name #{user}`.chomp
 
-  %w(tmp tmp/vi .vim .vim/bundle build .bashrc.d).each do |dir|
+  %w(tmp tmp/vi /tmp/vi-undo .vim .vim/bundle build .bashrc.d).each do |dir|
     directory "#{home_dir}/#{dir}" do
       owner user
       group user_group
@@ -171,7 +173,7 @@ users.each do |user|
   home_dir = "/home/#{user}"
   user_group = `id --group --name #{user}`.chomp
 
-  %w(.mplayer .tmuxstart).each do |dir|
+  %w(.mplayer .tmuxstart .bash_history.d).each do |dir|
     directory "#{home_dir}/#{dir}" do
       owner user
       group user_group

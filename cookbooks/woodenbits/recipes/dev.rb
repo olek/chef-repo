@@ -39,3 +39,5 @@ package 'jq' # json pretty print
 
 package 'openjdk-8-jdk'
 #package 'openjdk-8-source'
+
+package 'insomnia'

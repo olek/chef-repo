@@ -1,7 +1,7 @@
-export HISTCONTROL=ignorespace:erasedups
+export HISTCONTROL=ignorespace:ignoredups #:erasedups
 export HISTIGNORE="l:ll:la:lla:pwd:isp"
-export HISTFILESIZE=100000000 # 100MB
-export HISTSIZE=1000000 # 1 million
+export HISTFILESIZE=-1 # never delete
+export HISTSIZE=-1 # never delete
 
 # do not override history file with "newer" history!
 # append instead of rewrite
@@ -9,4 +9,9 @@ shopt -s histappend
 
 # save history after every command to avoid losing it on crashes
 # and to make it instantly accessible in other terminals
-export PROMPT_COMMAND="history -a;$PROMPT_COMMAND"
+# Not preserving original PROMPT_COMMAND to avoid somehow repeating same thing over and over
+export PROMPT_COMMAND="history -a"
+
+<%- unless @is_root -%>
+export PROMPT_COMMAND='echo "$(date "+%Y-%m-%d.%H:%M:%S") $(pwd) $(history 1)" >> ~/.bash_history.d/$(date "+%Y-%m-%d").log; '$PROMPT_COMMAND
+<%- end -%>

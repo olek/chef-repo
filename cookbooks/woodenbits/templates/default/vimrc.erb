@@ -14,24 +14,23 @@ Plugin 'gmarik/Vundle.vim'
 " My Bundles here:
 "
 " General {{{
-Plugin 'mileszs/ack.vim'
 Plugin 'tsaleh/vim-align'
 Plugin 'tpope/vim-endwise'
 Plugin 'tpope/vim-fugitive'
-Plugin 'tpope/vim-haml'
+"Plugin 'tpope/vim-haml'
 Plugin 'tpope/vim-rails'
-Plugin 'tpope/vim-sleuth'
+Plugin 'tpope/vim-sleuth' "automatically adjusts 'shiftwidth' and 'expandtab' heuristically based on the current file
 Plugin 'tpope/vim-repeat'
 Plugin 'tpope/vim-speeddating'
 Plugin 'tpope/vim-surround'
-Plugin 'tpope/vim-unimpaired'
+"Plugin 'tpope/vim-unimpaired'
 Plugin 'tpope/vim-fireplace'
 Plugin 'tpope/vim-leiningen'
-Plugin 'tpope/vim-projectionist'
+Plugin 'tpope/vim-projectionist' " Projectionist provides granular project configuration using projections
 Plugin 'tpope/vim-dispatch'
 Plugin 'tpope/vim-abolish'
-Plugin 'guns/vim-sexp'
 "Plugin 'guns/vim-clojure-static' "included already, but lets use latest
+Plugin 'guns/vim-sexp'
 Plugin 'tpope/vim-sexp-mappings-for-regular-people'
 Plugin 'kien/rainbow_parentheses.vim'
 Plugin 'gregspurrier/vim-midje.git' " proper indent/highlight for midje
@@ -43,21 +42,27 @@ Plugin 'gregspurrier/vim-midje.git' " proper indent/highlight for midje
 "Plugin 'sjl/threesome.vim'
 "Plugin 'nelstrom/vim-textobj-rubyblock'
 "Plugin 'kana/vim-textobj-user'
-Plugin 'chrismetcalf/vim-yankring'
+"Plugin 'chrismetcalf/vim-yankring'
 "Plugin 'michaeljsmith/vim-indent-object'
 "Plugin 'mirell/vim-matchit'
 "Plugin 'ecomba/vim-ruby-refactoring'
 "Plugin 'kchmck/vim-coffee-script'
 "Plugin 'Lokaltog/vim-powerline'
-"Plugin 'kien/ctrlp.vim'
+Plugin 'kien/ctrlp.vim'
 "Plugin 'rson/vim-conque'
 "Plugin 'skwp/vim-ruby-conque'
-"Plugin 'jgdavey/tslime.vim'
+Plugin 'jgdavey/tslime.vim'
 "Plugin 'jgdavey/vim-turbux'
 "Plugin 'vim-scripts/Tabbi'
 Plugin 'scrooloose/nerdcommenter'
-Plugin 'reedes/vim-one' " replacement for tvim/svim
-Plugin 'derekwyatt/vim-scala'
+"Plugin 'reedes/vim-one' " replacement for tvim/svim
+"Plugin 'derekwyatt/vim-scala'
+Plugin 'wincent/ferret'
+Plugin 'ronakg/quickr-preview.vim'
+Plugin 'mikelue/vim-maven-plugin'
+Plugin 'janko-m/vim-test'
+Plugin 'artnez/vim-wipeout'
+Plugin 'majutsushi/tagbar' " a class outline viewer for Vim
 " }}}
 
 " Colors {{{
@@ -107,9 +112,9 @@ set ff=unix
 set backupdir=~/tmp/vi,~/tmp,.
 set directory=~/tmp/vi,~/tmp,.
 
-set history=1000
-set noequalalways winheight=9999 helpheight=9999
-let netrw_winsize = 9999
+set history=10000
+"set noequalalways winheight=9999 helpheight=9999
+"let netrw_winsize = 9999
 
 set textwidth=132
 set formatoptions=tcoql
@@ -121,6 +126,7 @@ set nostartofline
 set showmatch
 set laststatus=2
 set cmdheight=2
+set switchbuf=usetab
 
 " allow backspacing over everything in insert mode
 set backspace=indent,eol,start
@@ -135,6 +141,15 @@ syntax on
 
 set nrformats-=octal
 set encoding=utf-8    " Set default encoding to UTF-8
+
+" Persistent undo
+set undofile
+set undodir=~/tmp/vi-undo
+
+set undolevels=1000
+set undoreload=10000
+
+set tags=tags,../tags,../../tags
 
 if exists('+macmeta')
   set macmeta
@@ -235,6 +250,10 @@ noremap RR :call OpenRailsDoc(expand('<cword>'))<CR>
 " clear search matching
 noremap <leader><space> :noh<cr>:call clearmatches()<cr>
 
+" ctrlp
+let g:ctrlp_custom_ignore = '\v[\/](target|dist)|(\.(swp|ico|git|svn|jav|class))$'
+" alt-ctrl-p searches is special folder for java dependencies, allows to navigate sources of third party packages efficiently
+noremap <M-C-P> <Esc>:CtrlP ~/tmp/sdeps<CR>
 
 " vim-indentobject
 " let g:indentobject_meaningful_indentation = ["haml", "sass", "python", "yaml", "markdown"]
@@ -255,6 +274,21 @@ nmap <leader>f :let @/="\\<<C-R><C-W>\\>"<CR>:set hls<CR>:silent Ggrep -w "<C-R>
 " nmap <silent> <D-L> :call RunRspecCurrentLineConque()<CR>
 " ,Cmd-R for Last conque command
 " nmap <silent> <D-P> :call RunLastConqueCommand()<CR>
+
+function! <SID>SetupMavenMap()
+  doautocmd MavenAutoDetect BufNewFile,BufReadPost
+
+  if !maven#isBufferUnderMavenProject(bufnr("%"))
+    return
+  endif
+
+  nmap <buffer> <leader>us <Plug>MavenSwitchUnittestFile
+  nmap <buffer> <leader>ura :TestSuite<CR>
+  nmap <buffer> <leader>urf :TestFile<CR>
+  nmap <buffer> <leader>urn :TestNearest<CR>
+  nmap <buffer> <leader>url :TestLast<CR>
+  nmap <buffer> <leader>urv :TestVisit<CR>
+endfunction
 
 let g:rbpt_colorpairs = [
     \ ['brown',       'RoyalBlue3'],
@@ -278,6 +312,12 @@ let g:rbpt_colorpairs = [
 let g:rbpt_max = 16
 let g:rbpt_loadcmd_toggle = 0
 
+let g:maven_auto_chdir = 1
+let g:maven_keymaps = 1
+
+let g:test#strategy="tslime"
+let g:test#preserve_screen = 1
+
 autocmd VimEnter * RainbowParenthesesToggle
 autocmd Syntax * RainbowParenthesesLoadRound
 autocmd Syntax * RainbowParenthesesLoadSquare
@@ -289,6 +329,16 @@ autocmd FileType clojure setlocal lispwords+=ns,authorize,etaggable,GET,POST,PUT
 autocmd FileType java setlocal expandtab shiftwidth=4 softtabstop=4
 autocmd FileType xml setlocal expandtab shiftwidth=4 softtabstop=4
 "autocmd FileType xml setlocal equalprg=xmllint\ --format\ --recover\ -\ 2>/dev/null
+
+" Close quicklist after selecting an entry with ctrl-enter
+autocmd FileType qf nnoremap <buffer> <C-CR> <CR>:cclose<CR>
+
+autocmd BufNewFile,BufReadPost *.* call s:SetupMavenMap()
+
+" Make Y yank everything from the cursor to the end of the line. This makes Y
+" act more like C or D because by default, Y yanks the current line (i.e. the
+" same as yy).
+noremap Y y$
 
 " ==============================================================================
 " Inspired by Janus

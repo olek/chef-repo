@@ -124,18 +124,20 @@ windows = `wmctrl -l -x | grep -v 'N/A'`.split("\n").map { |line| Window.new(lin
 windows.each do |window|
   if window.app == 'Gvim' && window.title =~ / - GVIM$/
     #window.resize 1366, '100%', false
-    window.resize 1366, '100%'
+    #window.resize 1366, '100%'
+    window.resize '50%', '100%'
     window.align :right
   end
 
   if window.app == 'Gnome-terminal' && window.title.include?(':')
     #window.resize 1366, 766 - Screen.wasted_height
-    window.resize 1366, '100%'
+    #window.resize 1366, '100%'
+    window.resize '50%', '100%'
+    window.align :left
 
     # Config for time when I would connect from my mac with NoMachine, because this term size is
     # same as my typical terminal window on Mac.
     # window.resize 1270, 1200 - Screen.wasted_height - 30
-    window.align
   end
 
   if window.app == 'Xsensors'
@@ -145,7 +147,7 @@ windows.each do |window|
 
   if window.app == 'Insomnia'
     window.resize '50%', '50%'
-    window.align
+    window.align :left
   end
 
   # avoiding 'desktop_window' subapp that is a launcher bar

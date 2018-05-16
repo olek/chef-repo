@@ -71,6 +71,42 @@ if has('macunix')
 end
 nnoremap <silent> <D-w> <Esc>:bd<CR>
 
+" Tab headings
+function GuiTabLabel()
+    let label = ''
+    let bufnrlist = tabpagebuflist(v:lnum)
+
+    " Add '+' if one of the buffers in the tab page is modified
+    for bufnr in bufnrlist
+        if getbufvar(bufnr, "&modified")
+            let label = '+'
+            break
+        endif
+    endfor
+
+    let label .= "%N"
+
+    let label .= ' '
+
+    " Append the buffer name (not full path)
+    let label .= "%t"
+
+    " Append the number of windows in the tab page if more than one
+    let wincount = tabpagewinnr(v:lnum, '$')
+    if wincount > 1
+        let label .= ' ('
+        let label .= wincount
+        let label .= ')'
+    endif
+
+    return label
+endfunction
+
+" Change guitablabel to be the same as the default tab labelling but just uses file names, not full paths.
+" Keeps the default features of putting a '+' symbol in the tab to indicate the files being modified,
+" as well as a count of the number of windows in the tab.
+set guitablabel=%!GuiTabLabel()
+
 let s:gvimrc_after_local = expand($HOME . '/.gvimrc.after')
 if filereadable(s:gvimrc_after_local)
   exec ':so ' . s:gvimrc_after_local

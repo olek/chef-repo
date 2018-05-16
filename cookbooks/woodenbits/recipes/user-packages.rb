@@ -46,7 +46,7 @@ package 'smplayer'
 #package 'gnome-sushi' # preview on SPACE
 package 'txt2tags'
 package 'htmldoc'
-package 'youtube-dl'
+# package 'youtube-dl' - always obsolete, install using curl command
 
 package 'autokey-gtk'
 

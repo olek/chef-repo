@@ -27,7 +27,8 @@ execute "enable multiverse repo" do
   filename = "#{src_dir}/#{codename}-multiverse.list"
 
   command %Q(
-    echo "deb #{canonical_host} #{codename} multiverse" >> #{filename}
+    echo "deb #{main_repo_host} #{codename} multiverse" >> #{filename}
+    echo "deb #{main_repo_host} #{codename}-updates multiverse" >> #{filename}
     chmod 644 #{filename}
   )
 
@@ -76,6 +77,19 @@ execute "enable docker repo" do
   creates filename
 end
 
+execute "enable insomnia repo" do
+  filename = "#{src_dir}/#{codename}-insomnia.list"
+
+  command %Q(
+    curl https://insomnia.rest/keys/debian-public.key.asc | apt-key add -
+    echo "deb [arch=amd64] https://dl.bintray.com/getinsomnia/Insomnia /" >> #{filename}
+    chmod 644 #{filename}
+  )
+
+  notifies :run, 'execute[update apt]', :immediately
+  creates filename
+end
+
 # it is better to pick up dropbox from multiverse repo
 #execute "enable dropbox repo" do
 #  command %Q(
@@ -90,7 +104,7 @@ end
 #   ppa:pmjdebruijn/gnome-color-manager-release
 [
   'flacon/ppa', # flacon, splitting flac and ape files
-  'jre-phoenix/ppa', # PeerGuardian, not yet for 14.10, force it to be 'trusty' in its apt file for now
+  'jre-phoenix/ppa', # PeerGuardian, last available version is for yakkety, force it to that in apt file
   # 'scopes-packagers/ppa', # calculator scope, not yet for 14.10
   'webupd8team/java', # java
   'starws-box/deadbeef-player', # deadbeef music player

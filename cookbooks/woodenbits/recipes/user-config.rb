@@ -19,6 +19,7 @@ git_configs = {
   "alias.gg" => "log --pretty=format:\"%H %an - %s\" --graph",
   "alias.lc" => "log ORIG_HEAD.. --stat --no-merges",
   "alias.ll" => "log --pretty=format:\"%Cred%h %Cblue%an %Cgreen%s / %Cblue%ar%Creset\" --abbrev-commit -n15",
+  "alias.llnc" => "log --pretty=format:\"%h %an %s / %ar\" --abbrev-commit -n15",
   "alias.st" => "status",
   "alias.s" => "status --short",
   "alias.w" => "whatchanged",

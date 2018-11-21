@@ -53,6 +53,7 @@ git_configs = {
   "difftool.diffmerge.cmd" => "diffmerge \"$LOCAL\" \"$REMOTE\"",
   "merge.tool" => "diffmerge",
   "merge.ff" => "only",
+  "merge.conflictstyle" => "diff3",
   "mergetool.diffmerge.cmd" => "diffmerge --merge --result=\"$MERGED\" \"$LOCAL\" \"$(if test -f \"$BASE\"; then echo \"$BASE\"; else echo \"$LOCAL\"; fi)\" \"$REMOTE\"",
   "mergetool.diffmerge.trustExitCode" => "true",
 }

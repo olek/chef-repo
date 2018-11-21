@@ -10,7 +10,9 @@ shopt -s histappend
 # save history after every command to avoid losing it on crashes
 # and to make it instantly accessible in other terminals
 # Not preserving original PROMPT_COMMAND to avoid somehow repeating same thing over and over
-export PROMPT_COMMAND="history -a"
+# Disabled this mode because somehow all my old history goes the way of dodo
+# export PROMPT_COMMAND="history -a"
+export PROMPT_COMMAND=""
 
 <%- unless @is_root -%>
 export PROMPT_COMMAND='echo "$(date "+%Y-%m-%d.%H:%M:%S") $(pwd) $(history 1)" >> ~/.bash_history.d/$(date "+%Y-%m-%d").log; '$PROMPT_COMMAND

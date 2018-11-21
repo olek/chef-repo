@@ -363,6 +363,24 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
 }
+
+audio_output {
+        type          "alsa"
+        name          "DAC DACmini CX resampling to 88"
+        device        "hw:DACmini"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "15000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format         "88200:24:2"
+}
+
 audio_output {
         type          "alsa"
         name          "MusicStreamer II"

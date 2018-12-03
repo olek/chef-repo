@@ -214,6 +214,94 @@ input {
 # mixer_index "0" # optional
 #}
 
+# ================================================================================
+
+audio_output {
+        type          "alsa"
+        name          "DAP Opus #3"
+        device        "hw:H20"
+        mixer_type    "none"
+        dsd_usb       "yes"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "15000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAP Opus #3 resampling to 176"
+        device        "hw:H20"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "176400:32:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAP Opus #3 resampling to 192"
+        device        "hw:H20"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "192000:32:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAP Opus #3 resampling to 352.8"
+        device        "hw:H20"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "352800:32:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAP Opus #3 resampling to 384"
+        device        "hw:H20"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "384000:32:2"
+}
+
+# ================================================================================
+
 audio_output {
         type          "alsa"
         name          "DAC iFi iDSD Micro"
@@ -229,6 +317,7 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
 }
+
 audio_output {
         type          "alsa"
         name          "DAC iFi iDSD Micro resampling to 176"
@@ -262,6 +351,7 @@ audio_output {
         auto_format   "no"
         format        "192000:24:2"
 }
+
 audio_output {
         type          "alsa"
         name          "DAC iFi iDSD Micro resampling to 352.8"
@@ -295,6 +385,7 @@ audio_output {
         auto_format   "no"
         format        "384000:24:2"
 }
+
 audio_output {
         type          "alsa"
         name          "DAC iFi iDSD Micro resampling to 705.6"
@@ -348,6 +439,8 @@ audio_output {
         auto_format   "no"
 }
 
+# ================================================================================
+
 audio_output {
         type          "alsa"
         name          "DAC DACmini CX"
@@ -383,6 +476,25 @@ audio_output {
 
 audio_output {
         type          "alsa"
+        name          "DAC DACmini CX resampling to 96"
+        device        "hw:DACmini"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "15000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format         "96000:24:2"
+}
+
+# ================================================================================
+
+audio_output {
+        type          "alsa"
         name          "MusicStreamer II"
         device        "hw:II"
         mixer_type    "none"
@@ -396,6 +508,8 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
 }
+
+# ================================================================================
 
 audio_output {
         type          "alsa"
@@ -412,6 +526,7 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
 }
+
 audio_output {
         type          "alsa"
         name          "DAC DA300USB resampling to 176"
@@ -446,46 +561,52 @@ audio_output {
         format        "192000:24:2"
 }
 
+# ================================================================================
+
 audio_output {
-  type "alsa"
-  name "ALSA Device hw:0,0"
-  device "hw:0,0"
-  mixer_type "none"
+        type "alsa"
+        name "ALSA Device hw:0,0"
+        device "hw:0,0"
+        mixer_type "none"
 }
 
 audio_output {
- type "alsa"
- name "ALSA Device hw:1:0"
- device "hw:1,0"
- mixer_type "none"
+        type "alsa"
+        name "ALSA Device hw:1:0"
+        device "hw:1,0"
+        mixer_type "none"
 }
 
 audio_output {
- type "alsa"
- name "ALSA Device hw:2:0"
- device "hw:2,0"
- mixer_type "none"
+        type "alsa"
+        name "ALSA Device hw:2:0"
+        device "hw:2,0"
+        mixer_type "none"
 }
 
 audio_output {
- type "alsa"
- name "ALSA Device hw:3:0"
- device "hw:3,0"
- mixer_type "none"
+        type "alsa"
+        name "ALSA Device hw:3:0"
+        device "hw:3,0"
+        mixer_type "none"
 }
 
 audio_output {
- type "alsa"
- name "ALSA Device hw:4:0"
- device "hw:4,0"
- mixer_type "none"
+        type "alsa"
+        name "ALSA Device hw:4:0"
+        device "hw:4,0"
+        mixer_type "none"
 }
 
+# ================================================================================
+
 audio_output {
- type "pulse"
- name "Local Pulse Output"
- server "127.0.0.1"
+        type "pulse"
+        name "Local Pulse Output"
+        server "127.0.0.1"
 }
+
+# ================================================================================
 
 #audio_buffer_size "16384" # KiB,  Default is 4096 (4 MiB).
 audio_buffer_size "120000" # KiB,  Default is 4096 (4 MiB).

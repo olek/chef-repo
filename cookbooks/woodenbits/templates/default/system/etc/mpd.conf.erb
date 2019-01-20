@@ -307,7 +307,6 @@ audio_output {
         name          "DAC iFi iDSD Micro"
         device        "hw:Audio"
         mixer_type    "none"
-        dsd_usb       "yes"
         # 2s default 500,000 microseconds = 0.5s
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
@@ -316,6 +315,10 @@ audio_output {
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
+        dop           "no"
+        dsd_usb       "no"
+        dsd_native    "yes"
+        dsd_native_type "2"
 }
 
 audio_output {
@@ -525,6 +528,25 @@ audio_output {
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC DA300USB native DSD"
+        device        "hw:DA300USB"
+        mixer_type    "none"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "50000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        dop           "no"
+        dsd_usb       "no"
+        dsd_native    "yes"
+        dsd_native_type "2"
 }
 
 audio_output {

@@ -119,7 +119,7 @@ package 'xsensors'
 #package 'cpufrequtils'
 package 'uswsusp'
 package 'ethtool'
-package 'dconf-tools'
+#package 'dconf-tools' - not available anymore in 18.10
 package 'acpi'
 package 'asterisk-core-sounds-en-wav'
 

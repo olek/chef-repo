@@ -55,8 +55,8 @@ execute "enable brave repo" do
   filename = "#{src_dir}/#{codename}-brave.list"
 
   command %Q(
-    curl https://s3-us-west-2.amazonaws.com/brave-apt/keys.asc | apt-key add -
-    echo "deb [arch=amd64] https://s3-us-west-2.amazonaws.com/brave-apt #{codename} main" >> #{filename}
+    curl -s https://brave-browser-apt-release.s3.brave.com/brave-core.asc | sudo apt-key --keyring /etc/apt/trusted.gpg.d/brave-browser-release.gpg add -
+    echo "deb [arch=amd64] https://brave-browser-apt-release.s3.brave.com/ #{codename} main" >> #{filename}
     chmod 644 #{filename}
   )
 

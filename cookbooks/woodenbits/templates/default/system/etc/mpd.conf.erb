@@ -218,10 +218,9 @@ input {
 
 audio_output {
         type          "alsa"
-        name          "DAP Opus #3"
+        name          "DAP Opus #3 (native DSD)"
         device        "hw:H20"
         mixer_type    "none"
-        dsd_usb       "yes"
         # 2s default 500,000 microseconds = 0.5s
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
@@ -230,6 +229,10 @@ audio_output {
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
+        dop           "no"
+        dsd_usb       "no"
+        dsd_native    "yes"
+        dsd_native_type "2"
 }
 
 audio_output {
@@ -266,45 +269,11 @@ audio_output {
         format        "192000:32:2"
 }
 
-audio_output {
-        type          "alsa"
-        name          "DAP Opus #3 resampling to 352.8"
-        device        "hw:H20"
-        mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
-        use_mmap      "yes"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "352800:32:2"
-}
-
-audio_output {
-        type          "alsa"
-        name          "DAP Opus #3 resampling to 384"
-        device        "hw:H20"
-        mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
-        use_mmap      "yes"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "384000:32:2"
-}
-
 # ================================================================================
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro"
+        name          "DAC iFi iDSD Micro (native DSD)"
         device        "hw:Audio"
         mixer_type    "none"
         # 2s default 500,000 microseconds = 0.5s
@@ -319,6 +288,40 @@ audio_output {
         dsd_usb       "no"
         dsd_native    "yes"
         dsd_native_type "2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC iFi iDSD Micro resampling to 44"
+        device        "hw:Audio"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "44100:24:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC iFi iDSD Micro resampling to 48"
+        device        "hw:Audio"
+        mixer_type    "none"
+        dsd_usb       "no"
+        # 2s default 500,000 microseconds = 0.5s
+        buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "48000:24:2"
 }
 
 audio_output {
@@ -357,7 +360,7 @@ audio_output {
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro resampling to 352.8"
+        name          "DAC iFi iDSD Micro resampling to 352"
         device        "hw:Audio"
         mixer_type    "none"
         dsd_usb       "no"
@@ -424,22 +427,6 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
         format        "768000:24:2"
-}
-audio_output {
-        type          "alsa"
-        name          "DAC iFi iDSD Micro with native DSD - does not work"
-        device        "hw:Audio"
-        mixer_type    "none"
-        dsd_native    "yes"
-        dsd_native_type "2"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "15000"
-        use_mmap      "yes"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
 }
 
 # ================================================================================

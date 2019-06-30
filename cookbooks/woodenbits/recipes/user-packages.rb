@@ -23,14 +23,21 @@ unless node[:hostname] == 'opoplavsky-wsl'
   package 'evtest'
 
   # multiverse repo
-  package 'dvdrip'
+  # package 'dvdrip' not available anymore in 18.10
   package 'rar'
 end
 
 
 package 'google-chrome-stable'
 package 'chromium-browser'
-package 'brave'
+
+# old version of brave browser
+package 'brave' do
+  action :remove
+end
+
+package 'brave-browser'
+package 'brave-keyring'
 
 package 'python-gpgme' # for dropbox
 package 'nautilus-dropbox'

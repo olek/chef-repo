@@ -13,17 +13,6 @@ end
 
 package 'build-essential'
 
-# ruby, rake and git should be in dev, but must be here because of damn janus
-package 'ruby'
-package 'rake'
-
-case node[:platform]
-when 'debian', 'ubuntu'
-  package 'git-core'
-else
-  package 'git'
-end
-
 # client and server
 package 'ssh'
 
@@ -35,7 +24,7 @@ package 'ssh'
 
 # ========== essential user tools
 
-package 'vim-gnome'
+package 'vim-gtk3'
 
 package 'compizconfig-settings-manager'
 package 'gnome-tweak-tool' # make it possible to remap caps lock to ctrl
@@ -69,12 +58,12 @@ package 'unity-scope-calculator'
 # ========== System tools
 
 package 'sysstat'
+package 'ifstat'
 package 'ethstatus'
 
 package 'mlocate'
 package 'telnet'
 package 'dnsutils'
-package 'curl'
 package 'gparted'
 #package 'udftools'
 package 'hfsprogs'

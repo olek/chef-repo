@@ -57,6 +57,10 @@ class Window
     wmctrl "-r #{@id} -e 1,#{x},#{y},-1,-1"
   end
 
+  def place(x, y)
+    wmctrl "-r #{@id} -e 1,#{x},#{y},-1,-1"
+  end
+
   def align(*opts)
     x = 0
     y = 0
@@ -132,8 +136,8 @@ windows.each do |window|
   if window.app == 'Gnome-terminal' && window.title.include?(':')
     #window.resize 1366, 766 - Screen.wasted_height
     #window.resize 1366, '100%'
-    window.resize '50%', '100%'
-    window.align :left
+    window.resize '52%', '110%'
+    window.place -26, 0
 
     # Config for time when I would connect from my mac with NoMachine, because this term size is
     # same as my typical terminal window on Mac.
@@ -151,15 +155,15 @@ windows.each do |window|
   end
 
   # avoiding 'desktop_window' subapp that is a launcher bar
-  if window.app == 'Nautilus' && window.subapp == 'nautilus'
-    window.resize '50%', '80%'
-    window.align :right, false
+  if window.app == 'Nautilus' # && window.subapp == 'nautilus'
+    window.resize '52%', '110%'
+    window.place -26, 0
   end
 
   if window.app == 'Deluge' && window.title == 'Deluge' or
       window.app == 'Rhythmbox'
-    window.resize 1366, 766 - Screen.wasted_height
-    window.align :bottom, :right
+    window.resize '50%', '100%'
+    window.align :left
   end
 
   if window.app == 'Firefox' && window.title =~ / - Pentadactyl/ or
@@ -171,7 +175,7 @@ windows.each do |window|
       window.app == 'Slack' && window.title =~ /^Slack - / or
       window.app == 'Evince' or
       window.app == 'Eclipse' && window.title =~ /^Java - Eclipse SDK/
-    window.resize 1366, '100%'
+    window.resize '50%', '100%'
     window.align :right
   end
 

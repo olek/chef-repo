@@ -245,16 +245,15 @@ users.each do |user|
 
     local_git_configs = git_configs
 
-      local_git_configs = git_configs.merge(
-        'user.name' => 'Olek Poplavsky',
-        'user.email' => 'olek@woodenbits.com'
-      )
+    local_git_configs = git_configs.merge(
+      'user.name' => 'Olek Poplavsky',
+      'user.email' => 'olek@woodenbits.com'
+    )
 
     local_git_configs.each do |k, v|
-      execute "set global git config #{k}" do
-        command "git config --global #{k} \'#{v}\'"
-        user user
-        not_if "git config --global #{k} | grep -q \'#{v}\'"
+      execute "git config --global #{k}" do
+        command "sudo -H -u #{user} git config --global #{k} \'#{v}\'"
+        not_if "sudo -H -u #{user} git config --global #{k} | grep -q \'#{v}\'"
       end
     end
 

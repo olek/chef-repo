@@ -29,6 +29,7 @@ end
 
 
 package 'google-chrome-stable'
+package 'google-talkplugin'
 package 'chromium-browser'
 
 # old version of brave browser
@@ -39,7 +40,7 @@ end
 package 'brave-browser'
 package 'brave-keyring'
 
-package 'python-gpgme' # for dropbox
+#package 'python-gpgme' # for dropbox
 package 'nautilus-dropbox'
 
 package 'vlc'
@@ -55,7 +56,7 @@ package 'txt2tags'
 package 'htmldoc'
 # package 'youtube-dl' - always obsolete, install using curl command
 
-package 'autokey-gtk'
+#package 'autokey-gtk'
 
 # ========== emulators / virtualization
 

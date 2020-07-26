@@ -28,15 +28,9 @@ This file contains notes on manual configuration changes that chef does not do
 - make ubuntu look for updates every two weeks, not daily
   in 'software updater', settings button, updates tab, change dropdown, save
 
-- make alt-tab switch only applications and disable delayed window shifting
-  run Compiz config settings manager
-  search for unity
-  select unity plugin
-  in general tab, check 'enable low graphics mode' (bottom) for spartan aesthetics
-  select switcher tab
-  uncheck 'timed automatic to show live preview in the switcher'
+- run settings app, go to devices, keyboad shortcuts, and swap around shortcuts for application and window switching
 
-- switch Win/Cmd and Alt keys to stay consistent with mac keyboard
+- switch Win/Cmd and Alt keys on external keyboard to stay consistent with mac layout
   run Gnome Tweak Tool
   select Typing section
   select Alt/Win behavior row
@@ -58,26 +52,16 @@ This file contains notes on manual configuration changes that chef does not do
 - customize file /etc/uswsusp.conf to not do compression and to set image size to 1
   either setting is more than questionable now, just let it be
 
-- modify /etc/fstab
+- modify /etc/fstab (or maybe just leave it alone?)
   - prepend those options to ext4 mounts: noatime
   - prepend those options to ext4 mounts if SSD: discard
   - add following line to put tmp files in memory
       tmpfs /tmp tmpfs defaults,noatime,mode=1777 0 0
 
-- edit /etc/default/grub, remove 'quiet splash' from options, that makes for more informative boot/shutdown
-
-- turn off online search results in HUD (amazon etc)
-    Settings -> Security & Privacy -> Search -> Include online search results
+- edit /etc/default/grub, remove 'quiet splash' from options, that makes for more informative boot/shutdown (run update-grub afterwards)
 
 - configure truecrypt
   - get vaults
   - mount them using tc-mount command
   - start trucrypt UI and add all mounted as favorites
   - in 'Startup Applications" add ~/bin/truecrypt-init.sh
-
-- install google voice plugins as outlined in
-  http://www.techdrivein.com/2012/06/25-things-i-did-after-installing-ubuntu.html
-  Note: this can be automated somehow, but not to a great extent.
-
-  - start autokey application and map custom scripts in Shortcuts folder (per user).
-  Also go to Preferences and enable autokey to start an login

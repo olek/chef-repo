@@ -10,15 +10,19 @@ package 'global'
 
 package 'sqlite3'
 package 'libsqlite3-dev'
-package 'sqliteman'
+#package 'sqliteman'
 
 package 'docker-ce'
+
+package 'ruby'
+package 'rake'
+package 'git'
 
 # ========== dev tools
 
 #package 'libshadow-ruby1.8' # for chef user password support (ruby-shadow)
 
-package 'wrk'
+# package 'wrk'
 
 #package 'virtualbox'
 #package 'vagrant'

@@ -126,6 +126,8 @@ end
 windows = `wmctrl -l -x | grep -v 'N/A'`.split("\n").map { |line| Window.new(line) }
 
 windows.each do |window|
+  # puts "w.app = #{window.app}, w.title = #{window.title}"
+
   if window.app == 'Gvim' && window.title =~ / - GVIM$/
     #window.resize 1366, '100%', false
     #window.resize 1366, '100%'
@@ -169,8 +171,9 @@ windows.each do |window|
   if window.app == 'Firefox' && window.title =~ / - Pentadactyl/ or
       window.app == 'Firefox' && window.title =~ / - Vimperator/ or
       window.app == 'Firefox' && window.title =~ / - Mozilla Firefox/ or
+      window.app == 'Firefox' && window.title =~ / — Mozilla Firefox/ or
       window.app == 'Google-chrome' && window.title =~ / - Google Chrome$/ or
-      window.app == 'Chromium-browser' && window.title =~ / - Chromium$/ or
+      window.app == 'Chromium' && window.title =~ / - Chromium$/ or
       window.app == 'brave' or
       window.app == 'Slack' && window.title =~ /^Slack - / or
       window.app == 'Evince' or

@@ -45,3 +45,6 @@ package 'openjdk-8-jdk'
 #package 'openjdk-8-source'
 
 package 'insomnia'
+
+package 'lilypond' # generating sheet music
+package 'entr' # convenient repeated running of lilypond

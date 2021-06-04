@@ -218,55 +218,142 @@ input {
 
 audio_output {
         type          "alsa"
-        name          "Bel Canto REFLink (native DSD)"
-        device        "hw:B20"
+        name          "Wyred4Sound µLINK (no resampling, DoP enabled)"
+        device        "hw:Interf"
         mixer_type    "none"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "15000"
+        # period_time   "15000"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
-        dop           "no"
-        dsd_usb       "no"
-        dsd_native    "yes"
-        dsd_native_type "2"
+        dop           "yes"
+        dsd_usb       "yes" # DSD over PCM (DoP), legacy name for 'dop' setting
+        dsd_native    "no"
 }
 
 audio_output {
         type          "alsa"
-        name          "Bel Canto REFLink resampling to 44"
-        device        "hw:B20"
+        name          "Wyred4Sound µLINK (resampling to 44)"
+        device        "hw:Interf"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "44100:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "Bel Canto REFLink resampling to 48"
-        device        "hw:B20"
+        name          "Wyred4Sound µLINK (resampling to 48)"
+        device        "hw:Interf"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "48000:24:2"
+        samplerate_converter "Best Sinc Interpolator"
+}
+
+# ================================================================================
+
+audio_output {
+        type          "alsa"
+        name          "Bel Canto REFLink (no resampling, DoP enabled)"
+        device        "hw:B20"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "15000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        dop           "yes"
+        dsd_usb       "yes" # DSD over PCM (DoP), legacy name for 'dop' setting
+        dsd_native    "no"
+}
+
+audio_output {
+        type          "alsa"
+        name          "Bel Canto REFLink (resampling to 44)"
+        device        "hw:B20"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "44100:24:2"
+        samplerate_converter "Best Sinc Interpolator"
+}
+
+audio_output {
+        type          "alsa"
+        name          "Bel Canto REFLink (resampling to 48)"
+        device        "hw:B20"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "48000:24:2"
+        samplerate_converter "Best Sinc Interpolator"
+}
+
+audio_output {
+        type          "alsa"
+        name          "Bel Canto REFLink (resampling to 176)"
+        device        "hw:B20"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "176400:24:2"
+        samplerate_converter "Best Sinc Interpolator"
+}
+
+audio_output {
+        type          "alsa"
+        name          "Bel Canto REFLink (resampling to 192)"
+        device        "hw:B20"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "1500"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "192000:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 # ================================================================================
@@ -276,184 +363,201 @@ audio_output {
         name          "DAP Opus #3 (native DSD)"
         device        "hw:H20"
         mixer_type    "none"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "15000"
+        # period_time   "15000"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         dop           "no"
-        dsd_usb       "no"
+        dsd_usb       "no" # DSD over PCM (DoP), legacy name for 'dop' setting
         dsd_native    "yes"
         dsd_native_type "2"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAP Opus #3 resampling to 176"
+        name          "DAP Opus #3 (resampling to 176)"
         device        "hw:H20"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "176400:32:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAP Opus #3 resampling to 192"
+        name          "DAP Opus #3 (resampling to 192)"
         device        "hw:H20"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "192000:32:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 # ================================================================================
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro (native DSD)"
+        name          "DAC iFi iDSD Micro (no resampling, DoP enabled)"
         device        "hw:Audio"
         mixer_type    "none"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "15000"
+        # period_time   "15000"
+        use_mmap      "yes"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        dop           "yes"
+        dsd_usb       "yes" # DSD over PCM (DoP), legacy name for 'dop' setting
+        dsd_native    "no"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC iFi iDSD Micro (no resampling, native DSD)"
+        device        "hw:Audio"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "15000"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         dop           "no"
-        dsd_usb       "no"
+        dsd_usb       "no" # DSD over PCM (DoP), legacy name for 'dop' setting
         dsd_native    "yes"
         dsd_native_type "2"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro resampling to 44"
+        name          "DAC iFi iDSD Micro (resampling to 44)"
         device        "hw:Audio"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "44100:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro resampling to 48"
+        name          "DAC iFi iDSD Micro (resampling to 48)"
         device        "hw:Audio"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "48000:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro resampling to 176"
+        name          "DAC iFi iDSD Micro (resampling to 176)"
         device        "hw:Audio"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "176400:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro resampling to 192"
+        name          "DAC iFi iDSD Micro (resampling to 192)"
         device        "hw:Audio"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "192000:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro resampling to 352"
+        name          "DAC iFi iDSD Micro (resampling to 352)"
         device        "hw:Audio"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "352800:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro resampling to 384"
+        name          "DAC iFi iDSD Micro (resampling to 384)"
         device        "hw:Audio"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "384000:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro resampling to 705.6"
+        name          "DAC iFi iDSD Micro (resampling to 705.6)"
         device        "hw:Audio"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
+        # 2s, increase from default 500,000 microseconds = 0.5s
         #buffer_time   "2097152"
         buffer_time   "185760"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
@@ -464,15 +568,15 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
         format        "705600:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro resampling to 768"
+        name          "DAC iFi iDSD Micro (resampling to 768)"
         device        "hw:Audio"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
+        # 2s, increase from default 500,000 microseconds = 0.5s
         #buffer_time   "2097152"
         buffer_time   "185760"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
@@ -482,6 +586,7 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
         format        "768000:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 # ================================================================================
@@ -491,8 +596,7 @@ audio_output {
         name          "DAC DACmini CX"
         device        "hw:DACmini"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
+        # 2s, increase from default 500,000 microseconds = 0.5s
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "15000"
@@ -504,11 +608,10 @@ audio_output {
 
 audio_output {
         type          "alsa"
-        name          "DAC DACmini CX resampling to 88"
+        name          "DAC DACmini CX (resampling to 88)"
         device        "hw:DACmini"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
+        # 2s, increase from default 500,000 microseconds = 0.5s
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "15000"
@@ -517,15 +620,15 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
         format         "88200:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC DACmini CX resampling to 96"
+        name          "DAC DACmini CX (resampling to 96)"
         device        "hw:DACmini"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
+        # 2s, increase from default 500,000 microseconds = 0.5s
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "15000"
@@ -534,6 +637,7 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
         format         "96000:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 # ================================================================================
@@ -543,8 +647,7 @@ audio_output {
         name          "MusicStreamer II"
         device        "hw:II"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
+        # 2s, increase from default 500,000 microseconds = 0.5s
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "50000"
@@ -558,11 +661,10 @@ audio_output {
 
 audio_output {
         type          "alsa"
-        name          "DAC DA300USB"
+        name          "DAC DA300USB (no resampling, DoP enabled)"
         device        "hw:DA300USB"
         mixer_type    "none"
-        dsd_usb       "yes"
-        # 2s default 500,000 microseconds = 0.5s
+        # 2s, increase from default 500,000 microseconds = 0.5s
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "50000"
@@ -570,14 +672,17 @@ audio_output {
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
+        dop           "yes"
+        dsd_usb       "yes" # DSD over PCM (DoP), legacy name for 'dop' setting
+        dsd_native    "no"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC DA300USB native DSD"
+        name          "DAC DA300USB (no resampling, native DSD)"
         device        "hw:DA300USB"
         mixer_type    "none"
-        # 2s default 500,000 microseconds = 0.5s
+        # 2s, increase from default 500,000 microseconds = 0.5s
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "50000"
@@ -586,18 +691,17 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
         dop           "no"
-        dsd_usb       "no"
+        dsd_usb       "no" # DSD over PCM (DoP), legacy name for 'dop' setting
         dsd_native    "yes"
         dsd_native_type "2"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC DA300USB resampling to 176"
+        name          "DAC DA300USB (resampling to 176)"
         device        "hw:DA300USB"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
+        # 2s, increase from default 500,000 microseconds = 0.5s
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "1500"
@@ -606,15 +710,15 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
         format         "176400:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
         type          "alsa"
-        name          "DAC DA300USB resampling to 192"
+        name          "DAC DA300USB (resampling to 192)"
         device        "hw:DA300USB"
         mixer_type    "none"
-        dsd_usb       "no"
-        # 2s default 500,000 microseconds = 0.5s
+        # 2s, increase from default 500,000 microseconds = 0.5s
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "1500"
@@ -623,6 +727,7 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
         format        "192000:24:2"
+        samplerate_converter "Best Sinc Interpolator"
 }
 
 # ================================================================================

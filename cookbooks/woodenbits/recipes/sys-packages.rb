@@ -85,7 +85,7 @@ package 'smbclient' # otherwise automount cifs does not work
 
 package 'logrotate'
 package 'checkinstall'
-package 'python-pip'
+package 'python3-pip'
 
 #execute 'restart pgld' do
 #  command 'pglcmd restart'
@@ -106,7 +106,7 @@ package 'dstat'
 package 'lm-sensors'
 package 'xsensors'
 #package 'cpufrequtils'
-package 'uswsusp'
+# package 'uswsusp' - removed in 20.10
 package 'ethtool'
 #package 'dconf-tools' - not available anymore in 18.10
 package 'acpi'
@@ -115,5 +115,5 @@ package 'asterisk-core-sounds-en-wav'
 # ========== color management
 
 package 'argyll'
-package 'dispcalgui'
+#package 'dispcalgui'
 package 'gnome-color-manager'

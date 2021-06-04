@@ -73,7 +73,7 @@ execute "enable brave repo" do
 
   command %Q(
     curl -s https://brave-browser-apt-release.s3.brave.com/brave-core.asc | sudo apt-key --keyring /etc/apt/trusted.gpg.d/brave-browser-release.gpg add -
-    echo "deb [arch=amd64] https://brave-browser-apt-release.s3.brave.com/ #{codename} main" >> #{filename}
+    echo "deb [arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" >> #{filename}
     chmod 644 #{filename}
   )
 
@@ -94,12 +94,16 @@ execute "enable docker repo" do
   creates filename
 end
 
-execute "enable insomnia repo" do
-  filename = "#{src_dir}/#{codename}-insomnia.list"
+# old config with obsolote location of insomnia
+file "#{src_dir}/#{codename}-insomnia.list" do
+  action :delete
+end
+
+execute "enable insomnia-2 repo" do
+  filename = "#{src_dir}/#{codename}-insomnia-2.list"
 
   command %Q(
-    curl https://insomnia.rest/keys/debian-public.key.asc | apt-key add -
-    echo "deb [arch=amd64] https://dl.bintray.com/getinsomnia/Insomnia /" >> #{filename}
+    echo "deb [trusted=yes arch=amd64] https://download.konghq.com/insomnia-ubuntu/ default all" >> #{filename}
     chmod 644 #{filename}
   )
 
@@ -140,7 +144,7 @@ end
   'starws-box/deadbeef-player', # deadbeef music player
 #  'pmjdebruijn/gnome-color-manager-release', # new argyll, not yet for 14.10
 #  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
-  'dhor/myway', # Photography tools
+  'dhor/myway', # Photography aools
   #'pmjdebruijn/darktable-release', # Fresh darktable - not available yet for 19.10 eoan
 ].each do |ppa_name|
   file_name = ppa_name.sub('/', '-ubuntu-')

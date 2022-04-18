@@ -129,6 +129,7 @@ set showmatch
 set laststatus=2
 set cmdheight=2
 set switchbuf=usetab
+set belloff=all
 
 " allow backspacing over everything in insert mode
 set backspace=indent,eol,start
@@ -341,6 +342,19 @@ autocmd BufNewFile,BufReadPost *.* call s:SetupMavenMap()
 " act more like C or D because by default, Y yanks the current line (i.e. the
 " same as yy).
 noremap Y y$
+
+function! ToggleCommentTextwidth()
+  if !exists('b:comment_mode')
+	let b:comment_mode = &textwidth
+	setlocal textwidth=80
+  else
+	let &l:textwidth =  b:comment_mode
+	unlet b:comment_mode
+  endif
+endfun
+
+" Toggle between default textwidth and 80 textwidth (for comments etc)
+nmap <leader>tc :call ToggleCommentTextwidth()<CR>
 
 " ==============================================================================
 " Inspired by Janus

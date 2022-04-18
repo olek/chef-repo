@@ -225,13 +225,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "15000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         dop           "yes"
-        dsd_usb       "yes" # DSD over PCM (DoP), legacy name for 'dop' setting
-        dsd_native    "no"
 }
 
 audio_output {
@@ -243,12 +240,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "44100:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -260,12 +255,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "48000:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 # ================================================================================
@@ -279,13 +272,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "15000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         dop           "yes"
-        dsd_usb       "yes" # DSD over PCM (DoP), legacy name for 'dop' setting
-        dsd_native    "no"
 }
 
 audio_output {
@@ -297,12 +287,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "44100:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -314,12 +302,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "48000:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -331,12 +317,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "176400:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -348,12 +332,55 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "192000:24:2"
-        samplerate_converter "Best Sinc Interpolator"
+}
+
+# ================================================================================
+
+audio_output {
+        type          "alsa"
+        name          "Lavaudio DS600 (native DSD)"
+        device        "hw:AUDIO"
+        mixer_type    "none"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        dop           "no"
+}
+
+audio_output {
+        type          "alsa"
+        name          "Lavaudio DS600 (resampling to 176)"
+        device        "hw:AUDIO"
+        mixer_type    "none"
+        # 5s, increase from default 500,000 microseconds = 0.5s
+        buffer_time   "5000000"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # using high value like 1s (1000000) reduces CPU usage drastically
+        period_time   "1000000"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "176400:32:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "Lavaudio DS600 (resampling to 192)"
+        device        "hw:AUDIO"
+        mixer_type    "none"
+        # 5s, increase from default 500,000 microseconds = 0.5s
+        buffer_time   "5000000"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # using high value like 1s (1000000) reduces CPU usage drastically
+        period_time   "1000000"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "192000:32:2"
 }
 
 # ================================================================================
@@ -367,14 +394,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "15000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         dop           "no"
-        dsd_usb       "no" # DSD over PCM (DoP), legacy name for 'dop' setting
-        dsd_native    "yes"
-        dsd_native_type "2"
 }
 
 audio_output {
@@ -386,12 +409,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "176400:32:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -403,12 +424,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "192000:32:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 # ================================================================================
@@ -422,13 +441,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "15000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         dop           "yes"
-        dsd_usb       "yes" # DSD over PCM (DoP), legacy name for 'dop' setting
-        dsd_native    "no"
 }
 
 audio_output {
@@ -440,14 +456,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "15000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         dop           "no"
-        dsd_usb       "no" # DSD over PCM (DoP), legacy name for 'dop' setting
-        dsd_native    "yes"
-        dsd_native_type "2"
 }
 
 audio_output {
@@ -459,12 +471,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "44100:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -476,12 +486,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "48000:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -493,12 +501,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "176400:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -510,12 +516,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "192000:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -527,12 +531,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "352800:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -544,12 +546,10 @@ audio_output {
         # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         # period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "384000:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -563,12 +563,10 @@ audio_output {
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         #period_time   "92880"
         period_time   "24000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "705600:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -581,12 +579,10 @@ audio_output {
         buffer_time   "185760"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "24000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "768000:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 # ================================================================================
@@ -600,7 +596,6 @@ audio_output {
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "15000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -615,12 +610,10 @@ audio_output {
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "15000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format         "88200:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -632,12 +625,10 @@ audio_output {
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "15000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format         "96000:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 # ================================================================================
@@ -651,7 +642,6 @@ audio_output {
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "50000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -668,13 +658,10 @@ audio_output {
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "50000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         dop           "yes"
-        dsd_usb       "yes" # DSD over PCM (DoP), legacy name for 'dop' setting
-        dsd_native    "no"
 }
 
 audio_output {
@@ -686,14 +673,10 @@ audio_output {
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "50000"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         dop           "no"
-        dsd_usb       "no" # DSD over PCM (DoP), legacy name for 'dop' setting
-        dsd_native    "yes"
-        dsd_native_type "2"
 }
 
 audio_output {
@@ -705,12 +688,10 @@ audio_output {
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format         "176400:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 audio_output {
@@ -722,12 +703,10 @@ audio_output {
         buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
         period_time   "1500"
-        use_mmap      "yes"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
         format        "192000:24:2"
-        samplerate_converter "Best Sinc Interpolator"
 }
 
 # ================================================================================
@@ -773,6 +752,39 @@ audio_output {
         type "pulse"
         name "Local Pulse Output"
         server "127.0.0.1"
+}
+
+resampler {
+        # libsamplerate has less bass, not as smooth highs, but higher 'presense' factor
+        # cranked to the max it uses less CPU than soxr; overall winner
+        plugin "libsamplerate"
+        type "Best Sinc Interpolator"
+
+        # soxr has more bass, smoother highs, but lower 'presense' factor
+        # cranked to the max it uses more CPU than libsamplerate
+        # plugin "soxr"
+        # quality "very high"
+        # threads "0"
+}
+
+#samplerate_converter "internal"
+
+#samplerate_converter "Linear Interpolator"
+#samplerate_converter "ZOH Interpolator"
+#samplerate_converter "Fastest Sinc Interpolator"
+#samplerate_converter "Medium Sinc Interpolator"
+#samplerate_converter "Best Sinc Interpolator"
+
+#samplerate_converter "soxr quick"
+#samplerate_converter "soxr low"
+#samplerate_converter "soxr medium"
+#samplerate_converter "soxr high"
+#samplerate_converter "soxr very high"
+
+# disable playing of cue files
+playlist_plugin {
+    name "cue"
+    enabled "false"
 }
 
 # ================================================================================
@@ -897,21 +909,6 @@ buffer_before_play "10%"   # % of audio_buffer_size
 # setting is disabled.
 #
 #samplerate_converter "Fastest Sinc Interpolator"
-
-
-#samplerate_converter "internal"
-
-#samplerate_converter "Linear Interpolator"
-#samplerate_converter "ZOH Interpolator"
-#samplerate_converter "Fastest Sinc Interpolator"
-#samplerate_converter "Medium Sinc Interpolator"
-#samplerate_converter "Best Sinc Interpolator"
-
-#samplerate_converter "soxr quick"
-#samplerate_converter "soxr low"
-#samplerate_converter "soxr medium"
-#samplerate_converter "soxr high"
-samplerate_converter "soxr very high"
 
 
 #

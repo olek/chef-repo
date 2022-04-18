@@ -8,15 +8,16 @@ include_recipe 'woodenbits::rbenv'
 package 'exuberant-ctags'
 package 'global'
 
-package 'sqlite3'
-package 'libsqlite3-dev'
+#package 'sqlite3'
+#package 'libsqlite3-dev'
 #package 'sqliteman'
-
-package 'docker-ce'
 
 package 'ruby'
 package 'rake'
 package 'git'
+
+package 'ack'
+package 'pv'
 
 # ========== dev tools
 
@@ -31,9 +32,6 @@ package 'git'
 #package 'libpq-dev'
 #package 'pgadmin3'
 
-package 'nodejs'
-package 'jq' # json pretty print
-
 #execute "pre-agree to oracle java8 license" do
 #  command "echo 'oracle-java8-installer shared/accepted-oracle-license-v1-1 select true' | debconf-set-selections"
 #  not_if { File.exists?("/usr/lib/jvm/java-8-oracle/jre/bin/java") }
@@ -43,8 +41,3 @@ package 'jq' # json pretty print
 
 package 'openjdk-8-jdk'
 #package 'openjdk-8-source'
-
-package 'insomnia'
-
-package 'lilypond' # generating sheet music
-package 'entr' # convenient repeated running of lilypond

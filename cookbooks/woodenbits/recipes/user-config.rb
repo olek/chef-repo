@@ -19,7 +19,9 @@ git_configs = {
   "alias.gg" => "log --pretty=format:\"%H %an - %s\" --graph",
   "alias.lc" => "log ORIG_HEAD.. --stat --no-merges",
   "alias.ll" => "log --pretty=format:\"%Cred%h %Cblue%an %Cgreen%s / %Cblue%ar%Creset\" --abbrev-commit -n15",
-  "alias.llnc" => "log --pretty=format:\"%h %an %s / %ar\" --abbrev-commit -n15",
+  "alias.lli" => "log --pretty=format:\"%Cred%h %Cblue%an %Cgreen%s / %Cblue%ad%Creset\" --date=iso-local --abbrev-commit -n15",
+  "alias.llb" => "log --pretty=format:\"%Cred%h %Cblue%an %Cgreen%s%Cred%d / %Cblue%ad%Creset\" --date=iso-local --abbrev-commit -n15",
+  "alias.llnc" => "log --pretty=format:\"%h %an %s / %ad\" --date=iso-local --abbrev-commit -n15",
   "alias.st" => "status",
   "alias.s" => "status --short",
   "alias.w" => "whatchanged",
@@ -28,6 +30,10 @@ git_configs = {
   "alias.unstash" => "!git stash show -p | git apply -R",
   "alias.edit-unmerged" => "!f() { git ls-files --unmerged | cut -f2 | sort -u ; }; tvim `f`",
   "alias.add-unmerged" => "!f() { git ls-files --unmerged | cut -f2 | sort -u ; }; git add `f`",
+  "alias.delete-tag" => "!gitDeleteTag() { git tag -d \"$1\" && git push origin \":refs/tags/$1\"; }; gitDeleteTag",
+  "alias.prune-tags" => "!git fetch --prune origin \"+refs/tags/*:refs/tags/*\"",
+  "alias.prune-branch" => "!gitPruneBranch() { git fetch --prune && for branch in $(git branch -vv | grep \": gone]\" | awk \"{print \\\$1}\"); do git branch -D $branch; done }; gitPruneBranch",
+  "alias.prune-all" => "!git prune-branch && git prune-tags",
 #  "alias.down" => "!sh -c \"CURRENT=$(git symbolic-ref HEAD | sed -e s@.*/@@) && (git pull --ff-only || (git fetch origin && git rebase --preserve-merges origin/$CURRENT))\"",
 #  "alias.publish" => "!f() { if [ $# -ne 1 ]; then echo \"usage: git publish <local-branch-name>\" >&2; exit 1; fi; git push --set-upstream origin $1:$1; }; f",
 #  "alias.unpublish" => "!f() { if [ $# -ne 1 ]; then echo \"usage: git unpublish <remote-branch-name>\" >&2; exit 1; fi; git push origin :$1; }; f",
@@ -48,6 +54,7 @@ git_configs = {
   "grep.lineNumber " => "true",
   "pull.rebase" => "true",
   "push.default" => "current",
+  "fetch.pruneTags" => "true",
 
   "diff.tool" => "diffmerge",
   "difftool.diffmerge.cmd" => "diffmerge \"$LOCAL\" \"$REMOTE\"",
@@ -200,13 +207,6 @@ users.each do |user|
     only_if { ::File.exist?("#{home_dir}/.config/autokey/data/Shortcuts") }
   end
 
-  template "#{home_dir}/bin/timed" do
-    source 'timed.erb'
-    mode '0500'
-    owner user
-    group user_group
-  end
-
   template "#{home_dir}/.mplayer/config" do
     source 'mplayer-config.erb'
     mode '0640'
@@ -253,7 +253,7 @@ users.each do |user|
     local_git_configs.each do |k, v|
       execute "git config --global #{k}" do
         command "sudo -H -u #{user} git config --global #{k} \'#{v}\'"
-        not_if "sudo -H -u #{user} git config --global #{k} | grep -q \'#{v}\'"
+        not_if "sudo -H -u #{user} git config --global #{k} | grep -qF \'#{v}\'"
       end
     end
 
@@ -272,7 +272,8 @@ users.each do |user|
       action :create_if_missing
     end
 
-    %w(general monologue ormivore).each do |name|
+    #%w(general monologue ormivore).each do |name|
+    %w(general).each do |name|
       template "#{home_dir}/.tmuxstart/#{name}" do
         source "tmuxstart/#{name}.erb"
         mode '0600'
@@ -286,6 +287,15 @@ users.each do |user|
       mode '0500'
       owner user
       group user_group
+    end
+
+    %w(perf-watch-cmd cpu-epp-show cpu-epp-set cpu-max-freq-set turtlespeed lightspeed).each do |script|
+      template "#{home_dir}/bin/#{script}" do
+        source "bin/#{script}.erb"
+        mode '0700'
+        owner user
+        group user_group
+      end
     end
 
     %w(gemrc irbrc asoundrc).each do |name|
@@ -309,6 +319,13 @@ users.each do |user|
       source "rapid-downloader-conf.xml"
       mode 0600
       action :create_if_missing
+    end
+
+    template "#{home_dir}/bin/timed" do
+      source 'timed.erb'
+      mode '0500'
+      owner user
+      group user_group
     end
 
     ## install ntfy package - not desirable anymore since its shell integration is broken for me

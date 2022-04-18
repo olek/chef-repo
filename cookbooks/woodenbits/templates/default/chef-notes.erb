@@ -28,13 +28,16 @@ This file contains notes on manual configuration changes that chef does not do
 - make ubuntu look for updates every two weeks, not daily
   in 'software updater', settings button, updates tab, change dropdown, save
 
-- run settings app, go to devices, keyboad shortcuts, and swap around shortcuts for application and window switching
+- switch Win/Cmd and Alt keys on external keyboard to stay consistent with mac layout (no longer required)
 
-- switch Win/Cmd and Alt keys on external keyboard to stay consistent with mac layout
   run Gnome Tweak Tool
   select Typing section
   select Alt/Win behavior row
   select 'alt is swapped with Win' option
+
+- run settings app, go to devices, keyboad shortcuts, and swap around shortcuts for application and window switching (obsolete)
+- configure app/window switching
+  open Settings app, Keyboard Shortcuts, configure "Switch applications" to Alt-Tab and "Switch windows to "Super-Tab"
 
 - configure pulseaudio to work with higher bitrates (leaving sample rates default is safer)
   edit /etc/pulse/daemon.conf, or even better vi ~/.config/pulse/daemon.conf and vi ~/.config/pulse/client.conf

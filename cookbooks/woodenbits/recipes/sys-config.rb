@@ -5,19 +5,14 @@
 
 hostname = node[:hostname]
 
-directory '/etc/pgl' do
-  mode '0755'
-  action :create
-end
-
 directory '/vaults' do
   mode '0755'
   action :create
 end
 
 execute "turn off chef-client verbose logging" do
-  command "echo 'verbose_logging false' >> /etc/chef/client.rb"
-  not_if "grep 'verbose_logging false' /etc/chef/client.rb"
+  command "echo 'verbose_logging false' >> /etc/cinc/client.rb"
+  not_if "grep 'verbose_logging false' /etc/cinc/client.rb"
 end
 
 #template "/etc/pm/power.d/000_trifty" do
@@ -72,7 +67,13 @@ template "/usr/local/bin/tmuxstart" do
   group 'root'
 end
 
-unless hostname == 'opoplavsky-wsl'
+
+unless node[:hostname].start_with?('opoplavsky-')
+  directory '/etc/pgl' do
+    mode '0755'
+    action :create
+  end
+
   %w(pglcmd.conf blocklists.list allow.p2p).each do |fname|
     template "/etc/pgl/#{fname}" do
       source "system/etc/pgl-#{fname}.erb"
@@ -93,17 +94,32 @@ unless hostname == 'opoplavsky-wsl'
     source "system/etc/sysctl.d.conf.erb"
     mode 0644
   end
-end
 
-directory '/etc/auto.master.d' do
-  mode '0755'
-  action :create
-end
+  directory '/etc/auto.master.d' do
+    mode '0755'
+    action :create
+  end
 
-#template "/etc/auto.cifs" do
-#  source "system/etc/auto.cifs.erb"
-#  mode 0755
-#end
+  #template "/etc/auto.cifs" do
+  #  source "system/etc/auto.cifs.erb"
+  #  mode 0755
+  #end
+
+  #template "/etc/auto.master.d/cifs.autofs" do
+  #  source "system/etc/cifs.autofs.erb"
+  #  mode 0644
+  #end
+
+  #template "/etc/auto.master.d/smb.autofs" do
+  #  source "system/etc/smb.autofs.erb"
+  #  mode 0644
+  #end
+
+  template "/etc/auto.master.d/net.autofs" do
+    source "system/etc/net.autofs.erb"
+    mode 0644
+  end
+end
 
 template "/etc/mpd.conf" do
   source "system/etc/mpd.conf.erb"
@@ -112,30 +128,25 @@ template "/etc/mpd.conf" do
   only_if { ::File.exist?("/usr/bin/mpd") }
 end
 
-#template "/etc/auto.master.d/cifs.autofs" do
-#  source "system/etc/cifs.autofs.erb"
-#  mode 0644
-#end
-
-#template "/etc/auto.master.d/smb.autofs" do
-#  source "system/etc/smb.autofs.erb"
-#  mode 0644
-#end
-
-template "/etc/auto.master.d/net.autofs" do
-  source "system/etc/net.autofs.erb"
-  mode 0644
-end
-
 %w(vims vimt).each do |script|
   template "/usr/local/bin/#{script}" do
-    source "system/usr/local/#{script}.erb"
+    source "system/usr/#{script}.erb"
     mode '0755'
   end
 end
 
+template "/usr/share/polkit-1/actions/cpu.epp.set.policy" do
+  source 'system/usr/polkit-cpu.epp.set.policy.erb'
+  variables(
+    :username => node[:hostname].start_with?('opoplavsky-') ? 'opoplavsky' : 'olek'
+  )
+  mode '0640'
+end
+
 =begin
+#package 'thermald'
 #package 'tlp'
+
 package 'laptop-mode-tools'
 %w(
 ac97-powersave auto-hibernate battery-level-polling bluetooth configuration-file-control

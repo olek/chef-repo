@@ -14,18 +14,6 @@ src_dir = "/etc/apt/sources.list.d"
 
 package 'curl' # dependency, some repos can not be configured without curl
 
-execute "enable partners repo" do
-  filename = "#{src_dir}/#{codename}-partner.list"
-
-  command %Q(
-    echo "deb #{canonical_host} #{codename} partner" >> #{filename}
-    chmod 644 #{filename}
-  )
-
-  notifies :run, 'execute[update apt]', :immediately
-  creates filename
-end
-
 execute "enable multiverse repo" do
   filename = "#{src_dir}/#{codename}-multiverse.list"
 
@@ -39,47 +27,32 @@ execute "enable multiverse repo" do
   creates filename
 end
 
-# Google repo seems to be available in default install since 17.04 ? Maybe not.
-execute "enable chrome repo" do
-  filename = "#{src_dir}/google-chrome.list"
+#execute "enable google talk repo" do
+#  filename = "#{src_dir}/google-talk.list"
 
-  command %Q(
-    wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
-    echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> #{filename}
-    chmod 644 #{filename}
-  )
+#  command %Q(
+#    wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
+#    echo "deb http://dl.google.com/linux/talkplugin/deb/ stable main" >> #{filename}
+#    chmod 644 #{filename}
+#  )
 
-  notifies :run, 'execute[update apt]', :immediately
-  creates filename
-#  not_if { ::File.exist?("#{src_dir}/google_chrome_stable.list") }
-end
+#  notifies :run, 'execute[update apt]', :immediately
+#  creates filename
+#  not_if { ::File.exist?("#{src_dir}/google_talk_stable.list") }
+#end
 
-execute "enable google talk repo" do
-  filename = "#{src_dir}/google-talk.list"
+#execute "enable brave repo" do
+#  filename = "#{src_dir}/#{codename}-brave.list"
 
-  command %Q(
-    wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
-    echo "deb http://dl.google.com/linux/talkplugin/deb/ stable main" >> #{filename}
-    chmod 644 #{filename}
-  )
+#  command %Q(
+#    curl -s https://brave-browser-apt-release.s3.brave.com/brave-core.asc | sudo apt-key --keyring /etc/apt/trusted.gpg.d/brave-browser-release.gpg add -
+#    echo "deb [arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" >> #{filename}
+#    chmod 644 #{filename}
+#  )
 
-  notifies :run, 'execute[update apt]', :immediately
-  creates filename
-  not_if { ::File.exist?("#{src_dir}/google_talk_stable.list") }
-end
-
-execute "enable brave repo" do
-  filename = "#{src_dir}/#{codename}-brave.list"
-
-  command %Q(
-    curl -s https://brave-browser-apt-release.s3.brave.com/brave-core.asc | sudo apt-key --keyring /etc/apt/trusted.gpg.d/brave-browser-release.gpg add -
-    echo "deb [arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" >> #{filename}
-    chmod 644 #{filename}
-  )
-
-  notifies :run, 'execute[update apt]', :immediately
-  creates filename
-end
+#  notifies :run, 'execute[update apt]', :immediately
+#  creates filename
+#end
 
 execute "enable docker repo" do
   filename = "#{src_dir}/#{codename}-docker.list"
@@ -111,17 +84,46 @@ execute "enable insomnia-2 repo" do
   creates filename
 end
 
-execute "enable darktable repo" do
-  filename = "#{src_dir}/#{codename}-darktable.list"
+unless node[:hostname].start_with?('opoplavsky-')
+  execute "enable partners repo" do
+    filename = "#{src_dir}/#{codename}-partner.list"
 
-  command %Q(
-    curl -fsSL https://download.opensuse.org/repositories/graphics:darktable/xUbuntu_#{platform_version}/Release.key | apt-key add -
-    echo "deb http://download.opensuse.org/repositories/graphics:/darktable/xUbuntu_#{platform_version}/ /" >> #{filename}
-    chmod 644 #{filename}
-  )
+    command %Q(
+      echo "deb #{canonical_host} #{codename} partner" >> #{filename}
+      chmod 644 #{filename}
+    )
 
-  notifies :run, 'execute[update apt]', :immediately
-  creates filename
+    notifies :run, 'execute[update apt]', :immediately
+    creates filename
+  end
+
+  execute "enable darktable repo" do
+    filename = "#{src_dir}/#{codename}-darktable.list"
+
+    command %Q(
+      curl -fsSL https://download.opensuse.org/repositories/graphics:darktable/xUbuntu_#{platform_version}/Release.key | apt-key add -
+      echo "deb http://download.opensuse.org/repositories/graphics:/darktable/xUbuntu_#{platform_version}/ /" >> #{filename}
+      chmod 644 #{filename}
+    )
+
+    notifies :run, 'execute[update apt]', :immediately
+    creates filename
+  end
+
+  # Google repo seems to be available in default install since 17.04 ? Maybe not.
+  execute "enable chrome repo" do
+    filename = "#{src_dir}/google-chrome.list"
+
+    command %Q(
+      wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
+      echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> #{filename}
+      chmod 644 #{filename}
+    )
+
+    notifies :run, 'execute[update apt]', :immediately
+    creates filename
+  #  not_if { ::File.exist?("#{src_dir}/google_chrome_stable.list") }
+  end
 end
 
 # it is better to pick up dropbox from multiverse repo
@@ -138,19 +140,21 @@ end
 #   ppa:pmjdebruijn/gnome-color-manager-release
 [
   'flacon/ppa', # flacon, splitting flac and ape files
-  'jre-phoenix/ppa', # PeerGuardian, last available version is for yakkety, force it to that in apt file
+  #'jre-phoenix/ppa', # PeerGuardian, last available version is for yakkety, force it to that in apt file
   # 'scopes-packagers/ppa', # calculator scope, not yet for 14.10
   # 'webupd8team/java', # oracle java8, discontinued in 19.10 eoan
-  'starws-box/deadbeef-player', # deadbeef music player
+  #'starws-box/deadbeef-player', # deadbeef music player
 #  'pmjdebruijn/gnome-color-manager-release', # new argyll, not yet for 14.10
 #  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
-  'dhor/myway', # Photography aools
+  #'dhor/myway', # Photography tools
   #'pmjdebruijn/darktable-release', # Fresh darktable - not available yet for 19.10 eoan
 ].each do |ppa_name|
   file_name = ppa_name.sub('/', '-ubuntu-')
-  execute "enable #{ppa_name} repo" do
-    command "apt-add-repository --yes ppa:#{ppa_name}"
-    notifies :run, 'execute[update apt]', :immediately
-    creates "/etc/apt/sources.list.d/#{file_name}-#{codename}.list"
+  if !node[:hostname].start_with?('opoplavsky-') || ppa_name == 'starws-box/deadbeef-player'
+    execute "enable #{ppa_name} repo" do
+      command "apt-add-repository --yes ppa:#{ppa_name}"
+      notifies :run, 'execute[update apt]', :immediately
+      creates "/etc/apt/sources.list.d/#{file_name}-#{codename}.list"
+    end
   end
 end

@@ -5,15 +5,19 @@
 
 include_recipe 'woodenbits::truecrypt'
 include_recipe 'woodenbits::audio-packages'
-include_recipe 'woodenbits::photo-packages'
 
 # ========== user tools
 
 #package 'skype'
 #package 'xournal'
 package 'gimp'
+package 'xsel'
+package 'boxes'
+package 'tree'
 
-unless node[:hostname] == 'opoplavsky-wsl'
+unless node[:hostname].start_with?('opoplavsky-')
+  include_recipe 'woodenbits::photo-packages'
+
   package 'calibre'
   package 'deluge'
 
@@ -25,20 +29,36 @@ unless node[:hostname] == 'opoplavsky-wsl'
   # multiverse repo
   # package 'dvdrip' not available anymore in 18.10
   package 'rar'
+
+  package 'txt2tags'
+  package 'htmldoc'
+  # package 'youtube-dl' - always obsolete, install using curl command
+
+  package 'lilypond' # generating sheet music
+  package 'entr' # convenient repeated running of lilypond
 end
 
 
 package 'google-chrome-stable'
-package 'google-talkplugin'
+#package 'google-talkplugin'
 package 'chromium-browser'
 
 # old version of brave browser
 package 'brave' do
-  action :remove
+  action :purge
 end
 
-package 'brave-browser'
-package 'brave-keyring'
+# new version of brave browser, do not care for it anyway
+package 'brave-browser' do
+  action :purge
+end
+
+package 'brave-keyring' do
+  action :purge
+end
+
+#package 'brave-browser'
+#package 'brave-keyring'
 
 #package 'python-gpgme' # for dropbox
 package 'nautilus-dropbox'
@@ -48,13 +68,15 @@ package 'smplayer'
 #package 'w64codecs'
 #package 'libdvdcss2'
 
+package 'gnome-calculator'
+package 'gnome-tweaks'
+package 'gnome-shell-extensions'
+package 'gnome-shell-extension-system-monitor'
+
 #package 'network-manager-vpnc'
 #package 'network-manager-openvpn'
 
 #package 'gnome-sushi' # preview on SPACE
-package 'txt2tags'
-package 'htmldoc'
-# package 'youtube-dl' - always obsolete, install using curl command
 
 #package 'autokey-gtk'
 

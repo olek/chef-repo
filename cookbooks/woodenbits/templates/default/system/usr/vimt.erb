@@ -1,4 +1,5 @@
 #!/bin/sh
 
+gvim --remote-send ':tablast<CR>'
 gvim --remote-send ':tabnew<CR>'
 gvim --remote-silent "$@"

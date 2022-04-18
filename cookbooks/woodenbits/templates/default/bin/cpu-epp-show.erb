@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+set -o pipefail
+
+#grep . /sys/devices/system/cpu/cpufreq/policy[0-9]*/energy_performance_preference | sort --version-sort
+for file in /sys/devices/system/cpu/cpufreq/policy{0..11}/energy_performance_preference; do
+	echo -n "$file: "
+	cat "$file"
+done

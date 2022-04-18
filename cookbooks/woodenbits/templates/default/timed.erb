@@ -40,16 +40,7 @@ human_runtime=$(converts $runtime)
 
 if test $exit_code -eq 0; then
   verb="succeeded"
-  icon="face-embarrassed"
-  if (( $runtime > 1 )); then
-    icon="face-cool"
-  fi
-  if (( $runtime > 5 )); then
-    icon="face-smile"
-  fi
-  if (( $runtime > 15 )); then
-    icon="face-plain"
-  fi
+  icon="dialog-information"
   if (( $runtime > 60 )); then
     icon="face-smirk"
   fi
@@ -62,9 +53,6 @@ if test $exit_code -eq 0; then
   if (( $runtime > 3600 )); then
     icon="face-crying"
   fi
-  if (( $runtime > 3600 )); then
-    icon="face-devilish"
-  fi
 else
   verb="failed"
   icon="error"
@@ -73,7 +61,7 @@ fi
 simple_notification="'$@' $verb after ${human_runtime}"
 
 capitalized_verb=`echo ${verb:0:1} | tr  '[a-z]' '[A-Z]'`${verb:1}
-rich_notification="$@\n\t\n${capitalized_verb} after ${human_runtime}"
+rich_notification="${capitalized_verb} after ${human_runtime}"
 
 echo ">>> $simple_notification"
 
@@ -85,7 +73,8 @@ if which osascript &> /dev/null; then
 else
   if which notify-send &> /dev/null; then
     # Linux
-    notify-send -i $icon "$1" "${rich_notification}"
+    argsCopy=("$@")
+    notify-send -i $icon "${argsCopy[*]}" "${rich_notification}"
   else
     if which ntfy &> /dev/null; then
       # Universal third-party

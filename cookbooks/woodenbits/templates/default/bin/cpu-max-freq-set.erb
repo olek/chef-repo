@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -e
+set -o pipefail
+
+# Changes max cpu frequency to specified value
+
+freq_value=$1
+
+if [[ -z $freq_value ]]; then
+  echo "No freq_value specified, exiting"
+  exit 1
+fi
+
+for i in /sys/devices/system/cpu/cpufreq/policy[0-9]*/scaling_max_freq; do
+  echo "$freq_value" > "$i";
+done

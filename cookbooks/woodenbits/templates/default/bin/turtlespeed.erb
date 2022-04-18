@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -e
+set -o pipefail
+
+# Lowers CPU frequency until interrupted. Helpful in cooling down computer during meetings.
+
+# trap ctrl-c and call ctrl_c()
+trap ctrl_c INT
+
+function ctrl_c() {
+  echo "$turtle_freq_hf -> $original_freq_hf"
+  pkexec cpu-max-freq-set "$original_freq"
+}
+
+original_freq=$(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq)
+original_freq_hf=$(echo $original_freq | awk '{ printf "%sMHz\n", int($1/1000) }')
+
+turtle_freq="1200000"
+turtle_freq_hf=$(echo $turtle_freq | awk '{ printf "%sMHz\n", int($1/1000) }')
+
+echo "$original_freq_hf -> $turtle_freq_hf"
+
+pkexec cpu-max-freq-set "$turtle_freq"
+
+sleep 259200 # 3 days max turtle time
+
+ctrl_c

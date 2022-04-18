@@ -27,15 +27,16 @@ package 'ssh'
 package 'vim-gtk3'
 
 package 'compizconfig-settings-manager'
-package 'gnome-tweak-tool' # make it possible to remap caps lock to ctrl
+# replaced by gnome-tweaks
+#package 'gnome-tweak-tool' # make it possible to remap caps lock to ctrl
 
-package 'screen'
+#package 'screen'
 package 'tmux'
 
 package 'wmctrl' # for window resize script resize.rb
 
 [
-  'multiload' # not great, but available by default
+#  'multiload' # not great, but available by default
 #  'sysmonitor', # not available for 14.04 yet
 #  'ubuntuone' # same
 ].each do |name|
@@ -43,7 +44,7 @@ package 'wmctrl' # for window resize script resize.rb
 end
 
 #package 'unity-lens-utilities'
-package 'unity-scope-calculator'
+#package 'unity-scope-calculator'
 #package 'unity-scope-cities'
 #package 'unity-scope-rottentomatoes'
 
@@ -65,13 +66,6 @@ package 'mlocate'
 package 'telnet'
 package 'dnsutils'
 package 'gparted'
-#package 'udftools'
-package 'hfsprogs'
-package 'sshfs'
-package 'cifs-utils'
-package 'exfat-fuse'
-package 'autofs'
-package 'smbclient' # otherwise automount cifs does not work
 
 # NOTE not sure if this apparmor stuff is required anymore, commenting out on 20170727
 #package 'apparmor-utils'
@@ -98,7 +92,7 @@ package 'python3-pip'
 # ========== power management
 
 package 'powertop'
-package 'powertop-1.13'
+#package 'powertop-1.13'
 package 'fatrace'
 package 'smartmontools'
 package 'iotop'
@@ -117,3 +111,17 @@ package 'asterisk-core-sounds-en-wav'
 package 'argyll'
 #package 'dispcalgui'
 package 'gnome-color-manager'
+
+unless node[:hostname].start_with?('opoplavsky-')
+  #package 'udftools'
+  #package 'hfsprogs'
+  package 'sshfs'
+  package 'cifs-utils'
+  package 'exfat-fuse'
+  package 'autofs'
+  package 'smbclient' # otherwise automount cifs does not work
+
+  package 'argyll'
+  #package 'dispcalgui'
+  package 'gnome-color-manager'
+end

@@ -176,12 +176,27 @@ end
   end
 end
 
+username = node[:hostname].start_with?('opoplavsky-') ? 'opoplavsky' : 'olek'
+
 template "/usr/share/polkit-1/actions/cpu.epp.set.policy" do
   source 'system/usr/polkit-cpu.epp.set.policy.erb'
   variables(
-    :username => node[:hostname].start_with?('opoplavsky-') ? 'opoplavsky' : 'olek'
+    :username => username
   )
-  mode '0640'
+  owner 'root'
+  group 'root'
+  mode '0644'
+end
+
+template "/etc/polkit-1/rules.d/10-cpu-epp.rules" do
+  source "system/etc/polkit-1/rules.d/10-cpu-epp.rules.erb"
+  variables(
+    username: username,
+    script_path: "/home/#{username}/bin/cpu-epp-set"
+  )
+  owner "root"
+  group "root"
+  mode "0644"
 end
 
 =begin

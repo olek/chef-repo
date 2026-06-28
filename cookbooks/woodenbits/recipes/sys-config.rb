@@ -18,12 +18,12 @@ end
 
 if hostname == 'tenebrus'
   template "/etc/network/if-up.d/wifi-powerman-off" do
-    source "system/etc/wifi-powerman-off.erb"
+    source "system/etc/network-if-up.d-wifi-powerman-off.erb"
     mode 0755
   end
 
   template "/etc/modprobe.d/wlan.conf" do
-    source "system/etc/modprobe.wlan.conf.erb"
+    source "system/etc/modprobe.d-wlan.conf.erb"
     mode 0644
   end
 
@@ -34,14 +34,14 @@ if hostname == 'tenebrus'
 end
 
 template "/usr/local/bin/resize.rb" do
-  source 'resize.rb.erb'
+  source 'system/usr/local/bin/resize.rb.erb'
   mode '0755'
   owner 'root'
   group 'root'
 end
 
 template "/usr/local/bin/tmuxstart" do
-  source 'tmuxstart.erb'
+  source 'system/usr/local/bin/tmuxstart.erb'
   mode '0755'
   owner 'root'
   group 'root'
@@ -66,7 +66,7 @@ end
 
 %w(suspend resume).each do |name|
   template "/etc/systemd/system/gnome-shell-#{name}.service" do
-    source "system/etc/systemd/gnome-shell-#{name}-service.erb"
+    source "system/etc/systemd/system/gnome-shell-#{name}.service.erb"
     mode 0644
     owner 'root'
     group 'root'
@@ -77,7 +77,7 @@ end
 end
 
 template "/etc/udev/rules.d/59-vial.rules" do
-  source "system/etc/udev-rules.d/59-vial.rules.erb"
+  source "system/etc/udev-rules.d-59-vial.rules.erb"
   mode 0644
   owner 'root'
   group 'root'
@@ -94,7 +94,7 @@ unless node[:hostname].start_with?('opoplavsky-')
 
   %w(pglcmd.conf blocklists.list allow.p2p).each do |fname|
     template "/etc/pgl/#{fname}" do
-      source "system/etc/pgl-#{fname}.erb"
+      source "system/etc/pgl/#{fname}.erb"
       mode 0644
       owner 'root'
       group 'root'
@@ -103,7 +103,7 @@ unless node[:hostname].start_with?('opoplavsky-')
 
 
   template "/etc/sysctl.d/60-local.conf" do
-    source "system/etc/sysctl.d.conf.erb"
+    source "system/etc/sysctl.d-60-local.conf.erb"
     mode 0644
   end
 
@@ -146,13 +146,13 @@ directory '/etc/ncmpc' do
 end
 
 template "/etc/ncmpc/config" do
-  source "system/etc/ncmpc.config.erb"
+  source "system/etc/ncmpc-config.erb"
   mode 0644
 end
 
 %w(vims vimt manage-gnome-shell).each do |script|
   template "/usr/local/bin/#{script}" do
-    source "system/usr/local-bin/#{script}.erb"
+    source "system/usr/local/bin/#{script}.erb"
     mode '0755'
   end
 end
@@ -160,7 +160,7 @@ end
 username = node[:hostname].start_with?('opoplavsky-') ? 'opoplavsky' : 'olek'
 
 template "/usr/share/polkit-1/actions/cpu.epp.set.policy" do
-  source 'system/usr/polkit-cpu.epp.set.policy.erb'
+  source 'system/usr/share-polkit-1-actions-cpu.epp.set.policy.erb'
   variables(
     :username => username
   )
@@ -170,7 +170,7 @@ template "/usr/share/polkit-1/actions/cpu.epp.set.policy" do
 end
 
 template "/etc/polkit-1/rules.d/10-cpu-epp.rules" do
-  source "system/etc/polkit-1/rules.d/10-cpu-epp.rules.erb"
+  source "system/etc/polkit-1-rules.d-10-cpu-epp.rules.erb"
   variables(
     username: username,
     script_path: "/home/#{username}/bin/cpu-epp-set"

@@ -31,7 +31,7 @@ rvm_rubies.each do |rvm_ruby|
 end
 
 template "#{user_home}/.bash_login" do
-  source "bash_login.erb"
+  source "home/conf/bash_login.erb"
   mode '0640'
   owner user
   group 'users'

@@ -71,7 +71,7 @@ git_configs = {
 
 
 template '/etc/sudoers.d/truecrypt' do
-  source 'system/etc/sudoers-truecrypt.erb'
+  source 'system/etc/sudoers.d-truecrypt.erb'
   variables(
     :users => users
   )
@@ -79,7 +79,7 @@ template '/etc/sudoers.d/truecrypt' do
 end
 
 template "/root/chef-notes.txt" do
-  source 'chef-notes.erb'
+  source 'system/root-chef-notes.txt.erb'
   mode '0600'
   owner 'root'
   group 'root'
@@ -120,8 +120,15 @@ end
     action :create
   end
 
-  # TODO figure out what is the deal with forgotten and vimrc.before.erb vimrc.after.erb
   %w(screenrc tmux.conf inputrc bashrc vimrc gvimrc).each do |name|
+    if name == 'gvimrc' && user == 'root'
+      file "#{home_dir}/.#{name}" do
+        action :delete
+      end
+
+      next
+    end
+
     template "#{home_dir}/.#{name}" do
       source "home/conf/#{name}.erb"
       variables(
@@ -136,7 +143,7 @@ end
 
   %w(10-functions 15-settings 20-aliases 20-path 20-prompt 30-autocompletion 31-history).each do |name|
     template "#{home_dir}/.bashrc.d/#{name}" do
-      source "bashrc.d/#{name}.erb"
+      source "home/conf/bashrc.d/#{name}.erb"
       variables(
         :is_root => user == 'root'
       )
@@ -232,7 +239,7 @@ users.each do |user|
     end
 
     template "#{home_dir}/.mplayer/config" do
-      source 'mplayer-config.erb'
+      source 'home/conf/mplayer-config.erb'
       mode '0640'
       owner user
       group user_group
@@ -246,7 +253,7 @@ users.each do |user|
     end
 
     template "#{home_dir}/.ssh/config" do
-      source 'ssh-config.erb'
+      source 'home/conf/ssh-config.erb'
       mode '0600'
       owner user
       group user_group
@@ -255,7 +262,7 @@ users.each do |user|
 
     %w(general).each do |name|
       template "#{home_dir}/.tmuxstart/#{name}" do
-        source "tmuxstart/#{name}.erb"
+        source "home/conf/tmuxstart/#{name}.erb"
         mode '0600'
         owner user
         group user_group
@@ -263,7 +270,7 @@ users.each do |user|
     end
 
     template "#{home_dir}/bin/truecrypt-init.sh" do
-      source 'truecrypt-init.erb'
+      source 'home/bin/truecrypt-init.sh.erb'
       mode '0500'
       owner user
       group user_group
@@ -281,7 +288,7 @@ users.each do |user|
 
     %w(gemrc irbrc asoundrc).each do |name|
       template "#{home_dir}/.#{name}" do
-        source "/home/conf/#{name}.erb"
+        source "home/conf/#{name}.erb"
         mode '0640'
         owner user
         group user_group
@@ -297,7 +304,7 @@ users.each do |user|
     end
 
     cookbook_file "#{home_dir}/.gconf/apps/rapid-photo-downloader/%gconf.xml" do
-      source "rapid-downloader-conf.xml"
+      source "home/conf-gconf-apps-rapid-photo-downloader-%gconf.xml"
       mode 0600
       action :create_if_missing
     end

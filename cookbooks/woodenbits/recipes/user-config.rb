@@ -14,7 +14,11 @@ git_configs = {
   "alias.ci" => "commit",
   "alias.co" => "checkout",
   "alias.cp" => "cherry-pick",
+  "alias.di" => "diff",
   "alias.dc" => "diff --cached",
+  "alias.sdi" => "-c delta.side-by-side=true diff",
+  "alias.sdc" => "-c delta.side-by-side=true diff --cached",
+  "alias.ssh" => "-c delta.side-by-side=true show",
   "alias.g" => "log --pretty=format:\"%h %an - %s\" --graph",
   "alias.gg" => "log --pretty=format:\"%H %an - %s\" --graph",
   "alias.lc" => "log ORIG_HEAD.. --stat --no-merges",
@@ -26,20 +30,24 @@ git_configs = {
   "alias.s" => "status --short",
   "alias.w" => "whatchanged",
   "alias.up" => "push -u origin HEAD",
+  "alias.standup" => "log --since='24 hours ago' --oneline --no-merges --author='.*Olek.*'",
+  "alias.review" => "log --since='2 weeks ago' --oneline --no-merges --author='.*Olek.*'",
   "alias.pull-ff" => "pull --ff-only",
-  "alias.unstash" => "!git stash show -p | git apply -R",
-  "alias.edit-unmerged" => "!f() { git ls-files --unmerged | cut -f2 | sort -u ; }; tvim `f`",
+  "alias.edit-unmerged" => "!f() { git ls-files --unmerged | cut -f2 | sort -u ; }; vimt `f`",
   "alias.add-unmerged" => "!f() { git ls-files --unmerged | cut -f2 | sort -u ; }; git add `f`",
+  "alias.unstash" => "!git stash show -p | git apply -R",
+  "alias.amend" => "commit --amend --reset-author",
   "alias.delete-tag" => "!gitDeleteTag() { git tag -d \"$1\" && git push origin \":refs/tags/$1\"; }; gitDeleteTag",
   "alias.prune-tags" => "!git fetch --prune origin \"+refs/tags/*:refs/tags/*\"",
-  "alias.prune-branch" => "!gitPruneBranch() { git fetch --prune && for branch in $(git branch -vv | grep \": gone]\" | awk \"{print \\\$1}\"); do git branch -D $branch; done }; gitPruneBranch",
-  "alias.prune-all" => "!git prune-branch && git prune-tags",
+  "alias.prune-branches" => "!gitPruneBranches() { git fetch --prune && for branch in $(git branch -vv | grep \": gone]\" | awk \"{print \\\$1}\"); do git branch -D $branch; done }; gitPruneBranches",
+  "alias.prune-all" => "!git prune-branches && git prune-tags",
 #  "alias.down" => "!sh -c \"CURRENT=$(git symbolic-ref HEAD | sed -e s@.*/@@) && (git pull --ff-only || (git fetch origin && git rebase --preserve-merges origin/$CURRENT))\"",
 #  "alias.publish" => "!f() { if [ $# -ne 1 ]; then echo \"usage: git publish <local-branch-name>\" >&2; exit 1; fi; git push --set-upstream origin $1:$1; }; f",
 #  "alias.unpublish" => "!f() { if [ $# -ne 1 ]; then echo \"usage: git unpublish <remote-branch-name>\" >&2; exit 1; fi; git push origin :$1; }; f",
 
   "color.branch" => "auto",
   "color.diff" => "auto",
+  "color.diff.whitespace" => "red reverse",
   "color.interactive" => "auto",
   "color.status" => "auto",
   "color.ui" => "true",
@@ -67,6 +75,9 @@ git_configs = {
   "interactive.diffFilter" => "delta --color-only",
   "delta.navigate" => "true",
   "delta.light" => "true",
+  "delta.hyperlinks" => "true",
+  "delta.hyperlinks-file-link-format" => "file://{path}",
+  "delta.hyperlinks-file-link-format-disabled" => "idea://open?file={path}&line={line}",
 }
 
 
@@ -223,9 +234,10 @@ users.each do |user|
     )
 
     local_git_configs.each do |k, v|
+      escaped_v = v.gsub("'") { "'\\''" }
       execute "git config --global #{k}" do
-        command "sudo -H -u #{user} git config --global #{k} \'#{v}\'"
-        not_if "sudo -H -u #{user} git config --global #{k} | grep -qF \'#{v}\'"
+        command "sudo -H -u #{user} git config --global #{k} '#{escaped_v}'"
+        not_if "sudo -H -u #{user} git config --global #{k} | grep -qF '#{escaped_v}'"
       end
     end
 

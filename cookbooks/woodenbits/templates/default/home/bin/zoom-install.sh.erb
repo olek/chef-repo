@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# exit when any command fails
+set -e
+
+declare -gr url=https://zoom.us/client/latest/
+declare -gr file=zoom_amd64.deb
+
+DOWNLOAD_DIR="$HOME/Downloads/transient"
+if [[ ! -d "$DOWNLOAD_DIR" ]]; then
+  mkdir -p "$DOWNLOAD_DIR"
+fi
+cd "$DOWNLOAD_DIR"
+
+echo "Downloading $url$file"
+wget -qN "$url$file"
+declare -gr downloaded_version=$(dpkg -f "$file" version)
+
+installed_version=""
+if dpkg -s zoom &>/dev/null; then
+  installed_version=$(dpkg -s zoom | grep ^Version: | sed -e 's/Version: //')
+fi
+
+if [ "$installed_version" != "$downloaded_version" ]; then
+  echo "Installing $file"
+  sudo dpkg -i "$file"
+else
+  echo "Zoom $installed_version is up to date"
+fi

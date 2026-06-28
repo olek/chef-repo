@@ -1,0 +1,290 @@
+#!/usr/bin/env bash
+
+# Sets up ydotoold with a dedicated user and a hardened systemd service.
+#
+# Prerequisites: ydotoold binary already installed (apt install ydotool).
+# Idempotent: safe to run multiple times. Restarts only when configs change.
+#
+# voxd integration notes (ydotool v0.1.8 on Ubuntu):
+#   - v0.1.8 hardcodes socket at /tmp/.ydotool_socket (ignores --socket-path).
+#   - This system service replaces voxd's user-level ydotoold.service
+#     (mask it: systemctl --user mask ydotoold.service).
+#   - voxd-tray.service needs a drop-in to override its socket path:
+#       ~/.config/systemd/user/voxd-tray.service.d/socket.conf
+#       [Service]
+#       Environment=YDOTOOL_SOCKET=/tmp/.ydotool_socket
+#   - Remove the broken symlink at ~/.local/bin/ydotool (points to voxd's
+#     missing prebuilt); the system /usr/bin/ydotool is used instead.
+#   - v0.1.8 uses --key-delay, not -d. Patch /opt/voxd/src/voxd/core/typer.py
+#     line ~283 to use "--key-delay" for the ydotool type command.
+
+set -e
+
+# Configuration
+readonly YDOTOOL_USER="ydotool"
+readonly YDOTOOL_GROUP="ydotool"
+readonly UINPUT_GROUP="uinput"
+
+# Locate ydotoold binary dynamically
+if [[ -x "/usr/bin/ydotoold" ]]; then
+  readonly YDOTOOLD_BIN="/usr/bin/ydotoold"
+elif [[ -x "/usr/sbin/ydotoold" ]]; then
+  readonly YDOTOOLD_BIN="/usr/sbin/ydotoold"
+elif [[ -x "/usr/local/bin/ydotoold" ]]; then
+  readonly YDOTOOLD_BIN="/usr/local/bin/ydotoold"
+else
+  readonly YDOTOOLD_BIN="/usr/bin/ydotoold"
+fi
+
+readonly UDEV_RULES_FILE="/etc/udev/rules.d/99-uinput.rules"
+readonly SERVICE_FILE="/etc/systemd/system/ydotoold.service"
+readonly SOCKET_PATH="/tmp/.ydotool_socket"
+readonly YDOTOOL_LOG="/var/log/ydotool.log"
+readonly LOGROTATE_FILE="/etc/logrotate.d/ydotool"
+
+# Change tracking
+UDEV_CHANGED=false
+SERVICE_CHANGED=false
+SERVICE_NEW=false
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+info() { echo "[INFO] $1"; }
+error() { echo "[ERROR] $1" >&2; }
+fail() { error "$1"; exit 1; }
+
+_WRITE_IS_NEW=false
+write_if_changed() {
+  local file="$1"
+  local content="$2"
+  _WRITE_IS_NEW=false
+  if [[ ! -f "${file}" ]]; then
+    _WRITE_IS_NEW=true
+    echo "${content}" > "${file}"
+    return 0
+  fi
+  local existing
+  existing="$(cat "${file}")"
+  if [[ "${existing}" == "${content}" ]]; then
+    return 1
+  fi
+  echo "${content}" > "${file}"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# Setup steps
+# ---------------------------------------------------------------------------
+
+check_root() {
+  if [[ $(id -u) -ne 0 ]]; then
+    fail "This script must be run with sudo or as root."
+  fi
+}
+
+check_ydotoold_installed() {
+  if [[ ! -x "${YDOTOOLD_BIN}" ]]; then
+    fail "ydotoold not found. Install with: apt install ydotool"
+  fi
+}
+
+create_user_group() {
+  info "Ensuring group '${UINPUT_GROUP}' exists..."
+  groupadd "${UINPUT_GROUP}" 2>/dev/null || true
+
+  info "Ensuring group '${YDOTOOL_GROUP}' exists..."
+  groupadd "${YDOTOOL_GROUP}" 2>/dev/null || true
+
+  info "Ensuring user '${YDOTOOL_USER}' exists..."
+  useradd --system --no-create-home --gid "${YDOTOOL_GROUP}" --groups "${UINPUT_GROUP}" \
+    --shell /bin/false "${YDOTOOL_USER}" 2>/dev/null || true
+
+  if [[ -n "${SUDO_USER:-}" ]]; then
+    info "Adding '${SUDO_USER}' to '${YDOTOOL_GROUP}' group..."
+    if ! usermod -aG "${YDOTOOL_GROUP}" "${SUDO_USER}" 2>/dev/null; then
+      # usermod fails for LDAP/directory users; fall back to editing /etc/group directly
+      if ! grep -q "^${YDOTOOL_GROUP}:.*${SUDO_USER}" /etc/group; then
+        sed -i "s/^\(${YDOTOOL_GROUP}:.*\)/\1,${SUDO_USER}/" /etc/group
+        # If group line had no members yet, we get a trailing comma — clean it up
+        sed -i "s/^\(${YDOTOOL_GROUP}:[^:]*:[^:]*\):,/\1:/" /etc/group
+        info "  (added via /etc/group — user not in local passwd)"
+      fi
+    fi
+  fi
+}
+
+create_udev_rule() {
+  local content
+  content='KERNEL=="uinput", MODE="0660", GROUP="uinput", OPTIONS+="static_node=uinput"'
+  if write_if_changed "${UDEV_RULES_FILE}" "${content}"; then
+    UDEV_CHANGED=true
+    info "udev rule updated: ${UDEV_RULES_FILE}"
+    chmod 644 "${UDEV_RULES_FILE}"
+  fi
+}
+
+reload_udev_rules() {
+  if [[ "${UDEV_CHANGED}" == true ]]; then
+    info "Reloading udev rules..."
+    udevadm control --reload-rules
+    udevadm trigger
+  fi
+}
+
+create_log_files() {
+  if [[ ! -f "${YDOTOOL_LOG}" ]]; then
+    info "Creating log file ${YDOTOOL_LOG}..."
+    touch "${YDOTOOL_LOG}"
+  fi
+  chown "root:${YDOTOOL_USER}" "${YDOTOOL_LOG}"
+  chmod 644 "${YDOTOOL_LOG}"
+}
+
+create_logrotate() {
+  local content
+  content="${YDOTOOL_LOG} {
+    daily
+    rotate 7
+    compress
+    missingok
+    notifempty
+    copytruncate
+}"
+  if write_if_changed "${LOGROTATE_FILE}" "${content}"; then
+    info "logrotate config updated"
+    chmod 644 "${LOGROTATE_FILE}"
+  fi
+}
+
+create_systemd_service() {
+  local content
+  content="[Unit]
+Description=ydotoold - ydotool daemon
+Documentation=https://github.com/ReimuNotMoe/ydotool
+Wants=modprobe@uinput.service
+After=modprobe@uinput.service local-fs.target
+
+[Service]
+Type=simple
+User=${YDOTOOL_USER}
+Group=${YDOTOOL_GROUP}
+ExecStartPre=+/bin/rm -f ${SOCKET_PATH}
+ExecStart=${YDOTOOLD_BIN}
+ExecStartPost=/bin/sleep 0.5
+ExecStartPost=/bin/chmod 0660 ${SOCKET_PATH}
+ExecStop=+/bin/rm -f ${SOCKET_PATH}
+StandardOutput=append:${YDOTOOL_LOG}
+StandardError=append:${YDOTOOL_LOG}
+Restart=on-failure
+
+# Security hardening
+DeviceAllow=/dev/uinput rw
+DevicePolicy=closed
+LockPersonality=true
+NoNewPrivileges=true
+PrivateNetwork=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectSystem=full
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+SystemCallArchitectures=native
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RemoveIPC=true
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target"
+
+  if write_if_changed "${SERVICE_FILE}" "${content}"; then
+    if [[ "${_WRITE_IS_NEW}" == true ]]; then
+      SERVICE_NEW=true
+      info "ydotoold.service created"
+    else
+      SERVICE_CHANGED=true
+      info "ydotoold.service updated"
+    fi
+    chmod 644 "${SERVICE_FILE}"
+  fi
+}
+
+activate_service() {
+  local unit="ydotoold.service"
+
+  if [[ "${SERVICE_NEW}" == true ]]; then
+    info "${unit}: new -> daemon-reload, enable, start"
+    systemctl daemon-reload
+    systemctl enable "${unit}"
+    systemctl start "${unit}"
+  elif [[ "${SERVICE_CHANGED}" == true ]]; then
+    info "${unit}: service changed -> daemon-reload, restart"
+    systemctl daemon-reload
+    systemctl restart "${unit}"
+  else
+    info "${unit}: no changes"
+  fi
+
+  sleep 1
+  systemctl status "${unit}" --no-pager || true
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+usage() {
+  cat << EOF
+Usage: sudo $(basename "$0") [OPTIONS]
+
+Sets up ydotoold with a dedicated user and hardened systemd service.
+
+Options:
+  -h, --help  Show this help message
+EOF
+}
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help) usage; exit 0 ;;
+      *) fail "Unknown option: $1. Use --help for usage." ;;
+    esac
+    shift
+  done
+}
+
+main() {
+  parse_args "$@"
+  check_root
+  check_ydotoold_installed
+  create_user_group
+  create_udev_rule
+  reload_udev_rules
+  create_log_files
+  create_logrotate
+  create_systemd_service
+  activate_service
+
+  info "-----------------------------------------------------"
+  info "ydotool setup complete."
+  info "Socket: ${SOCKET_PATH}"
+  info ""
+  info "Add to your shell profile:"
+  info "  export YDOTOOL_SOCKET=${SOCKET_PATH}"
+  if [[ -n "${SUDO_USER:-}" ]]; then
+    info ""
+    info "NOTE: Log out and back in for '${YDOTOOL_GROUP}' group membership to take effect."
+  fi
+  info ""
+  info "Verify with: ydotool type 'hello'"
+  info "-----------------------------------------------------"
+}
+
+main "$@"

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
 
 # Turns off all monitors until the mouse is moved or a key is pressed.
@@ -15,14 +14,14 @@ parse-args() {
 
 turn-off-screen-in-wayland() {
     echo "Turning off monitors..."
-    if [[ "$XDG_SESSION_DESKTOP" == gnome* || "$XDG_SESSION_DESKTOP" == "ubuntu-wayland" ]]; then
+    if [[ "${XDG_CURRENT_DESKTOP:-}" == *GNOME* ]]; then
         if $DRY_RUN; then
             echo "[dry-run] Would run: busctl --user call org.gnome.ScreenSaver ... SetActive b true"
         else
             busctl --user call org.gnome.ScreenSaver /org/gnome/ScreenSaver org.gnome.ScreenSaver SetActive b true
         fi
     else
-        echo "ERROR: Unsupported Wayland Desktop Environment: $XDG_SESSION_DESKTOP" >&2
+        echo "ERROR: Unsupported Wayland Desktop Environment: ${XDG_CURRENT_DESKTOP:-unknown}" >&2
         exit 2
     fi
 }

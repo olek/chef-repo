@@ -277,7 +277,7 @@ users.each do |user|
     end
 
     %w(perf-watch-cmd cpu-epp-show cpu-epp-set cpu-max-freq-set turtlespeed lightspeed timed mpc-radio-init
-        display-off).each do |script|
+        display-off term-color-test update-pocock-skills ydotool-init.sh ydotool-cleanup.sh zoom-install.sh).each do |script|
       template "#{home_dir}/bin/#{script}" do
         source "home/bin/#{script}.erb"
         mode '0700'

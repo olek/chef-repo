@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+
+# Removes the ydotoold systemd service and related configs.
+# With --purge, also removes the ydotool user, group, logs, and udev rule.
+
+set -e
+
+readonly SERVICE_FILE="/etc/systemd/system/ydotoold.service"
+readonly UDEV_RULES_FILE="/etc/udev/rules.d/99-uinput.rules"
+readonly YDOTOOL_LOG="/var/log/ydotool.log"
+readonly LOGROTATE_FILE="/etc/logrotate.d/ydotool"
+readonly YDOTOOL_USER="ydotool"
+readonly YDOTOOL_GROUP="ydotool"
+
+PURGE=false
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+info() { echo "[INFO] $1"; }
+error() { echo "[ERROR] $1" >&2; }
+fail() { error "$1"; exit 1; }
+
+on_exit() {
+  local rc=$?
+  if [[ ${rc} -ne 0 ]]; then
+    error "Cleanup failed (exit code ${rc})."
+  fi
+}
+trap on_exit EXIT
+
+# ---------------------------------------------------------------------------
+# Cleanup functions
+# ---------------------------------------------------------------------------
+
+check_root() {
+  if [[ $(id -u) -ne 0 ]]; then
+    fail "This script must be run with sudo or as root."
+  fi
+}
+
+remove_service() {
+  local unit="ydotoold.service"
+
+  if systemctl list-unit-files "${unit}" &>/dev/null && \
+     systemctl list-unit-files "${unit}" | grep -q "${unit}"; then
+    info "Stopping and disabling ${unit}..."
+    systemctl disable --now "${unit}" 2>/dev/null || true
+  fi
+
+  if [[ -f "${SERVICE_FILE}" ]]; then
+    info "Removing ${SERVICE_FILE}..."
+    rm -f "${SERVICE_FILE}"
+  fi
+
+  systemctl daemon-reload
+}
+
+remove_logrotate() {
+  if [[ -f "${LOGROTATE_FILE}" ]]; then
+    info "Removing ${LOGROTATE_FILE}..."
+    rm -f "${LOGROTATE_FILE}"
+  fi
+}
+
+remove_logs() {
+  if [[ -f "${YDOTOOL_LOG}" ]]; then
+    info "Removing ${YDOTOOL_LOG}..."
+    rm -f "${YDOTOOL_LOG}"
+  fi
+}
+
+remove_udev_rule() {
+  if [[ -f "${UDEV_RULES_FILE}" ]]; then
+    info "Removing ${UDEV_RULES_FILE}..."
+    info "  (If kanata is installed, run kanata-init.sh to restore its uinput rule.)"
+    rm -f "${UDEV_RULES_FILE}"
+    udevadm control --reload-rules
+    udevadm trigger
+  fi
+}
+
+purge_user_group() {
+  if id "${YDOTOOL_USER}" &>/dev/null; then
+    info "Removing user '${YDOTOOL_USER}'..."
+    userdel "${YDOTOOL_USER}"
+  fi
+  if getent group "${YDOTOOL_GROUP}" &>/dev/null; then
+    info "Removing group '${YDOTOOL_GROUP}'..."
+    groupdel "${YDOTOOL_GROUP}"
+  fi
+  # uinput group is shared with kanata — not removed
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+usage() {
+  cat << EOF
+Usage: sudo $(basename "$0") [OPTIONS]
+
+Removes the ydotoold systemd service and related configs.
+
+Options:
+  --purge     Also remove user, group, logs, and udev rule
+  -h, --help  Show this help message
+EOF
+}
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --purge) PURGE=true ;;
+      -h|--help) usage; exit 0 ;;
+      *) fail "Unknown option: $1. Use --help for usage." ;;
+    esac
+    shift
+  done
+}
+
+main() {
+  parse_args "$@"
+  check_root
+  remove_service
+  remove_logrotate
+
+  if [[ "${PURGE}" == true ]]; then
+    remove_logs
+    remove_udev_rule
+    purge_user_group
+  fi
+
+  info "ydotool cleanup complete."
+}
+
+main "$@"

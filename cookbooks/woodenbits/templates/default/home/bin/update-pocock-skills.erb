@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Repo directory setup
+REPO_DIR=""
+if [[ -d "$HOME/git/their/mattpocock-skills" ]]; then
+    REPO_DIR="$HOME/git/their/mattpocock-skills"
+elif [[ -d "/data/dev/misc/mattpocock-skills" ]]; then
+    REPO_DIR="/data/dev/misc/mattpocock-skills"
+fi
+
+PREFIX=">>>"
+
+if [[ -z "$REPO_DIR" ]]; then
+    if [[ -d "$HOME/git/their" ]]; then
+        REPO_DIR="$HOME/git/their/mattpocock-skills"
+    elif [[ -d "/data/dev/misc" ]]; then
+        REPO_DIR="/data/dev/misc/mattpocock-skills"
+    elif [[ -d "/data/dev" ]]; then
+        REPO_DIR="/data/dev/mattpocock-skills"
+    elif [[ -d "$HOME/git" ]]; then
+        REPO_DIR="$HOME/git/mattpocock-skills"
+    else
+        echo "ERROR: None of the expected parent directories (~/git/their, /data/dev/misc, /data/dev, ~/git) exist. Aborting clone." >&2
+        exit 1
+    fi
+    echo "$PREFIX Repo directory not found, cloning from GitHub to $REPO_DIR..."
+    mkdir -p "$(dirname "$REPO_DIR")"
+    git clone https://github.com/mattpocock/skills.git "$REPO_DIR"
+else
+    echo "$PREFIX Pulling latest from repo at $REPO_DIR..."
+    git -C "$REPO_DIR" pull --ff-only
+fi
+
+TARGET_DIRS=(
+    "$HOME/.claude/skills"
+    "$HOME/.gemini/config/skills"
+)
+
+SKILLS=(
+    grill-with-docs
+    grill-me
+    tdd
+    ubiquitous-language
+    improve-codebase-architecture
+    zoom-out
+    write-a-skill
+    caveman
+    handoff
+    prototype
+)
+
+find_skill() {
+    local name="$1"
+    find "$REPO_DIR/skills" -maxdepth 2 -mindepth 2 -type d -name "$name" | head -1
+}
+
+sync_skill() {
+    local name="$1"
+    local target_dir="$2"
+    local src
+    src="$(find_skill "$name")"
+
+    if [[ -z "$src" ]]; then
+        echo "$PREFIX $name: NOT FOUND in repo, skipping"
+        return
+    fi
+
+    local dest="$target_dir/$name"
+
+    if [[ ! -d "$dest" ]]; then
+        mkdir -p "$dest"
+        cp -pR "$src/." "$dest/"
+        echo "$PREFIX $name: copied to $dest"
+        return
+    fi
+
+    if diff -qr "$dest" "$src" &>/dev/null; then
+        echo "$PREFIX $name: up to date in $dest"
+    else
+        echo "$PREFIX $name: updated in $dest"
+        diff -rU0 "$dest" "$src" | grep -Ev '^(---|[+]{3}|@@|diff )' | sed $'s/^-\\(.*\\)/\033[31m-\\1\033[0m/;s/^+\\(.*\\)/\033[32m+\\1\033[0m/' || true
+        echo ""
+        rm -rf "$dest"
+        mkdir -p "$dest"
+        cp -pR "$src/." "$dest/"
+    fi
+}
+
+echo ""
+
+for target_dir in "${TARGET_DIRS[@]}"; do
+    echo "$PREFIX Syncing to $target_dir..."
+    mkdir -p "$target_dir"
+    for skill in "${SKILLS[@]}"; do
+        sync_skill "$skill" "$target_dir"
+    done
+    echo ""
+done

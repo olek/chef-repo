@@ -1,21 +1,23 @@
 set -g prefix `
 bind-key ` send-prefix
 
-# use < and > to move window (index) left and right
-bind-key    -T prefix <                swap-window -t -1
-bind-key    -T prefix >                swap-window -t +1
-
 # integration with tmuxstart
 bind S command-prompt -p "Make/attach session:" "new-window 'tmuxstart \'%%\''"
 
-set -g default-terminal "screen-256color"
+# Set the internal terminal type
+set -g default-terminal "tmux-256color"
+
+# Tell tmux your outer terminal (e.g., xterm-256color) supports true color (Tc/RGB)
+set -as terminal-features ",xterm-256color:RGB"
+
+# Turn on hyperlinks support for tmux that is disabled by default
+set -as terminal-features ",*:hyperlinks"
 
 # Set that silly Esc-Wait off, so VI works again properly
 set-option -sg  escape-time 0
 
 # lighten the BG color of status bar to make it easier to read
-# set -g status-bg brightgreen
-# Set the status bar background to a 256-color value (e.g., colour235 is a dark grey)
+#set -g status-bg brightgreen
 set -g status-style bg=colour81
 
 # Default history limit 2000 lines is too low.

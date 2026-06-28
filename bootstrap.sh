@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -e
+
+# Detect user (running under sudo or as normal user)
+REAL_USER="${SUDO_USER:-$USER}"
+REAL_HOME=$(eval echo "~$REAL_USER")
+HOSTNAME=$(hostname)
+
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run this script with sudo:"
+  echo "  sudo ./bootstrap.sh"
+  exit 1
+fi
+
+echo "=== Bootstrapping workstation configuration for user: $REAL_USER ==="
+echo "=== Detected Hostname (Node Name): $HOSTNAME ==="
+
+# 1. Install Cinc Client if not installed
+if ! command -v cinc-client &> /dev/null && ! command -v chef-client &> /dev/null; then
+  echo "Installing Cinc Client..."
+  curl -L https://omnitruck.cinc.sh/install.sh | bash
+else
+  echo "Chef/Cinc Client is already installed."
+fi
+
+# 2. Setup config directories
+echo "Configuring /etc/chef..."
+mkdir -p /etc/chef
+
+# 3. Create solo.rb config
+cat <<EOF > /etc/chef/solo.rb
+log_level          :info
+log_location       STDOUT
+file_cache_path    "/var/cache/chef"
+file_backup_path   "/var/lib/chef/backup"
+pid_file           "/var/run/chef/client.pid"
+cache_options({ :path => "/var/cache/chef/checksums", :skip_expires => true})
+
+Mixlib::Log::Formatter.show_time = true
+ohai.optional_plugins = [:Passwd]
+verbose_logging false
+
+node_name "${HOSTNAME}"
+
+chefrepo_dir "${REAL_HOME}/git/my/chef-repo"
+role_path     "\${chefrepo_dir}/roles"
+cookbook_path ["\${chefrepo_dir}/cookbooks"]
+
+json_attribs '/etc/chef/solo-attributes.json'
+EOF
+
+# 4. Create solo-attributes.json if not present
+if [ ! -f /etc/chef/solo-attributes.json ]; then
+  cat <<EOF > /etc/chef/solo-attributes.json
+{
+  "run_list": [
+    "role[workstation]"
+  ]
+}
+EOF
+fi
+
+echo "=== Bootstrap Complete! ==="
+echo "You can now run Chef Solo using:"
+echo "  ./run-chef.sh"

@@ -1,19 +1,20 @@
 # Cookbook Name:: woodenbits
-# Recipe:: sys-packages
-
-# maybe useful kernel options: i915.i915_enable_fbc=1 i915.lvds_downclock=1
+# Recipe:: user-packages
 
 include_recipe 'woodenbits::truecrypt'
 include_recipe 'woodenbits::audio-packages'
 
 # ========== user tools
 
-#package 'skype'
-#package 'xournal'
 package 'gimp'
 package 'xsel'
 package 'boxes'
 package 'tree'
+
+# webcam adjustments UI
+package 'guvcview'
+# webcam adjustments loader
+package 'uvcdynctrl'
 
 unless node[:hostname].start_with?('opoplavsky-')
   include_recipe 'woodenbits::photo-packages'
@@ -36,31 +37,25 @@ unless node[:hostname].start_with?('opoplavsky-')
 
   package 'lilypond' # generating sheet music
   package 'entr' # convenient repeated running of lilypond
-end
 
+  # why would I want docker on non-work computers?
+  package 'docker-ce' do
+    action :purge
+  end
+  package 'docker-buildx-plugin' do
+    action :purge
+  end
+end
 
 package 'google-chrome-stable'
-#package 'google-talkplugin'
+package 'chrome-gnome-shell'
 package 'chromium-browser'
 
-# old version of brave browser
-package 'brave' do
-  action :purge
-end
+# new version of brave browser
+package 'brave-browser'
 
-# new version of brave browser, do not care for it anyway
-package 'brave-browser' do
-  action :purge
-end
+package 'signal-desktop'
 
-package 'brave-keyring' do
-  action :purge
-end
-
-#package 'brave-browser'
-#package 'brave-keyring'
-
-#package 'python-gpgme' # for dropbox
 package 'nautilus-dropbox'
 
 package 'vlc'
@@ -71,14 +66,9 @@ package 'smplayer'
 package 'gnome-calculator'
 package 'gnome-tweaks'
 package 'gnome-shell-extensions'
-package 'gnome-shell-extension-system-monitor'
-
-#package 'network-manager-vpnc'
-#package 'network-manager-openvpn'
-
-#package 'gnome-sushi' # preview on SPACE
-
-#package 'autokey-gtk'
+package 'gnome-shell-extension-manager'
+#package 'gnome-shell-extension-system-monitor'
+#package 'gir1.2-gtop-2.0' # required by system-monitor extension
 
 # ========== emulators / virtualization
 

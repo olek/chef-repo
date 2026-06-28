@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+sudo chef-solo --config /etc/chef/solo.rb

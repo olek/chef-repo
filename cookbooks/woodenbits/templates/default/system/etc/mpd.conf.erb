@@ -218,53 +218,6 @@ input {
 
 audio_output {
         type          "alsa"
-        name          "Wyred4Sound µLINK (no resampling, DoP enabled)"
-        device        "hw:Interf"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "15000"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        dop           "yes"
-}
-
-audio_output {
-        type          "alsa"
-        name          "Wyred4Sound µLINK (resampling to 44)"
-        device        "hw:Interf"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "1500"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "44100:24:2"
-}
-
-audio_output {
-        type          "alsa"
-        name          "Wyred4Sound µLINK (resampling to 48)"
-        device        "hw:Interf"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "1500"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "48000:24:2"
-}
-
-# ================================================================================
-
-audio_output {
-        type          "alsa"
         name          "Bel Canto REFLink (no resampling, DoP enabled)"
         device        "hw:B20"
         mixer_type    "none"
@@ -336,15 +289,34 @@ audio_output {
         auto_channels "no"
         auto_format   "no"
         format        "192000:24:2"
-}
+        }
 
 # ================================================================================
 
 audio_output {
         type          "alsa"
-        name          "Lavaudio DS600 (native DSD)"
-        device        "hw:AUDIO"
+        name          "DAC iFi (no resampling, DoP enabled)"
+        device        "hw:Audio"
         mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "15000"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        dop           "yes"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC iFi (no resampling, native DSD)"
+        device        "hw:Audio"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "15000"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -353,34 +325,142 @@ audio_output {
 
 audio_output {
         type          "alsa"
-        name          "Lavaudio DS600 (resampling to 176)"
-        device        "hw:AUDIO"
+        name          "DAC iFi (resampling to 44)"
+        device        "hw:Audio"
         mixer_type    "none"
-        # 5s, increase from default 500,000 microseconds = 0.5s
-        buffer_time   "5000000"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # using high value like 1s (1000000) reduces CPU usage drastically
-        period_time   "1000000"
+        # period_time   "1500"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
-        format        "176400:32:2"
+        format        "44100:24:2"
 }
 
 audio_output {
         type          "alsa"
-        name          "Lavaudio DS600 (resampling to 192)"
-        device        "hw:AUDIO"
+        name          "DAC iFi (resampling to 48)"
+        device        "hw:Audio"
         mixer_type    "none"
-        # 5s, increase from default 500,000 microseconds = 0.5s
-        buffer_time   "5000000"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # using high value like 1s (1000000) reduces CPU usage drastically
-        period_time   "1000000"
+        # period_time   "1500"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
-        format        "192000:32:2"
+        format        "48000:24:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC iFi (resampling to 176)"
+        device        "hw:Audio"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "1500"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "176400:24:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC iFi (resampling to 192)"
+        device        "hw:Audio"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "1500"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "192000:24:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC iFi (resampling to 352)"
+        device        "hw:Audio"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "1500"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "352800:24:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC iFi (resampling to 384)"
+        device        "hw:Audio"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "1500"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "384000:24:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC iFi (resampling to 705.6)"
+        device        "hw:Audio"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        #buffer_time   "2097152"
+        # buffer_time   "185760"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        #period_time   "92880"
+        # period_time   "24000"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "705600:24:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "DAC iFi (resampling to 768)"
+        device        "hw:Audio"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        #buffer_time   "2097152"
+        # buffer_time   "185760"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "24000"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "768000:24:2"
+}
+
+# ================================================================================
+
+audio_output {
+        type          "alsa"
+        name          "Qudelix 5k (no resampling, DoP enabled)"
+        device        "hw:Q441KHz"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "15000"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        dop           "yes"
 }
 
 # ================================================================================
@@ -434,168 +514,13 @@ audio_output {
 
 audio_output {
         type          "alsa"
-        name          "DAC iFi iDSD Micro (no resampling, DoP enabled)"
-        device        "hw:Audio"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "15000"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        dop           "yes"
-}
-
-audio_output {
-        type          "alsa"
-        name          "DAC iFi iDSD Micro (no resampling, native DSD)"
-        device        "hw:Audio"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "15000"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        dop           "no"
-}
-
-audio_output {
-        type          "alsa"
-        name          "DAC iFi iDSD Micro (resampling to 44)"
-        device        "hw:Audio"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "1500"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "44100:24:2"
-}
-
-audio_output {
-        type          "alsa"
-        name          "DAC iFi iDSD Micro (resampling to 48)"
-        device        "hw:Audio"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "1500"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "48000:24:2"
-}
-
-audio_output {
-        type          "alsa"
-        name          "DAC iFi iDSD Micro (resampling to 176)"
-        device        "hw:Audio"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "1500"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "176400:24:2"
-}
-
-audio_output {
-        type          "alsa"
-        name          "DAC iFi iDSD Micro (resampling to 192)"
-        device        "hw:Audio"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "1500"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "192000:24:2"
-}
-
-audio_output {
-        type          "alsa"
-        name          "DAC iFi iDSD Micro (resampling to 352)"
-        device        "hw:Audio"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "1500"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "352800:24:2"
-}
-
-audio_output {
-        type          "alsa"
-        name          "DAC iFi iDSD Micro (resampling to 384)"
-        device        "hw:Audio"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        # buffer_time   "2097152"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        # period_time   "1500"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "384000:24:2"
-}
-
-audio_output {
-        type          "alsa"
-        name          "DAC iFi iDSD Micro (resampling to 705.6)"
-        device        "hw:Audio"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        #buffer_time   "2097152"
-        buffer_time   "185760"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        #period_time   "92880"
-        period_time   "24000"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "705600:24:2"
-}
-
-audio_output {
-        type          "alsa"
-        name          "DAC iFi iDSD Micro (resampling to 768)"
-        device        "hw:Audio"
-        mixer_type    "none"
-        # 2s, increase from default 500,000 microseconds = 0.5s
-        #buffer_time   "2097152"
-        buffer_time   "185760"
-        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "24000"
-        auto_resample "no"
-        auto_channels "no"
-        auto_format   "no"
-        format        "768000:24:2"
-}
-
-# ================================================================================
-
-audio_output {
-        type          "alsa"
         name          "DAC DACmini CX"
         device        "hw:DACmini"
         mixer_type    "none"
         # 2s, increase from default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "15000"
+        # period_time   "15000"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -607,9 +532,9 @@ audio_output {
         device        "hw:DACmini"
         mixer_type    "none"
         # 2s, increase from default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "15000"
+        # period_time   "15000"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -622,9 +547,9 @@ audio_output {
         device        "hw:DACmini"
         mixer_type    "none"
         # 2s, increase from default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "15000"
+        # period_time   "15000"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -639,9 +564,9 @@ audio_output {
         device        "hw:II"
         mixer_type    "none"
         # 2s, increase from default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "50000"
+        # period_time   "50000"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -655,9 +580,9 @@ audio_output {
         device        "hw:DA300USB"
         mixer_type    "none"
         # 2s, increase from default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "50000"
+        # period_time   "50000"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -670,9 +595,9 @@ audio_output {
         device        "hw:DA300USB"
         mixer_type    "none"
         # 2s, increase from default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "50000"
+        # period_time   "50000"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -685,9 +610,9 @@ audio_output {
         device        "hw:DA300USB"
         mixer_type    "none"
         # 2s, increase from default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -700,9 +625,9 @@ audio_output {
         device        "hw:DA300USB"
         mixer_type    "none"
         # 2s, increase from default 500,000 microseconds = 0.5s
-        buffer_time   "2097152"
+        # buffer_time   "2097152"
         # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
-        period_time   "1500"
+        # period_time   "1500"
         auto_resample "no"
         auto_channels "no"
         auto_format   "no"
@@ -749,6 +674,98 @@ audio_output {
 # ================================================================================
 
 audio_output {
+        type          "alsa"
+        name          "Lavaudio DS600 (native DSD)"
+        device        "hw:AUDIO"
+        mixer_type    "none"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        dop           "no"
+}
+
+audio_output {
+        type          "alsa"
+        name          "Lavaudio DS600 (resampling to 176)"
+        device        "hw:AUDIO"
+        mixer_type    "none"
+        # 5s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "5000000"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # using high value like 1s (1000000) reduces CPU usage drastically
+        # period_time   "1000000"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "176400:32:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "Lavaudio DS600 (resampling to 192)"
+        device        "hw:AUDIO"
+        mixer_type    "none"
+        # 5s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "5000000"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # using high value like 1s (1000000) reduces CPU usage drastically
+        # period_time   "1000000"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "192000:32:2"
+}
+
+# ================================================================================
+
+audio_output {
+        type          "alsa"
+        name          "Wyred4Sound µLINK (no resampling, DoP enabled)"
+        device        "hw:Interf"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "15000"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        dop           "yes"
+}
+
+audio_output {
+        type          "alsa"
+        name          "Wyred4Sound µLINK (resampling to 44)"
+        device        "hw:Interf"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "1500"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "44100:24:2"
+}
+
+audio_output {
+        type          "alsa"
+        name          "Wyred4Sound µLINK (resampling to 48)"
+        device        "hw:Interf"
+        mixer_type    "none"
+        # 2s, increase from default 500,000 microseconds = 0.5s
+        # buffer_time   "2097152"
+        # default is 256000000 / sample rate (kHz) or 5804 microseconds for redbook
+        # period_time   "1500"
+        auto_resample "no"
+        auto_channels "no"
+        auto_format   "no"
+        format        "48000:24:2"
+}
+
+# ================================================================================
+
+audio_output {
         type "pulse"
         name "Local Pulse Output"
         server "127.0.0.1"
@@ -789,9 +806,9 @@ playlist_plugin {
 
 # ================================================================================
 
-#audio_buffer_size "16384" # KiB,  Default is 4096 (4 MiB).
-audio_buffer_size "120000" # KiB,  Default is 4096 (4 MiB).
-buffer_before_play "10%"   # % of audio_buffer_size
+#audio_buffer_size "16384" # KiB,  Default is 2048 (2 MiB), 12s in redbook
+audio_buffer_size "16384" # KiB,  Default is 2048 (2 MiB), 12s in redbook
+#buffer_before_play "10%"   # % of audio_buffer_size, default 10%, which is 1s in redbook for default audio_buffer_size
 
 #
 # An example of an OSS output:

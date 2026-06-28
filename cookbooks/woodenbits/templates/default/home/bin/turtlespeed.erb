@@ -11,18 +11,17 @@ if [[ -z $command ]]; then
   exit 1
 fi
 
-# trap ctrl-c and call ctrl_c()
-trap ctrl_c INT
-
-function ctrl_c() {
-  pkexec cpu-epp-set power
-}
-
 declare -r previous_epp=$(cpu-epp-show | head -n1 | awk 'NF>1{print $NF}')
 
-pkexec cpu-epp-set performance
+# trap ctrl-c and call on_exit()
+trap on_exit INT EXIT
+
+function on_exit() {
+  pkexec cpu-epp-set "$previous_epp"
+}
+
+pkexec cpu-epp-set power
 timed "$@"
-pkexec cpu-epp-set "$previous_epp"
 
 #echo "0" | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo > /dev/null
 #"$@"

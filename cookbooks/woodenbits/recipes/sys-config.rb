@@ -10,10 +10,10 @@ directory '/vaults' do
   action :create
 end
 
-execute "turn off chef-client verbose logging" do
-  command "echo 'verbose_logging false' >> /etc/cinc/client.rb"
-  not_if "grep 'verbose_logging false' /etc/cinc/client.rb"
-end
+#execute "turn off chef-client verbose logging" do
+#  command "echo 'verbose_logging false' >> /etc/cinc/client.rb"
+#  not_if "grep 'verbose_logging false' /etc/cinc/client.rb"
+#end
 
 #template "/etc/pm/power.d/000_trifty" do
 #  source "system/etc/trifty.erb"
@@ -46,13 +46,6 @@ if hostname == 'tenebrus'
   end
 end
 
-#template "/usr/local/bin/adjust-scroll" do
-#  source 'adjust-scroll.erb'
-#  mode '0755'
-#  owner 'root'
-#  group 'root'
-#end
-
 template "/usr/local/bin/resize.rb" do
   source 'resize.rb.erb'
   mode '0755'
@@ -65,6 +58,44 @@ template "/usr/local/bin/tmuxstart" do
   mode '0755'
   owner 'root'
   group 'root'
+end
+
+execute "reload systemd" do
+  command %Q(
+    systemctl daemon-reload
+    systemctl enable gnome-shell-suspend
+    systemctl enable gnome-shell-resume
+  )
+  action :nothing
+end
+
+execute "reload udev" do
+  command %Q(
+    udevadm control --reload-rules
+    udevadm trigger
+  )
+  action :nothing
+end
+
+%w(suspend resume).each do |name|
+  template "/etc/systemd/system/gnome-shell-#{name}.service" do
+    source "system/etc/systemd/gnome-shell-#{name}-service.erb"
+    mode 0644
+    owner 'root'
+    group 'root'
+
+    notifies :run, 'execute[reload systemd]', :delayed
+  end
+
+end
+
+template "/etc/udev/rules.d/59-vial.rules" do
+  source "system/etc/udev-rules.d/59-vial.rules.erb"
+  mode 0644
+  owner 'root'
+  group 'root'
+
+  notifies :run, 'execute[reload udev]', :delayed
 end
 
 
@@ -128,9 +159,19 @@ template "/etc/mpd.conf" do
   only_if { ::File.exist?("/usr/bin/mpd") }
 end
 
-%w(vims vimt).each do |script|
+directory '/etc/ncmpc' do
+  mode '0755'
+  action :create
+end
+
+template "/etc/ncmpc/config" do
+  source "system/etc/ncmpc.config.erb"
+  mode 0644
+end
+
+%w(vims vimt manage-gnome-shell).each do |script|
   template "/usr/local/bin/#{script}" do
-    source "system/usr/#{script}.erb"
+    source "system/usr/local-bin/#{script}.erb"
     mode '0755'
   end
 end

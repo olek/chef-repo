@@ -1,3 +1,15 @@
+# __short_dir is consumed by PS1 in 20-prompt. We compute it here (rather than
+# inside PS1 itself) so readline sees a static prompt string and doesn't lose
+# track of the cursor column on long directory names. Keep this assignment in
+# PROMPT_COMMAND so it runs once per prompt
+
+<%- if @is_root -%>
+PS1='\[\e[38;5;55m\]${__short_dir}\[\e[0m\] \$ '
+<%- else -%>
+PS1='\[\e[38;5;25m\]${__short_dir}\[\e[0m\] \$ '
+
+#PS1='\[\e[01;32m\]${__short_dir}\[\e[0m\] \$ '
+
 # Ubuntu Gnome-terminal reports 'xterm' instead of proper 'xterm-color'
 #PS1="${debian_chroot:+($debian_chroot)}\[\e[01;32m\]\u@\h\[\e[00m\]: \`short_dir\` \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
 #PS1="${debian_chroot:+($debian_chroot)}\[\e[01;32m\]\u@\h\[\e[00m\]: \`short_dir\` \$\[\e[0m\] "
@@ -7,8 +19,6 @@
 # expanded prompt nears $COLUMNS, causing line-editing glitches (especially in
 # vi mode) when cd'd into long directory names. Computing it once per prompt
 # via PROMPT_COMMAND and referencing the variable here sidesteps that.
-#PS1='\[\e[01;32m\]${__short_dir}\[\e[0m\] \$ '
-PS1='\[\e[38;5;25m\]${__short_dir}\[\e[0m\] \$ '
 
 # If this is an xterm set the title to user@host:dir
 #case "$TERM" in
@@ -32,5 +42,6 @@ PS1='\[\e[38;5;25m\]${__short_dir}\[\e[0m\] \$ '
 #    fi
 #    #s="\e[1m\e[34m"
 #    #us="\e[0m"
-#    export PS1="\[\e[1;32m\]$HOSTNAME \[\e[1;34m\]$WN\[\e[01;36m\] \`short_dir\` \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
+#    export PS1="\[\e[1;32m\]$HOSTNAME \[\e[1;34m\]$WN\[\e[01;36m\] ${__short_dir} \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
 #fi
+<%- end -%>

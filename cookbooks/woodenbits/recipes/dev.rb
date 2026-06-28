@@ -1,7 +1,7 @@
 # Cookbook Name:: woodenbits
 # Recipe:: dev
 
-include_recipe 'woodenbits::rbenv'
+#include_recipe 'woodenbits::rbenv'
 #include_recipe 'woodenbits::dev-modcloth'
 
 # ========== dev / user tools

@@ -60,9 +60,13 @@ git_configs = {
   "difftool.diffmerge.cmd" => "diffmerge \"$LOCAL\" \"$REMOTE\"",
   "merge.tool" => "diffmerge",
   "merge.ff" => "only",
-  "merge.conflictstyle" => "diff3",
+  "merge.conflictstyle" => "zdiff3",
   "mergetool.diffmerge.cmd" => "diffmerge --merge --result=\"$MERGED\" \"$LOCAL\" \"$(if test -f \"$BASE\"; then echo \"$BASE\"; else echo \"$LOCAL\"; fi)\" \"$REMOTE\"",
   "mergetool.diffmerge.trustExitCode" => "true",
+  "core.pager" => "delta",
+  "interactive.diffFilter" => "delta --color-only",
+  "delta.navigate" => "true",
+  "delta.light" => "true",
 }
 
 
@@ -91,6 +95,15 @@ end
   home_dir = user == 'root' ? '/root' : "/home/#{user}"
   user_group = `id --group --name #{user}`.chomp
 
+  %w(.bash_history.d).each do |dir|
+    directory "#{home_dir}/#{dir}" do
+      owner user
+      group user_group
+      mode '0700'
+      action :create
+    end
+  end
+
   %w(tmp tmp/vi /tmp/vi-undo .vim .vim/bundle build .bashrc.d).each do |dir|
     directory "#{home_dir}/#{dir}" do
       owner user
@@ -107,28 +120,13 @@ end
     action :create
   end
 
-  template "#{home_dir}/.screenrc" do
-    source 'screenrc.erb'
-    variables(
-      :is_root => user == 'root'
-    )
-    mode '0640'
-    owner user
-    group user_group
-  end
-
-  template "#{home_dir}/.tmux.conf" do
-    source 'tmux.conf.erb'
-    mode '0640'
-    owner user
-    group user_group
-  end
-
-  %w(inputrc bashrc vimrc gvimrc).each do |name|
+  # TODO figure out what is the deal with forgotten and vimrc.before.erb vimrc.after.erb
+  %w(screenrc tmux.conf inputrc bashrc vimrc gvimrc).each do |name|
     template "#{home_dir}/.#{name}" do
-      source "#{name}.erb"
+      source "home/conf/#{name}.erb"
       variables(
-        :is_root => user == 'root'
+        :is_root => user == 'root',
+        :is_olek => user == 'olek'
       )
       mode '0640'
       owner user
@@ -178,44 +176,6 @@ end
   end
 end
 
-users.each do |user|
-  home_dir = "/home/#{user}"
-  user_group = `id --group --name #{user}`.chomp
-
-  %w(.mplayer .tmuxstart .bash_history.d).each do |dir|
-    directory "#{home_dir}/#{dir}" do
-      owner user
-      group user_group
-      mode '0700'
-      action :create
-    end
-  end
-
-  directory "#{home_dir}/.config/autokey/data/Shortcuts" do
-    owner user
-    group user_group
-    mode '0700'
-    action :create
-    only_if { ::File.exist?("#{home_dir}/.config/autokey/data") }
-  end
-
-  template "#{home_dir}/.config/autokey/data/Shortcuts/quit-chrome.py" do
-    source 'autokey-quit-chrome.py.erb'
-    mode '0600'
-    owner user
-    group user_group
-    only_if { ::File.exist?("#{home_dir}/.config/autokey/data/Shortcuts") }
-  end
-
-  template "#{home_dir}/.mplayer/config" do
-    source 'mplayer-config.erb'
-    mode '0640'
-    owner user
-    group user_group
-  end
-
-end
-
 # can not change gnome settings for non-current user
 
 users.each do |user|
@@ -227,6 +187,11 @@ users.each do |user|
     execute "disable auto-mount pop-up for user #{user}" do
       command %Q(#{sudo} "gsettings set org.gnome.desktop.media-handling automount-open false")
       not_if %Q(#{sudo} "gsettings get org.gnome.desktop.media-handling automount-open | grep -q false")
+    end
+
+    execute "enable back-button trackball scrolling for user #{user}" do
+      command %Q(#{sudo} "gsettings set org.gnome.desktop.peripherals.trackball scroll-wheel-emulation-button 8")
+      not_if %Q(#{sudo} "gsettings get org.gnome.desktop.peripherals.trackball scroll-wheel-emulation-button | grep -q 8")
     end
 
 =begin
@@ -255,6 +220,22 @@ users.each do |user|
         command "sudo -H -u #{user} git config --global #{k} \'#{v}\'"
         not_if "sudo -H -u #{user} git config --global #{k} | grep -qF \'#{v}\'"
       end
+    end
+
+    %w(.mplayer .tmuxstart).each do |dir|
+      directory "#{home_dir}/#{dir}" do
+        owner user
+        group user_group
+        mode '0700'
+        action :create
+      end
+    end
+
+    template "#{home_dir}/.mplayer/config" do
+      source 'mplayer-config.erb'
+      mode '0640'
+      owner user
+      group user_group
     end
 
     directory "#{home_dir}/.ssh" do
@@ -289,9 +270,10 @@ users.each do |user|
       group user_group
     end
 
-    %w(perf-watch-cmd cpu-epp-show cpu-epp-set cpu-max-freq-set turtlespeed lightspeed).each do |script|
+    %w(perf-watch-cmd cpu-epp-show cpu-epp-set cpu-max-freq-set turtlespeed lightspeed timed mpc-radio-init
+        display-off).each do |script|
       template "#{home_dir}/bin/#{script}" do
-        source "bin/#{script}.erb"
+        source "home/bin/#{script}.erb"
         mode '0700'
         owner user
         group user_group
@@ -300,7 +282,7 @@ users.each do |user|
 
     %w(gemrc irbrc asoundrc).each do |name|
       template "#{home_dir}/.#{name}" do
-        source "#{name}.erb"
+        source "/home/conf/#{name}.erb"
         mode '0640'
         owner user
         group user_group
@@ -319,13 +301,6 @@ users.each do |user|
       source "rapid-downloader-conf.xml"
       mode 0600
       action :create_if_missing
-    end
-
-    template "#{home_dir}/bin/timed" do
-      source 'timed.erb'
-      mode '0500'
-      owner user
-      group user_group
     end
 
     ## install ntfy package - not desirable anymore since its shell integration is broken for me

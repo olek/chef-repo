@@ -54,6 +54,23 @@ set background=light
 color default
 <%- end -%>
 
+set background=light
+" colo peachpuff
+" colo oceanblack
+" color oceandeep
+" color olek-autumn
+" colo desertEx
+" colo bclear
+" color default
+
+" selected light themes followed by the dark themes on separate line for easier management
+SetColors
+  	\ vc minimal lingodirector sienna smpl stackoverflow winter morning bclear chela_light grape habiLight highlighter_term kyle nedit newsprint pleasant summerfruit blueshift
+  	\ slate 1989 colorsbox-material darktango deus earendel ekinivim moria nefertiti seattle tango-desert void zenburn anotherdark brighton codedark darkZ ecostation feral flattown ghostbuster japanesque lilypink materialtheme mrpink nord obsidian2 parsec Tomorrow-Night-Eighties softblue termschool DimGrey bubblegum corn
+
+" insane theme for default, forcing manual choice each after each restart
+colorscheme tomatosoup
+
 "set lines=55
 "set columns=140
 "set lines=41 columns=137
@@ -69,6 +86,11 @@ if has('macunix')
   macm File.Close key=<nop>
 end
 nnoremap <silent> <D-w> <Esc>:bd<CR>
+
+" Go to the last active tab, like ctrl-^ but for tabs
+au TabLeave * let g:lasttab = tabpagenr()
+nnoremap <silent> <c-tab> :exe "tabn ".g:lasttab<cr>
+vnoremap <silent> <c-tab> :exe "tabn ".g:lasttab<cr>
 
 " Tab headings
 function GuiTabLabel()

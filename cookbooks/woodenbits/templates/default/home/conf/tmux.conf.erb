@@ -14,7 +14,9 @@ set -g default-terminal "screen-256color"
 set-option -sg  escape-time 0
 
 # lighten the BG color of status bar to make it easier to read
-set -g status-bg brightgreen
+# set -g status-bg brightgreen
+# Set the status bar background to a 256-color value (e.g., colour235 is a dark grey)
+set -g status-style bg=colour81
 
 # Default history limit 2000 lines is too low.
 set-option -g history-limit 100000
@@ -23,4 +25,10 @@ set-option -g history-limit 100000
 set-window-option -g mode-keys vi
 
 # No time in status line, please (freaks out tabs on some terminals)
-set -g status-right '#S:#W #H'
+# set -g status-right '#S:#W #H'
+
+# Actually disable right status info, it is not not helpful and just adds noise
+set -g status-right ''
+
+# Reserve more space for longer session names on the left status line
+set -g status-left-length 25

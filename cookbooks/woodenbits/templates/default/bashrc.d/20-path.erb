@@ -2,6 +2,8 @@
 # prepends ordered from least to most local because their order in PATH will be reversed
 
 prepend_to_path /vaults/scc/bin
+prepend_to_path $HOME/.cargo/bin
+prepend_to_path $HOME/.npm-global/bin
 prepend_to_path $HOME/.local/bin
 prepend_to_path $HOME/bin
 prepend_to_path $HOME/shed

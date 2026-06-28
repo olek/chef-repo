@@ -11,7 +11,8 @@ if node[:hostname].start_with?('opoplavsky-')
   package 'nodejs'
   package 'jq' # json pretty print
 
-  package 'insomnia'
+  # current version is awfull
+  # package 'insomnia'
 
   package 'docker-ce'
 

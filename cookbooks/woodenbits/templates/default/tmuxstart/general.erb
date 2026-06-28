@@ -1,17 +1,20 @@
 cd ~
 
 new_session -n root
+new_window -n perf-watch
 new_window -n ncmpc
 new_window -n cmd1
-new_window -n cmd2
+new_window -n kanata
+#new_window -n cmd2
 #new_window -n disks
 
 sleep 1.0
 
 # send_keys disks 'sudo bash -c "watch hdparm -C /dev/sdb /dev/sdc"' 'Enter'
 send_keys root 'sudo -H -i' 'Enter'
-#send_keys ncmpc '#pasuspender ncmpc' 'Enter'
-send_keys ncmpc 'watch --interval 12 perf-watch-cmd' 'Enter'
+send_keys perf-watch 'watch --interval 30 perf-watch-cmd' 'Enter'
+send_keys ncmpc '#pasuspender ncmpc' 'Enter'
+send_keys kanata 'cd ~/git/my/kanata-setup' 'Enter'
 
 # send_keys mpd 'sudo bash -c "mkdir -p /run/mpd && chmod 777 /run/mpd; mpd --no-daemon /etc/mpd.conf"' 'Enter'
 # send_keys synergy 'synergyc --no-daemon opoplavsky-ltm'

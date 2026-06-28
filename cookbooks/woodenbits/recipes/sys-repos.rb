@@ -41,25 +41,12 @@ end
 #  not_if { ::File.exist?("#{src_dir}/google_talk_stable.list") }
 #end
 
-#execute "enable brave repo" do
-#  filename = "#{src_dir}/#{codename}-brave.list"
-
-#  command %Q(
-#    curl -s https://brave-browser-apt-release.s3.brave.com/brave-core.asc | sudo apt-key --keyring /etc/apt/trusted.gpg.d/brave-browser-release.gpg add -
-#    echo "deb [arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" >> #{filename}
-#    chmod 644 #{filename}
-#  )
-
-#  notifies :run, 'execute[update apt]', :immediately
-#  creates filename
-#end
-
-execute "enable docker repo" do
-  filename = "#{src_dir}/#{codename}-docker.list"
+execute "enable brave repo" do
+  filename = "#{src_dir}/#{codename}-brave.list"
 
   command %Q(
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-    echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu #{codename} stable" >> #{filename}
+    curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" >> #{filename}
     chmod 644 #{filename}
   )
 
@@ -67,16 +54,12 @@ execute "enable docker repo" do
   creates filename
 end
 
-# old config with obsolote location of insomnia
-file "#{src_dir}/#{codename}-insomnia.list" do
-  action :delete
-end
-
-execute "enable insomnia-2 repo" do
-  filename = "#{src_dir}/#{codename}-insomnia-2.list"
+execute "enable signal-desktop repo" do
+  filename = "#{src_dir}/#{codename}-signal-desktop.sources"
 
   command %Q(
-    echo "deb [trusted=yes arch=amd64] https://download.konghq.com/insomnia-ubuntu/ default all" >> #{filename}
+    wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > /usr/share/keyrings/signal-desktop-keyring.gpg
+    wget -O #{filename} https://updates.signal.org/static/desktop/apt/signal-desktop.sources
     chmod 644 #{filename}
   )
 
@@ -84,12 +67,13 @@ execute "enable insomnia-2 repo" do
   creates filename
 end
 
-unless node[:hostname].start_with?('opoplavsky-')
-  execute "enable partners repo" do
-    filename = "#{src_dir}/#{codename}-partner.list"
+if node[:hostname].start_with?('opoplavsky-')
+  execute "enable docker repo" do
+    filename = "#{src_dir}/#{codename}-docker.list"
 
     command %Q(
-      echo "deb #{canonical_host} #{codename} partner" >> #{filename}
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+      echo "deb [arch=amd64] https://download.docker.com/linux/ubuntu #{codename} stable" >> #{filename}
       chmod 644 #{filename}
     )
 
@@ -97,32 +81,81 @@ unless node[:hostname].start_with?('opoplavsky-')
     creates filename
   end
 
-  execute "enable darktable repo" do
-    filename = "#{src_dir}/#{codename}-darktable.list"
+  # insomnia new release is awful
+  #execute "enable insomnia repo" do
+  #  filename = "#{src_dir}/#{codename}-insomnia.list"
 
-    command %Q(
-      curl -fsSL https://download.opensuse.org/repositories/graphics:darktable/xUbuntu_#{platform_version}/Release.key | apt-key add -
-      echo "deb http://download.opensuse.org/repositories/graphics:/darktable/xUbuntu_#{platform_version}/ /" >> #{filename}
-      chmod 644 #{filename}
-    )
+  #  command %Q(
+  #    echo "deb [trusted=yes arch=amd64] https://download.konghq.com/insomnia-ubuntu/ default all" >> #{filename}
+  #    chmod 644 #{filename}
+  #  )
 
-    notifies :run, 'execute[update apt]', :immediately
-    creates filename
-  end
+  #  notifies :run, 'execute[update apt]', :immediately
+  #  creates filename
+  #end
+else
+  # partner repo not available since 24.04
+  #execute "enable partners repo" do
+  #  filename = "#{src_dir}/#{codename}-partner.list"
 
-  # Google repo seems to be available in default install since 17.04 ? Maybe not.
-  execute "enable chrome repo" do
-    filename = "#{src_dir}/google-chrome.list"
+  #  command %Q(
+  #    echo "deb #{canonical_host} #{codename} partner" >> #{filename}
+  #    chmod 644 #{filename}
+  #  )
 
-    command %Q(
-      wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
-      echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> #{filename}
-      chmod 644 #{filename}
-    )
+  #  notifies :run, 'execute[update apt]', :immediately
+  #  creates filename
+  #end
 
-    notifies :run, 'execute[update apt]', :immediately
-    creates filename
-  #  not_if { ::File.exist?("#{src_dir}/google_chrome_stable.list") }
+  # darktable available right from main apt repos, at least since 24.04
+  #execute "enable darktable repo" do
+  #  filename = "#{src_dir}/#{codename}-darktable.list"
+
+  #  command %Q(
+  #    curl -fsSL https://download.opensuse.org/repositories/graphics:darktable/xUbuntu_#{platform_version}/Release.key | apt-key add -
+  #    echo "deb http://download.opensuse.org/repositories/graphics:/darktable/xUbuntu_#{platform_version}/ /" >> #{filename}
+  #    chmod 644 #{filename}
+  #  )
+
+  #  notifies :run, 'execute[update apt]', :immediately
+  #  creates filename
+  #end
+
+  # Google repo seems to be available in default install since 17.04 ? Maybe not. Disabling for now.
+  #execute "enable chrome repo" do
+  #  filename = "#{src_dir}/google-chrome.list"
+
+  #  command %Q(
+  #    wget -q "https://dl-ssl.google.com/linux/linux_signing_key.pub" -O- | sudo apt-key add -
+  #    echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> #{filename}
+  #    chmod 644 #{filename}
+  #  )
+
+  #  notifies :run, 'execute[update apt]', :immediately
+  #  creates filename
+  #end
+
+  #   eugenesan/ppa
+  #   ppa:pmjdebruijn/gnome-color-manager-release
+  [
+    'flacon/ppa', # flacon, splitting flac and ape files
+    #'jre-phoenix/ppa', # PeerGuardian, last available version is for yakkety, force it to that in apt file
+    # 'scopes-packagers/ppa', # calculator scope, not yet for 14.10
+    #'starws-box/deadbeef-player', # deadbeef music player
+  #  'pmjdebruijn/gnome-color-manager-release', # new argyll, not yet for 14.10
+  #  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
+    #'dhor/myway', # Photography tools
+    #'pmjdebruijn/darktable-release', # Fresh darktable - not available yet for 19.10 eoan
+  ].each do |ppa_name|
+    file_name = ppa_name.sub('/', '-ubuntu-')
+    # if ppa_name == 'starws-box/deadbeef-player'
+    if false
+      execute "enable #{ppa_name} repo" do
+        command "apt-add-repository --yes ppa:#{ppa_name}"
+        notifies :run, 'execute[update apt]', :immediately
+        creates "/etc/apt/sources.list.d/#{file_name}-#{codename}.list"
+      end
+    end
   end
 end
 
@@ -135,26 +168,3 @@ end
 #  notifies :run, 'execute[update apt]', :immediately
 #  creates "/etc/apt/sources.list.d/#{codename}-dropbox.list"
 #end
-
-#   eugenesan/ppa
-#   ppa:pmjdebruijn/gnome-color-manager-release
-[
-  'flacon/ppa', # flacon, splitting flac and ape files
-  #'jre-phoenix/ppa', # PeerGuardian, last available version is for yakkety, force it to that in apt file
-  # 'scopes-packagers/ppa', # calculator scope, not yet for 14.10
-  # 'webupd8team/java', # oracle java8, discontinued in 19.10 eoan
-  #'starws-box/deadbeef-player', # deadbeef music player
-#  'pmjdebruijn/gnome-color-manager-release', # new argyll, not yet for 14.10
-#  'noobslab/indicators', # indicator-sysmonitor - not for "14.04" yet
-  #'dhor/myway', # Photography tools
-  #'pmjdebruijn/darktable-release', # Fresh darktable - not available yet for 19.10 eoan
-].each do |ppa_name|
-  file_name = ppa_name.sub('/', '-ubuntu-')
-  if !node[:hostname].start_with?('opoplavsky-') || ppa_name == 'starws-box/deadbeef-player'
-    execute "enable #{ppa_name} repo" do
-      command "apt-add-repository --yes ppa:#{ppa_name}"
-      notifies :run, 'execute[update apt]', :immediately
-      creates "/etc/apt/sources.list.d/#{file_name}-#{codename}.list"
-    end
-  end
-end

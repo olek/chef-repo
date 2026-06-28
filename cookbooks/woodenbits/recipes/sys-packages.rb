@@ -62,7 +62,7 @@ package 'sysstat'
 package 'ifstat'
 package 'ethstatus'
 
-package 'mlocate'
+package 'plocate'
 package 'telnet'
 package 'dnsutils'
 package 'gparted'
@@ -79,7 +79,9 @@ package 'gparted'
 
 package 'logrotate'
 package 'checkinstall'
-package 'python3-pip'
+#package 'python3-pip'
+
+package 'inxi'
 
 #execute 'restart pgld' do
 #  command 'pglcmd restart'
@@ -104,6 +106,7 @@ package 'xsensors'
 package 'ethtool'
 #package 'dconf-tools' - not available anymore in 18.10
 package 'acpi'
+package 'intel-gpu-tools'
 package 'asterisk-core-sounds-en-wav'
 
 # ========== color management

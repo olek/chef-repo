@@ -123,6 +123,8 @@ class Window
   end
 end
 
+`$HOME/bin/fix-scrolling.sh`
+
 windows = `wmctrl -l -x | grep -v 'N/A'`.split("\n").map { |line| Window.new(line) }
 
 windows.each do |window|
@@ -139,7 +141,7 @@ windows.each do |window|
     #window.resize 1366, 766 - Screen.wasted_height
     #window.resize 1366, '100%'
     window.resize '62%', '110%'
-    window.place -25, 0
+    window.place -20, 0
 
     # Config for time when I would connect from my mac with NoMachine, because this term size is
     # same as my typical terminal window on Mac.
@@ -159,7 +161,7 @@ windows.each do |window|
   # avoiding 'desktop_window' subapp that is a launcher bar
   if window.app == 'Nautilus' # && window.subapp == 'nautilus'
     window.resize '52%', '110%'
-    window.place -25, 0
+    window.place -20, 0
   end
 
   if window.app == 'Deluge' && window.title == 'Deluge' or
@@ -168,17 +170,15 @@ windows.each do |window|
     window.align :left
   end
 
-  if window.app == 'firefox' && window.title =~ / - Pentadactyl/ or
-      window.app == 'firefox' && window.title =~ / - Vimperator/ or
-      window.app == 'firefox' && window.title =~ / - Mozilla Firefox/ or
-      window.app == 'firefox' && window.title =~ / — Mozilla Firefox/ or
+  if
+      window.app == 'firefox_firefox' && window.title =~ / — Mozilla Firefox/ or
       window.app == 'Google-chrome' && window.title =~ / - Google Chrome$/ or
+      window.app == 'Brave-browser' && window.title =~ / - Brave$/ or
       window.app == 'Chromium' && window.title =~ / - Chromium$/ or
-      window.app == 'brave' or
       window.app == 'Slack' && window.title =~ /^Slack | / or
       window.app == 'Evince' or
       window.app == 'Eclipse' && window.title =~ /^Java - Eclipse SDK/
-    window.resize '70%', '100%'
+    window.resize '70%', '105%'
     window.align :right
   end
 

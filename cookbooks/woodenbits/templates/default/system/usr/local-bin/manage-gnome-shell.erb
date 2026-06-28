@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Used by custom systemd suspend/resume scripts to ensure that gnome-shell is suspended before nvidia.
+# Without those scripts under gnome-wayland nvidia can be suspended before gnome-shell creating situation when
+# gnome-shell is trying to close its nvidia resources and they hang forever, stalling stopping of user space processes
+# and ruining suspend.
+
+case "$1" in
+    suspend)
+        killall -STOP gnome-shell
+        ;;
+    resume)
+        killall -CONT gnome-shell
+        ;;
+    *)
+    echo "Unknown argument $1" >&2
+        ;;
+esac

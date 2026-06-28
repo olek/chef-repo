@@ -1,0 +1,13 @@
+[Unit]
+Description=Resume gnome-shell
+After=systemd-suspend.service
+After=systemd-hibernate.service
+After=nvidia-resume.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/manage-gnome-shell resume
+
+[Install]
+WantedBy=systemd-suspend.service
+WantedBy=systemd-hibernate.service

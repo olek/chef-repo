@@ -279,3 +279,9 @@ function dedup_path {
     done
     export PATH="$out"
 }
+
+# sets text scaling factor in gnome; default is 1 for normal text, and 1.2 for 'larger text'
+# 1.1 is about right for old 2560x1440 monitor
+gnome-tsf () {
+  gsettings set org.gnome.desktop.interface text-scaling-factor "$1"
+}

@@ -20,18 +20,28 @@ mkdir -p ~/git/my
 git clone <this-repo-url> ~/git/my/chef-repo
 ```
 
-### Step 2: Run the Bootstrap Script
-Run the automated bootstrap script under `sudo` to install Cinc/Chef Client, and configure `/etc/chef/solo.rb`:
+### Step 2: Run the Initialization Script
+Run the automated bootstrap script under `sudo` to install Cinc/Chef Client and configure `/etc/chef/solo.rb`:
 ```bash
 cd ~/git/my/chef-repo
-sudo ./bootstrap.sh
+sudo ./chef-init
 ```
 
-### Step 3: Execute Chef Solo
-Execute the configuration run using:
+### Step 3: Run the Update Script
+Run the configuration update using:
 ```bash
-./run-chef.sh
+./chef-update
 ```
+
+---
+
+## Workstation Scripts
+
+The repository contains three helper scripts to manage your workstation setup:
+
+*   **[chef-init](file:///home/olek/git/my/chef-repo/chef-init)**: Bootstraps the local environment by installing Cinc/Chef Client (if not present) and setting up solo configurations `/etc/chef/solo.rb` and `/etc/chef/solo-attributes.json`. (Must be run with `sudo`).
+*   **[chef-update](file:///home/olek/git/my/chef-repo/chef-update)**: Triggers `chef-solo` to apply your workstation recipes and synchronize configuration files.
+*   **[chef-upgrade](file:///home/olek/git/my/chef-repo/chef-upgrade)**: Checks the currently installed version of Chef/Cinc Client. If it is below major version 18, it upgrades it to version 18.
 
 ---
 

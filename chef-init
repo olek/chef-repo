@@ -8,7 +8,7 @@ HOSTNAME=$(hostname)
 
 if [ "$EUID" -ne 0 ]; then
   echo "Please run this script with sudo:"
-  echo "  sudo ./bootstrap.sh"
+  echo "  sudo ./chef-init"
   exit 1
 fi
 
@@ -62,4 +62,4 @@ fi
 
 echo "=== Bootstrap Complete! ==="
 echo "You can now run Chef Solo using:"
-echo "  ./run-chef.sh"
+echo "  ./chef-update"

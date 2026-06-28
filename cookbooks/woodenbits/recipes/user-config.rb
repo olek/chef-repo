@@ -253,7 +253,6 @@ users.each do |user|
       action :create_if_missing
     end
 
-    #%w(general monologue ormivore).each do |name|
     %w(general).each do |name|
       template "#{home_dir}/.tmuxstart/#{name}" do
         source "tmuxstart/#{name}.erb"

@@ -288,7 +288,7 @@ users.each do |user|
       group user_group
     end
 
-    %w(perf-watch-cmd cpu-epp-show cpu-epp-set cpu-max-freq-set turtlespeed lightspeed timed mpc-radio-init
+    %w(perf-watch-cmd cpu-epp-show cpu-max-freq-set turtlespeed lightspeed timed mpc-radio-init
         display-off term-color-test update-pocock-skills ydotool-init.sh ydotool-cleanup.sh zoom-install.sh).each do |script|
       template "#{home_dir}/bin/#{script}" do
         source "home/bin/#{script}.erb"

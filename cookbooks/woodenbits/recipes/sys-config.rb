@@ -150,7 +150,7 @@ template "/etc/ncmpc/config" do
   mode 0644
 end
 
-%w(vims vimt manage-gnome-shell).each do |script|
+%w(vims vimt manage-gnome-shell cpu-epp-set).each do |script|
   template "/usr/local/bin/#{script}" do
     source "system/usr/local/bin/#{script}.erb"
     mode '0755'
@@ -161,22 +161,15 @@ username = node[:hostname].start_with?('opoplavsky-') ? 'opoplavsky' : 'olek'
 
 template "/usr/share/polkit-1/actions/cpu.epp.set.policy" do
   source 'system/usr/share-polkit-1-actions-cpu.epp.set.policy.erb'
-  variables(
-    :username => username
-  )
   owner 'root'
   group 'root'
   mode '0644'
 end
 
-template "/etc/polkit-1/rules.d/10-cpu-epp.rules" do
-  source "system/etc/polkit-1-rules.d-10-cpu-epp.rules.erb"
-  variables(
-    username: username,
-    script_path: "/home/#{username}/bin/cpu-epp-set"
-  )
-  owner "root"
-  group "root"
-  mode "0644"
+file "/etc/polkit-1/rules.d/10-cpu-epp.rules" do
+  action :delete
 end
 
+file "/home/#{username}/bin/cpu-epp-set" do
+  action :delete
+end

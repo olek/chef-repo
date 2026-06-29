@@ -2,4 +2,5 @@
 .chef/
 .cinc/
 client-config/
+nodes/
 

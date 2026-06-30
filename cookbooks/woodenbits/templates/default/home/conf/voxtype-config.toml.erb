@@ -1,0 +1,39 @@
+[hotkey]
+enabled = true
+key = "SCROLLLOCK"          # push-to-talk key
+
+[audio]
+device = "default"
+sample_rate = 16000
+max_duration_secs = 60
+
+[whisper]
+model = "medium.en"
+language = "en"
+gpu_device = 1              # [machine-specific] NVIDIA = Vulkan device 1 (discrete GPU on dual-GPU system)
+initial_prompt = "GUS, Claude, Codanna, Serena, ast-grep, Feathers, Fowler, common-gateway, admin-api, e360-whatsapp, e360-messaging-runtime-libs, uacp-shared-libraries"
+
+[audio.feedback]
+enabled = true
+theme = "subtle"            # "default" is louder (needs volume ≤0.1); "mechanical" is clicky
+volume = 0.3
+
+[output]
+mode = "type"
+fallback_to_clipboard = true
+type_delay_ms = 0
+
+[output.notification]
+on_recording_start = true
+on_recording_stop = true
+on_transcription = false    # disabled — clutters screen with repeated text
+
+[text]
+spoken_punctuation = true
+
+[text.replacements]
+"vox type" = "voxtype"
+"grill me skill" = "/grill-me skill"
+"grill with docs skill" = "/grill-with-docs skill"
+"refactor feathers skill" = "/refactor-feathers skill"
+"refactor fowler skill" = "/refactor-fowler skill"

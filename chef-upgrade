@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
+# Automatically escalate to root if not already running as root
+if [ "$EUID" -ne 0 ]; then
+  exec sudo "$0" "$@"
+fi
+
 # Target minimum major version
 TARGET_MAJOR=18
 
@@ -18,7 +23,7 @@ echo "Current Chef/Cinc Client version: $CURRENT_VERSION"
 if [ -z "$MAJOR_VERSION" ] || [ "$MAJOR_VERSION" -lt "$TARGET_MAJOR" ]; then
   echo "Upgrade required (installed version is below version $TARGET_MAJOR)."
   echo "Installing Cinc Client version $TARGET_MAJOR..."
-  curl -L https://omnitruck.cinc.sh/install.sh | sudo bash -s -- -v "$TARGET_MAJOR"
+  curl -L https://omnitruck.cinc.sh/install.sh | bash -s -- -v "$TARGET_MAJOR"
   echo "Upgrade complete. New version:"
   chef-solo -v
 else

@@ -10,6 +10,20 @@ directory '/vaults' do
   action :create
 end
 
+# Manage solo.rb to direct log output to /var/log/chef/client.log
+directory '/etc/chef' do
+  owner 'root'
+  group 'root'
+  mode '0755'
+  action :create
+end
+
+template '/etc/chef/solo.rb' do
+  source 'system/etc/chef/solo.rb.erb'
+  owner 'root'
+  group 'root'
+  mode '0644'
+end
 #execute "turn off chef-client verbose logging" do
 #  command "echo 'verbose_logging false' >> /etc/cinc/client.rb"
 #  not_if "grep 'verbose_logging false' /etc/cinc/client.rb"
@@ -157,6 +171,38 @@ end
   end
 end
 
+# Delete the old unmanaged setup script
+file '/usr/local/bin/nvidia-app-custom-setup-on-boot' do
+  action :delete
+end
+
+# Deploy the new Nvidia clock tuning scripts
+%w(nvidia-minmax-clocks nvidia-min-clocks nvidia-reset-clocks).each do |script|
+  template "/usr/local/bin/#{script}" do
+    source "system/usr/local/bin/#{script}.erb"
+    mode '0755'
+    owner 'root'
+    group 'root'
+  end
+end
+
+execute 'nvidia systemd-daemon-reload' do
+  command 'systemctl daemon-reload'
+  action :nothing
+end
+
+template '/etc/systemd/system/nvidia-minmax-clocks.service' do
+  source 'system/etc/systemd/system/nvidia-minmax-clocks.service.erb'
+  mode '0644'
+  owner 'root'
+  group 'root'
+  notifies :run, 'execute[nvidia systemd-daemon-reload]', :immediately
+end
+
+service 'nvidia-minmax-clocks' do
+  action [:enable, :start]
+end
+
 username = node[:hostname].start_with?('opoplavsky-') ? 'opoplavsky' : 'olek'
 
 template "/usr/share/polkit-1/actions/cpu.epp.set.policy" do
@@ -173,3 +219,4 @@ end
 file "/home/#{username}/bin/cpu-epp-set" do
   action :delete
 end
+

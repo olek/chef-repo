@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Ensure nvidia-smi is available
+if ! command -v nvidia-smi &>/dev/null; then
+  echo "nvidia-smi not found. Exiting."
+  exit 1
+fi
+
+echo "Resetting GPU clocks to default settings..."
+nvidia-smi --reset-gpu-clocks
+nvidia-smi --reset-memory-clocks
+nvidia-smi --reset-applications-clocks

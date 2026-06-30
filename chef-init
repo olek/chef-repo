@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
+# Automatically escalate to root if not already running as root
+if [ "$EUID" -ne 0 ]; then
+  exec sudo "$0" "$@"
+fi
+
 # Detect user (running under sudo or as normal user)
 REAL_USER="${SUDO_USER:-$USER}"
 REAL_HOME=$(eval echo "~$REAL_USER")
 HOSTNAME=$(hostname)
-
-if [ "$EUID" -ne 0 ]; then
-  echo "Please run this script with sudo:"
-  echo "  sudo ./chef-init"
-  exit 1
-fi
 
 echo "=== Bootstrapping workstation configuration for user: $REAL_USER ==="
 echo "=== Detected Hostname (Node Name): $HOSTNAME ==="
@@ -23,31 +22,31 @@ else
   echo "Chef/Cinc Client is already installed."
 fi
 
+# Get the absolute directory where this script resides (the chef-repo root)
+CHEFREPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # 2. Setup config directories
 echo "Configuring /etc/chef..."
 mkdir -p /etc/chef
 
-# 3. Create solo.rb config
-cat <<EOF > /etc/chef/solo.rb
-log_level          :info
-log_location       STDOUT
-file_cache_path    "/var/cache/chef"
-file_backup_path   "/var/lib/chef/backup"
-pid_file           "/var/run/chef/client.pid"
-cache_options({ :path => "/var/cache/chef/checksums", :skip_expires => true})
+# 3. Create solo.rb config from template
+echo "Generating /etc/chef/solo.rb from template..."
+ruby -rerb -e '
+  class Node
+    def [](key)
+      key == :hostname ? "'"${HOSTNAME}"'" : nil
+    end
+  end
+  node = Node.new
 
-Mixlib::Log::Formatter.show_time = true
-ohai.optional_plugins = [:Passwd]
-verbose_logging false
+  module Chef
+    Config = { cookbook_path: ["'"${CHEFREPO_DIR}"'/cookbooks"] }
+  end
 
-node_name "${HOSTNAME}"
-
-chefrepo_dir "${REAL_HOME}/git/my/chef-repo"
-role_path     "\${chefrepo_dir}/roles"
-cookbook_path ["\${chefrepo_dir}/cookbooks"]
-
-json_attribs '/etc/chef/solo-attributes.json'
-EOF
+  template = File.read("'"${CHEFREPO_DIR}"'/cookbooks/woodenbits/templates/default/system/etc/chef/solo.rb.erb")
+  erb = ERB.new(template)
+  puts erb.result(binding)
+' > /etc/chef/solo.rb
 
 # 4. Create solo-attributes.json if not present
 if [ ! -f /etc/chef/solo-attributes.json ]; then

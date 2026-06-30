@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Ensure nvidia-smi is available
+if ! command -v nvidia-smi &>/dev/null; then
+  echo "nvidia-smi not found. Exiting."
+  exit 1
+fi
+
+# Enable persistence mode
+nvidia-smi --persistence-mode=1
+
+# Reset any clocks to default before adjusting
+nvidia-smi --reset-gpu-clocks
+nvidia-smi --reset-memory-clocks
+nvidia-smi --reset-applications-clocks
+
+# Query supported clocks to find the minimum memory clock
+# and the minimum graphics (core) clock that supports it.
+SUPPORTED=$(nvidia-smi --query-supported-clocks=mem,gr --format=csv,noheader,nounits 2>/dev/null)
+
+if [ -n "$SUPPORTED" ]; then
+  MIN_MEM=$(echo "$SUPPORTED" | cut -d',' -f1 | sort -n | head -n1)
+  MIN_MEM=$(echo "$MIN_MEM" | xargs)
+  
+  if [ -n "$MIN_MEM" ]; then
+    MIN_GR=$(echo "$SUPPORTED" | grep "^${MIN_MEM}," | cut -d',' -f2 | sort -n | head -n1)
+    MIN_GR=$(echo "$MIN_GR" | xargs)
+    
+    if [ -n "$MIN_GR" ]; then
+      echo "Locking clocks to minimum power states: memory: ${MIN_MEM} MHz, graphics: ${MIN_GR} MHz"
+      nvidia-smi --lock-gpu-clocks="${MIN_GR},${MIN_GR}"
+      # Try locking memory clocks; fallback to applications-clocks if memory lock is not supported on this GPU
+      nvidia-smi --lock-memory-clocks="${MIN_MEM},${MIN_MEM}" || nvidia-smi --applications-clocks="${MIN_MEM},${MIN_GR}"
+      exit 0
+    fi
+  fi
+fi
+
+echo "Failed to dynamically determine or set clocks."
+exit 1

@@ -237,7 +237,7 @@ users.each do |user|
       escaped_v = v.gsub("'") { "'\\''" }
       execute "git config --global #{k}" do
         command "sudo -H -u #{user} git config --global #{k} '#{escaped_v}'"
-        not_if "sudo -H -u #{user} git config --global #{k} | grep -qF '#{escaped_v}'"
+        not_if "sudo -H -u #{user} git config --global #{k} | grep -qF -- '#{escaped_v}'"
       end
     end
 

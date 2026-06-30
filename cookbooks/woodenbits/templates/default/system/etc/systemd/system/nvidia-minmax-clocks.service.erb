@@ -1,0 +1,12 @@
+[Unit]
+Description=Set Nvidia Min-Core Max-Memory Clocks on Boot
+After=nvidia-persistenced.service
+Wants=nvidia-persistenced.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nvidia-minmax-clocks
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

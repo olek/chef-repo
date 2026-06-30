@@ -33,3 +33,6 @@ unless node[:hostname].start_with?('opoplavsky-')
   package 'cuetools'
   package 'shntool'
 end
+
+include_recipe 'woodenbits::voxtype'
+

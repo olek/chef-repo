@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-
-# Document commands useful for wrangling nvidia or general power consumption here
+#
+# perf-watch-cmd — one-screen power/thermal/runtime snapshot for this laptop.
+# Designed to be wrapped in `watch` (see below). Every row is tolerant of absent
+# hardware/paths so the same script runs across machines; we deliberately do NOT
+# `set -e` for that reason.
+#
+# Reference commands useful for wrangling nvidia or general power consumption:
 #
 # * watching nvidia gpu runtime status (active/suspended)
 #     watch --interval 5 cat /sys/bus/pci/devices/0000\:01\:00.0/power/runtime_status
@@ -34,231 +39,253 @@
 #   to go to D3Cold state, but NO configuration changes seems to be necessary. And re-plugging HDMI will automatically
 #   activate nvidia gpu. Not bad.
 
-set -uo pipefail
-
-readonly NVIDIA_PCI_ADDR="0000:01:00.0"
-readonly PCI_SHORT_ADDR="01:00.0"
+readonly NVIDIA_PCI="0000:01:00.0"
+readonly NVIDIA_DEV="/sys/bus/pci/devices/${NVIDIA_PCI}"
 readonly NVIDIA_GPU_NAME_FILE="/tmp/nvidia-gpu-name.txt"
+readonly VERSIONS_FILE="/tmp/perf-watch-versions.txt"
 
-# Initialize GPU name cache
-init_gpu_name() {
-  if [[ ! -f "$NVIDIA_GPU_NAME_FILE" ]]; then
-    local gpu_name driver_version
-    gpu_name=$(lspci 2>/dev/null | grep "^${PCI_SHORT_ADDR}" | sed -e "s/^${PCI_SHORT_ADDR} VGA compatible controller: //")
-    driver_version=$(cat /sys/module/nvidia/version 2>/dev/null)
-    echo "${gpu_name:-Unknown GPU} / ${driver_version:-Unknown Driver}" > "$NVIDIA_GPU_NAME_FILE"
-  fi
+# Populated once in main() and read by the temperature rows.
+sensors_data=""
+nvidia_runtime_status=""
+
+# Cache the GPU make/model + loaded driver version so we don't poke lspci (and
+# risk waking a suspended GPU) on every refresh.
+cache_nvidia_gpu_name() {
+  [[ -f "$NVIDIA_GPU_NAME_FILE" ]] && return
+
+  local gpu_name driver_version
+  gpu_name=$(lspci | grep '^01:00.0' | sed -e 's/^01:00.0 VGA compatible controller: //')
+  # Loaded-module version (e.g. 580.159.03); does not wake a suspended GPU.
+  driver_version=$(cat /sys/module/nvidia/version 2>/dev/null)
+  echo "$gpu_name / $driver_version" > "$NVIDIA_GPU_NAME_FILE"
 }
 
-print_system_info() {
-  # 1. Print Time
-  printf "Time: \t\t\t%s\n" "$(date | tr -s ' ')"
-
-  # 2. Print Computer Make/Model and CPU Info
-  printf "Computer: \t\t"
-  if [[ -r /sys/devices/virtual/dmi/id/sys_vendor && -r /sys/devices/virtual/dmi/id/product_family ]]; then
-    printf "%s %s " "$(cat /sys/devices/virtual/dmi/id/sys_vendor)" "$(cat /sys/devices/virtual/dmi/id/product_family)"
-  else
-    printf "Unknown "
-  fi
-
-  local cpu_model="Unknown"
-  if [[ -r /proc/cpuinfo ]]; then
-    cpu_model=$(awk -F': ' '/model name/ {print $2; exit}' /proc/cpuinfo)
-  fi
-  printf "/ %s\n" "$cpu_model"
-
-  # 3. Print Governor / Preference
-  local gov="Unknown" pref="Unknown"
-  if [[ -r /sys/devices/system/cpu/cpufreq/policy0/scaling_governor ]]; then
-    gov=$(< /sys/devices/system/cpu/cpufreq/policy0/scaling_governor)
-  fi
-  if [[ -r /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference ]]; then
-    pref=$(< /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference)
-  fi
-  printf "Governor / pref: \t%s / %s\n" "$gov" "$pref"
-
-  # 4. Print CPU boost status
-  local cpu_boost="Unknown"
-  if [[ -r /sys/devices/system/cpu/intel_pstate/no_turbo ]]; then
-    cpu_boost=$(< /sys/devices/system/cpu/intel_pstate/no_turbo)
-  fi
-  printf "CPU boost disabled: \t%s\n" "$cpu_boost"
+print_time() {
+  printf 'Time: \t\t\t'
+  date | sed -e 's/\W\W\+/ /'
 }
 
-print_cpu_stats() {
-  local sensors_data="${1:-}"
-
-  # 5. Print CPU Average Freq and Min/Max
-  shopt -s nullglob
-  local freq_files=(/sys/devices/system/cpu/cpufreq/policy*/scaling_cur_freq)
-  shopt -u nullglob
-
-  if (( ${#freq_files[@]} > 0 )); then
-    printf "CPU avg freq: \t\t"
-    awk 'BEGIN {sum = 0} { sum += $1 } END { if (NR > 0) printf "%sMHz\n", int(sum / NR / 1000); else printf "N/A\n" }' "${freq_files[@]}"
-    
-    printf "CPU cnt / frq min,max: \t"
-    awk 'NR==1 {min = max = $1} max < $1 { max = $1 } min > $1 { min = $1 } END { if (NR > 0) printf "%s / %sMHz / %sMHz\n", NR, int(min / 1000), int(max / 1000); else printf "N/A\n" }' "${freq_files[@]}"
-  else
-    printf "CPU avg freq: \t\tN/A\n"
-    printf "CPU cnt / frq min,max: \tN/A\n"
-  fi
-
-  # 6. Print Core Temperature
-  printf "Core temperature: \t"
-  if [[ -n "$sensors_data" ]] && command -v jq >/dev/null; then
-    local core_temp
-    core_temp=$(echo "$sensors_data" | jq --raw-output '."coretemp-isa-0000" | [to_entries | map(select(.key | match("^Core.*";"i"))) | map(.value) | .[] | to_entries | map(select(.key | match(".*_input$";"i"))) | map(.value) | .[]] | add/length | floor | tostring + "°C"' 2>/dev/null)
-    printf "%s\n" "${core_temp:-N/A}"
-  else
-    printf "N/A\n"
-  fi
+print_computer() {
+  printf 'Computer: \t\t'
+  cat /sys/devices/virtual/dmi/id/{sys_vendor,product_family} | tr '\n' ' '
+  printf '/ '
+  grep 'model name' /proc/cpuinfo | head -n1 | sed -e 's/^model name\t\+: //'
 }
 
-print_gpu_stats() {
-  local nvidia_runtime_status="${1:-unknown}"
+# OS / kernel / display-server / desktop versions. Sourced from os-release so it
+# tracks across releases; values joined by " / ", keys enumerated in parens like
+# the "Other temps" line. Robust to a missing session env (watch/sudo) by asking
+# loginctl, and degrades to "?" rather than printing blanks.
+#
+# Every value here is fixed for the life of a boot, so the line is computed once
+# and cached. /tmp is tmpfs (cleared on reboot), so the cache self-invalidates
+# exactly when a value could change (new kernel, distro upgrade, session switch).
+cache_versions() {
+  [[ -f "$VERSIONS_FILE" ]] && return
 
-  # 7. Print GPU Temp / State / Power (if active)
-  if [[ -x "/usr/bin/nvidia-smi" && "$nvidia_runtime_status" == "active" ]]; then
-    local nsmi_data
-    nsmi_data=$(nvidia-smi -q 2>/dev/null || true)
-    if [[ -n "$nsmi_data" ]]; then
-      printf "GPU temp / st / pwr: \t"
-      echo "$nsmi_data" | awk '
-        /GPU Current Temp/ { temp = $5 }
-        /Performance State/ { state = $4 }
-        /Instantaneous Power Draw/ { if (!power) power = $5 }
-        END { printf "%s / %s / %s\n", (temp ? temp "°C" : "N/A"), (state ? state : "N/A"), (power ? power "W" : "N/A") }
-      '
+  (
+    . /etc/os-release 2>/dev/null
+    local os code kernel disp de gnome_ver session
+    os="${NAME:-?} ${VERSION%% *}"
+    code="${VERSION_CODENAME:-?}"
+    kernel=$(uname -r)
+
+    disp="$XDG_SESSION_TYPE"
+    if [[ -z "$disp" ]]; then
+      session=$(loginctl list-sessions --no-legend 2>/dev/null | awk 'NR==1{print $1}')
+      disp=$(loginctl show-session "$session" -p Type --value 2>/dev/null)
     fi
-  fi
+    disp="${disp:-?}"
+
+    de="${XDG_CURRENT_DESKTOP##*:}"
+    gnome_ver=$(gnome-shell --version 2>/dev/null | awk '{print $3}')
+    [[ -n "$gnome_ver" ]] && de="$de $gnome_ver"
+    de="${de:-?}"
+
+    echo "$os / $code / $kernel / $disp / $de (os/code/kernel/disp/de)"
+  ) > "$VERSIONS_FILE"
 }
 
+print_versions() {
+  printf 'Versions: \t\t'
+  cat "$VERSIONS_FILE"
+}
+
+print_governor() {
+  local gov pref
+  gov=$(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor)
+  pref=$(cat /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference)
+  printf 'Governor / pref: \t%s / %s\n' "$gov" "$pref"
+}
+
+print_cpu_boost() {
+  printf 'CPU boost disabled: \t'
+  cat /sys/devices/system/cpu/intel_pstate/no_turbo
+}
+
+print_cpu_avg_freq() {
+  printf 'CPU avg freq: \t\t'
+  cat /sys/devices/system/cpu/cpufreq/policy*/scaling_cur_freq |
+    awk 'BEGIN {sum = 0} { sum += $1 } END { printf "%sMHz\n", int(sum / NR / 1000)}'
+}
+
+print_cpu_count_freq() {
+  printf 'CPU cnt / frq min,max: \t'
+  cat /sys/devices/system/cpu/cpufreq/policy*/scaling_cur_freq |
+    awk 'NR==1 {min = max = 0} max < $1 { max = $1 } min == 0 || min > $1 { min = $1 } END { printf "%s / %sMHz / %sMHz\n", NR, int(min / 1000), int(max / 1000)}'
+}
+
+print_core_temp() {
+  printf 'Core temperature: \t'
+  echo "$sensors_data" | jq --raw-output '."coretemp-isa-0000" | [to_entries | map(select(.key | match("^Core.*";"i"))) | map(.value) | .[] | to_entries | map(select(.key | match(".*_input$";"i"))) | map(.value) | .[]] | add/length | floor | tostring + "°C"'
+}
+
+print_gpu_temp() {
+  [[ -x "/usr/bin/nvidia-smi" && "$nvidia_runtime_status" == "active" ]] || return
+
+  # Targeted query (3 fields, CSV) instead of the full `-q` dump: ~6x cheaper
+  # (~30ms vs ~180ms) and avoids parsing 269 lines to use 3. Fields come back as
+  # "<temp>, <pstate>, <power> W"; reformat to "<temp>°C / <pstate> / <power>W".
+  local gpu
+  gpu=$(nvidia-smi --query-gpu=temperature.gpu,pstate,power.draw.instant \
+    --format=csv,noheader,nounits 2>/dev/null)
+  printf 'GPU temp / st / pwr: \t'
+  echo "$gpu" | awk -F', *' '{ printf "%s°C / %s / %sW\n", $1, $2, $3 }'
+}
+
+# Generic scan: every sensor chip that exposes a temperature reading, printed on
+# one line as "<temp> / <temp> / ...  (<chip>/<chip>/...)". Robust to chips being
+# renamed across kernel/driver versions (e.g. pch_cometlake-virtual-0).
+# Temperatures are floored to whole degrees (we don't care about the .000).
 print_other_temps() {
-  local sensors_data="${1:-}"
-
-  # 8. Print Other Temperatures
-  if [[ -n "$sensors_data" ]] && command -v jq >/dev/null; then
-    printf "Other temps (°C): \t"
-    echo "$sensors_data" | jq --raw-output '
-      # Shorten long chip names to a couple of letters. First substring match wins;
-      # anything unknown falls back to its first word (up to the first separator).
-      def shorten:
-        [ ["coretemp","core"], ["pch","pch"], ["acpitz","acpi"], ["acpi","acpi"],
-          ["iwlwifi","wifi"], ["nvme","nvme"], ["k10temp","cpu"], ["nouveau","gpu"],
-          ["amdgpu","gpu"] ] as $map
-        | . as $chip
-        | ($chip | ascii_downcase) as $lc
-        | ([$map[] | . as $p | select($lc | contains($p[0])) | $p[1]] | first)
-          // ($chip | split("[-_]"; "") | .[0]);
-      [ to_entries[]
-        | .key as $chip
-        # coretemp is already shown (averaged) on the dedicated Core temperature line.
-        | select($chip | ascii_downcase | contains("coretemp") | not)
-        | ([.value | to_entries[] | .value | objects | to_entries[]
-            | select(.key | test("^temp[0-9]*_input$")) | .value] | first) as $t
-        | select($t != null)
-        | {key: $chip, label: ($chip | shorten), temp: ($t | floor)} ]
-      # Number repeated labels (e.g. two NVMe drives -> nvme1 / nvme2), numbering by
-      # original chip key so the suffix is stable. Singletons keep their bare label.
-      | ( group_by(.label)
-          | map( (sort_by(.key)) as $g
-                 | if length > 1
-                   then ($g | to_entries | map(.value + {label: (.value.label + (.key + 1 | tostring))}))
-                   else $g end )
-          | flatten )
-      | sort_by(.label)
-      | "\([.[].temp | tostring] | join(" / ")) (\([.[].label] | join("/")))"'
-  fi
+  printf 'Other temps (°C): \t'
+  echo "$sensors_data" | jq --raw-output '
+    # Shorten long chip names to a couple of letters. First substring match wins;
+    # anything unknown falls back to its first word (up to the first separator).
+    def shorten:
+      [ ["coretemp","core"], ["pch","pch"], ["acpitz","acpi"], ["acpi","acpi"],
+        ["iwlwifi","wifi"], ["nvme","nvme"], ["k10temp","cpu"], ["nouveau","gpu"],
+        ["amdgpu","gpu"] ] as $map
+      | . as $chip
+      | ($chip | ascii_downcase) as $lc
+      | ([$map[] | . as $p | select($lc | contains($p[0])) | $p[1]] | first)
+        // ($chip | split("[-_]"; "") | .[0]);
+    [ to_entries[]
+      | .key as $chip
+      # coretemp is already shown (averaged) on the dedicated Core temperature line.
+      | select($chip | ascii_downcase | contains("coretemp") | not)
+      | ([.value | to_entries[] | .value | objects | to_entries[]
+          | select(.key | test("^temp[0-9]*_input$")) | .value] | first) as $t
+      | select($t != null)
+      | {key: $chip, label: ($chip | shorten), temp: ($t | floor)} ]
+    # Number repeated labels (e.g. two NVMe drives -> nvme1 / nvme2), numbering by
+    # original chip key so the suffix is stable. Singletons keep their bare label.
+    | ( group_by(.label)
+        | map( (sort_by(.key)) as $g
+               | if length > 1
+                 then ($g | to_entries | map(.value + {label: (.value.label + (.key + 1 | tostring))}))
+                 else $g end )
+        | flatten )
+    | sort_by(.label)
+    | "\([.[].temp | tostring] | join(" / ")) (\([.[].label] | join("/")))"'
 }
 
-print_nvidia_runtime_status() {
-  local nvidia_runtime_status="${1:-unknown}"
+print_nvidia_runtime() {
+  printf 'Nvidia runtime for:\t'
+  cat "$NVIDIA_GPU_NAME_FILE"
 
-  # 9. Print Nvidia Runtime status
-  local gpu_name="Unknown"
-  if [[ -f "$NVIDIA_GPU_NAME_FILE" ]]; then
-    gpu_name=$(< "$NVIDIA_GPU_NAME_FILE")
-  fi
-  printf "Nvidia runtime for:\t%s\n" "$gpu_name"
-  printf "  status: \t\t%s\n" "$nvidia_runtime_status"
+  printf '  status: \t\t%s\n' "$nvidia_runtime_status"
 
-  # 10. Print D3 allowed / pstate
-  local d3_allowed="N/A" power_state="N/A"
-  if [[ -r "/sys/bus/pci/devices/${NVIDIA_PCI_ADDR}/d3cold_allowed" ]]; then
-    d3_allowed=$(< "/sys/bus/pci/devices/${NVIDIA_PCI_ADDR}/d3cold_allowed")
-  fi
-  if [[ -r "/sys/bus/pci/devices/${NVIDIA_PCI_ADDR}/power_state" ]]; then
-    power_state=$(< "/sys/bus/pci/devices/${NVIDIA_PCI_ADDR}/power_state")
-  fi
-  printf "  D3 allowed / pstate:\t%s / %s\n" "${d3_allowed//[$'\n']/}" "${power_state//[$'\n']/}"
+  printf '  D3 allowed / pstate:\t'
+  cat "${NVIDIA_DEV}/d3cold_allowed" | tr -d '\n'
+  printf ' / '
+  cat "${NVIDIA_DEV}/power_state"
 
-  # 11. Print active / suspended times
-  local active_time="N/A" suspended_time="N/A"
-  if [[ -r "/sys/bus/pci/devices/${NVIDIA_PCI_ADDR}/power/runtime_active_time" ]]; then
-    active_time=$(< "/sys/bus/pci/devices/${NVIDIA_PCI_ADDR}/power/runtime_active_time")
-  fi
-  if [[ -r "/sys/bus/pci/devices/${NVIDIA_PCI_ADDR}/power/runtime_suspended_time" ]]; then
-    suspended_time=$(< "/sys/bus/pci/devices/${NVIDIA_PCI_ADDR}/power/runtime_suspended_time")
-  fi
-  printf "  active time: \t\t%s\n" "${active_time//[$'\n']/}"
-  printf "  suspended time: \t%s\n" "${suspended_time//[$'\n']/}"
+  printf '  active time: \t\t'
+  cat "${NVIDIA_DEV}/power/runtime_active_time"
+
+  printf '  suspended time: \t'
+  cat "${NVIDIA_DEV}/power/runtime_suspended_time"
 }
 
-print_battery_info() {
-  # 12. Print Battery Discharge Info
-  if command -v upower >/dev/null; then
-    local bat_device
-    bat_device=$(upower -e | grep BAT | head -n1)
-    if [[ -n "$bat_device" ]]; then
-      printf "Battery discharge info as of: "
-      upower -i "$bat_device" | grep --color=never -E "updated|state|energy-rate|time to empty" | sed -e 's/ \+updated: \+//'
-    else
-      printf "Battery discharge info: No battery device found\n"
-    fi
-  else
-    printf "Battery discharge info: upower not installed\n"
-  fi
+print_battery() {
+  printf 'Battery discharge info as of: '
+  upower -i "$(upower -e | grep BAT)" |
+    grep --color=never -E "updated|state|energy-rate|time to empty" |
+    sed -e 's/ \+updated: \+//'
 }
 
-print_top_processes() {
-  # 13. Top processes by CPU time
+print_memory() {
+  free -h --wide | awk 'NR<=2'
+}
+
+# Cumulative CPU *time* — processes ranked by total CPU consumed over their whole
+# lifetime (--cumulative folds in dead children). Answers "what has burned the
+# most CPU since it started", which is orthogonal to the instantaneous view below.
+print_cumulative_cpu() {
+  printf 'Top cumulative CPU time:\n'
   ps -axo pid,pcpu,cputime,etime,comm --cumulative --sort -time | head -n6
 }
 
-print_system_load() {
-  # 14. Top output (non-interactive batch mode)
-  top -b -n 1 | head -n15
+# Who is eating CPU *right now*. We deliberately avoid both `top` (heavyweight,
+# ~250ms, draws a full screen we'd trim away) and plain `ps` (its %CPU is a
+# lifetime average, so a process that was busy hours ago still ranks high).
+# pidstat samples /proc over a 1s interval, giving true instantaneous %CPU; we
+# sort by it and keep the busiest handful. Cost is the 1s sample, not CPU work.
+print_busy_processes() {
+  printf 'Top instantaneous CPU (%% over 1s):\n'
+  # S_TIME_FORMAT=ISO forces a single-token HH:MM:SS timestamp; otherwise a
+  # locale's AM/PM splits the time column and shifts every field. We match only
+  # real per-second rows on that timestamp in $1, which also drops the trailing
+  # "Average:" summary block and the header. Columns: PID=$3, %CPU=$8, and the
+  # command ($10..$NF). -l gives the full command line instead of just the comm
+  # name; we strip the leading path so $10 "/snap/.../firefox -foo" shows as
+  # "firefox -foo", then truncate to 80 chars so one busy process can't blow up
+  # the line (and more of the args survive once the path is gone). The owner is
+  # pidstat's numeric UID ($2), resolved to a name via a passwd map built once in
+  # BEGIN; dynamic snap/service UIDs with no entry fall back to the number.
+  S_TIME_FORMAT=ISO pidstat -l 1 1 2>/dev/null |
+    awk 'BEGIN { while (("getent passwd" | getline line) > 0) {
+                   split(line, f, ":"); user[f[3]] = f[1] } }
+         $1 ~ /^[0-9]+:[0-9]+:[0-9]+$/ && $8+0 > 0 {
+           sub(/.*\//, "", $10)
+           cmd = $10; for (i = 11; i <= NF; i++) cmd = cmd " " $i
+           if (length(cmd) > 80) cmd = substr(cmd, 1, 79) "…"
+           owner = ($2 in user) ? user[$2] : $2
+           if (length(owner) > 12) owner = substr(owner, 1, 11) "…"
+           printf "%7s  %-12s  %3d%%  %s\n", $3, owner, $8 + 0.5, cmd
+         }' |
+    sort -k3 -rn |
+    head -n6
 }
 
 main() {
-  init_gpu_name
+  sensors_data=$(sensors -A -j 2>/dev/null)
+  nvidia_runtime_status=$(cat "${NVIDIA_DEV}/power/runtime_status")
 
-  local sensors_data
-  sensors_data=$(sensors -A -j 2>/dev/null || true)
+  cache_nvidia_gpu_name
+  cache_versions
 
-  local nvidia_runtime_status="unknown"
-  if [[ -r "/sys/bus/pci/devices/${NVIDIA_PCI_ADDR}/power/runtime_status" ]]; then
-    nvidia_runtime_status=$(< "/sys/bus/pci/devices/${NVIDIA_PCI_ADDR}/power/runtime_status")
-  fi
-
-  print_system_info
-  print_cpu_stats "$sensors_data"
-  print_gpu_stats "$nvidia_runtime_status"
-  print_other_temps "$sensors_data"
-
-  printf "\n"
-  print_nvidia_runtime_status "$nvidia_runtime_status"
-
-  printf "\n"
-  print_battery_info
-
-  printf "\n"
-  print_top_processes
-  
-  printf "\n"
-  print_system_load
+  print_time
+  print_computer
+  print_versions
+  print_governor
+  print_cpu_boost
+  print_cpu_avg_freq
+  print_cpu_count_freq
+  print_core_temp
+  print_gpu_temp
+  print_other_temps
+  echo
+  print_nvidia_runtime
+  echo
+  print_battery
+  echo
+  print_memory
+  echo
+  print_cumulative_cpu
+  echo
+  print_busy_processes
 }
 
 main "$@"

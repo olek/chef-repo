@@ -53,11 +53,26 @@ nvidia_runtime_status=""
 cache_nvidia_gpu_name() {
   [[ -f "$NVIDIA_GPU_NAME_FILE" ]] && return
 
-  local gpu_name driver_version
+  local gpu_name driver_version flavor_str mod_path
   gpu_name=$(lspci | grep '^01:00.0' | sed -e 's/^01:00.0 VGA compatible controller: //')
   # Loaded-module version (e.g. 580.159.03); does not wake a suspended GPU.
   driver_version=$(cat /sys/module/nvidia/version 2>/dev/null)
-  echo "$gpu_name / $driver_version" > "$NVIDIA_GPU_NAME_FILE"
+
+  if [[ -n "$driver_version" ]]; then
+    flavor_str=""
+    if grep -iq "open" /proc/driver/nvidia/version 2>/dev/null; then
+      flavor_str="open, "
+    fi
+    mod_path=$(modinfo -F filename nvidia 2>/dev/null)
+    if [[ "$mod_path" == */dkms/* ]]; then
+      flavor_str="${flavor_str}dkms"
+    else
+      flavor_str="${flavor_str}non-dkms"
+    fi
+    echo "$gpu_name / $driver_version ($flavor_str)" > "$NVIDIA_GPU_NAME_FILE"
+  else
+    echo "$gpu_name / " > "$NVIDIA_GPU_NAME_FILE"
+  fi
 }
 
 print_time() {

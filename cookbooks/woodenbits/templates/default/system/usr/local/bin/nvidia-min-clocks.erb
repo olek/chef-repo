@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Ensure root permission
+if [ "$EUID" -ne 0 ]; then
+  echo "Error: This script must be run as root (sudo)."
+  exit 1
+fi
+
 # Ensure nvidia-smi is available
 if ! command -v nvidia-smi &>/dev/null; then
   echo "nvidia-smi not found. Exiting."
@@ -11,12 +17,33 @@ nvidia-smi --persistence-mode=1
 
 # Reset any clocks to default before adjusting
 nvidia-smi --reset-gpu-clocks
-nvidia-smi --reset-memory-clocks
+nvidia-smi --reset-memory-clocks >/dev/null 2>&1
 nvidia-smi --reset-applications-clocks
 
-# Query supported clocks to find the minimum memory clock
-# and the minimum graphics (core) clock that supports it.
+# Helper function to check if memory locking is supported
+check_memory_locking_support() {
+  local MIN_SUPPORTED_MEM
+  MIN_SUPPORTED_MEM=$(nvidia-smi --query-supported-clocks=mem --format=csv,noheader,nounits 2>/dev/null | sort -n | head -n1 | xargs)
+  if [ -z "$MIN_SUPPORTED_MEM" ]; then
+    MIN_SUPPORTED_MEM=405
+  fi
+  
+  local TEST_OUT
+  TEST_OUT=$(nvidia-smi --lock-memory-clocks="${MIN_SUPPORTED_MEM},${MIN_SUPPORTED_MEM}" 2>&1)
+  if echo "$TEST_OUT" | grep -iq "not supported"; then
+    return 1 # Not supported
+  fi
+  
+  nvidia-smi --reset-memory-clocks >/dev/null 2>&1
+  return 0 # Supported
+}
+
+GPU_NAME=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader 2>/dev/null)
 SUPPORTED=$(nvidia-smi --query-supported-clocks=mem,gr --format=csv,noheader,nounits 2>/dev/null)
+MEM_LOCK_SUPPORTED=true
+if ! check_memory_locking_support; then
+  MEM_LOCK_SUPPORTED=false
+fi
 
 if [ -n "$SUPPORTED" ]; then
   MIN_MEM=$(echo "$SUPPORTED" | cut -d',' -f1 | sort -n | head -n1)
@@ -29,12 +56,28 @@ if [ -n "$SUPPORTED" ]; then
     if [ -n "$MIN_GR" ]; then
       echo "Locking clocks to minimum power states: memory: ${MIN_MEM} MHz, graphics: ${MIN_GR} MHz"
       nvidia-smi --lock-gpu-clocks="${MIN_GR},${MIN_GR}"
-      # Try locking memory clocks; fallback to applications-clocks if memory lock is not supported on this GPU
-      nvidia-smi --lock-memory-clocks="${MIN_MEM},${MIN_MEM}" || nvidia-smi --applications-clocks="${MIN_MEM},${MIN_GR}"
-      exit 0
+      
+      if [ "$MEM_LOCK_SUPPORTED" = "true" ]; then
+        nvidia-smi --lock-memory-clocks="${MIN_MEM},${MIN_MEM}" || nvidia-smi --applications-clocks="${MIN_MEM},${MIN_GR}"
+      else
+        echo "Warning: Memory clock locking is not supported on this GPU ($GPU_NAME). Core is locked to min, memory will run at default low-power state."
+      fi
     fi
   fi
+else
+  echo "Failed to dynamically determine or set clocks."
+  exit 1
 fi
 
-echo "Failed to dynamically determine or set clocks."
-exit 1
+# Display current clocks status
+INFO=$(nvidia-smi --query-gpu=clocks.current.graphics,clocks.current.memory,clocks.applications.graphics,clocks.applications.memory --format=csv,noheader,nounits 2>/dev/null)
+CUR_GR=$(echo "$INFO" | cut -d',' -f1 | xargs)
+CUR_MEM=$(echo "$INFO" | cut -d',' -f2 | xargs)
+APP_GR=$(echo "$INFO" | cut -d',' -f3 | xargs)
+APP_MEM=$(echo "$INFO" | cut -d',' -f4 | xargs)
+
+echo ""
+echo "=== GPU Clock Status ==="
+echo "GPU Model:          $GPU_NAME"
+echo "Core (Graphics):    ${CUR_GR} MHz (Applications Target: ${APP_GR} MHz)"
+echo "Memory:             ${CUR_MEM} MHz (Applications Target: ${APP_MEM} MHz)"

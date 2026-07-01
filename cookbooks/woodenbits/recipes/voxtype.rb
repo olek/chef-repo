@@ -182,10 +182,10 @@ target_users.each do |user|
     notifies :run, "execute[restart-voxtype-service-for-#{user}]", :delayed
   end
 
-  # Download the Whisper medium.en model using voxtype CLI
+  # Download the Whisper large-v3-turbo model using voxtype CLI
   execute "download-whisper-model-for-#{user}" do
-    command "sudo -i -u #{user} voxtype setup --download --model medium.en"
-    creates "#{home_dir}/.local/share/voxtype/models/ggml-medium.en.bin"
+    command "sudo -i -u #{user} voxtype setup --download --model large-v3-turbo"
+    creates "#{home_dir}/.local/share/voxtype/models/ggml-large-v3-turbo.bin"
   end
 
   # Run voxtype systemd setup to generate the default systemd user service
@@ -215,6 +215,15 @@ target_users.each do |user|
   # Deploy restart policy drop-in config
   template "#{home_dir}/.config/systemd/user/voxtype.service.d/restart.conf" do
     source 'home/conf/voxtype-restart.conf.erb'
+    owner user
+    group user_group
+    mode '0640'
+    notifies :run, "execute[restart-voxtype-service-for-#{user}]", :delayed
+  end
+
+  # Deploy GPU drop-in config
+  template "#{home_dir}/.config/systemd/user/voxtype.service.d/gpu.conf" do
+    source 'home/conf/voxtype-gpu.conf.erb'
     owner user
     group user_group
     mode '0640'

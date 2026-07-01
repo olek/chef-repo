@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Ensure root permission
+if [ "$EUID" -ne 0 ]; then
+  echo "Error: This script must be run as root (sudo)."
+  exit 1
+fi
+
 # Ensure nvidia-smi is available
 if ! command -v nvidia-smi &>/dev/null; then
   echo "nvidia-smi not found. Exiting."
@@ -8,5 +14,20 @@ fi
 
 echo "Resetting GPU clocks to default settings..."
 nvidia-smi --reset-gpu-clocks
-nvidia-smi --reset-memory-clocks
+nvidia-smi --reset-memory-clocks >/dev/null 2>&1
 nvidia-smi --reset-applications-clocks
+
+echo ""
+# Query and display current clocks
+GPU_NAME=$(nvidia-smi --query-gpu=gpu_name --format=csv,noheader 2>/dev/null)
+INFO=$(nvidia-smi --query-gpu=clocks.current.graphics,clocks.current.memory,clocks.applications.graphics,clocks.applications.memory --format=csv,noheader,nounits 2>/dev/null)
+CUR_GR=$(echo "$INFO" | cut -d',' -f1 | xargs)
+CUR_MEM=$(echo "$INFO" | cut -d',' -f2 | xargs)
+APP_GR=$(echo "$INFO" | cut -d',' -f3 | xargs)
+APP_MEM=$(echo "$INFO" | cut -d',' -f4 | xargs)
+
+echo "=== GPU Clock Status ==="
+echo "GPU Model:          $GPU_NAME"
+echo "Core (Graphics):    ${CUR_GR} MHz (Applications Target: ${APP_GR} MHz)"
+echo "Memory:             ${CUR_MEM} MHz (Applications Target: ${APP_MEM} MHz)"
+echo "Clock limits successfully reset to default."

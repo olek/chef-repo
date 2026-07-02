@@ -41,12 +41,25 @@
 
 readonly NVIDIA_PCI="0000:01:00.0"
 readonly NVIDIA_DEV="/sys/bus/pci/devices/${NVIDIA_PCI}"
-readonly NVIDIA_GPU_NAME_FILE="/tmp/nvidia-gpu-name.txt"
-readonly VERSIONS_FILE="/tmp/perf-watch-versions.txt"
+
+# All boot-lifetime caches live under one /tmp directory (tmpfs, so it clears on
+# reboot — exactly when any cached value could change). Created in main().
+readonly CACHE_DIR="/tmp/perf-watch-cmd.data"
+readonly NVIDIA_GPU_NAME_FILE="${CACHE_DIR}/nvidia-gpu-name.txt"
+readonly PLATFORM_FILE="${CACHE_DIR}/platform.txt"
+readonly NVIDIA_CLOCK_RANGE_FILE="${CACHE_DIR}/nvidia-clock-range.txt"
 
 # Populated once in main() and read by the temperature rows.
 sensors_data=""
 nvidia_runtime_status=""
+# One CSV row of nvidia-smi --query-gpu fields, fetched once per refresh (only
+# when the GPU is active) and shared by the GPU-temp and runtime rows so we never
+# spawn nvidia-smi twice. Empty when the GPU is suspended or nvidia-smi is absent.
+nvidia_gpu_query=""
+# Processes holding GPU memory, one per line as "name<TAB>MiB", merged from two
+# nvidia-smi calls (see fetch_nvidia_gpu_query). Empty when nothing is resident or
+# the GPU is suspended.
+nvidia_gpu_procs=""
 
 # Cache the GPU make/model + loaded driver version so we don't poke lspci (and
 # risk waking a suspended GPU) on every refresh.
@@ -75,6 +88,30 @@ cache_nvidia_gpu_name() {
   fi
 }
 
+# Cache the shader/memory clock floors and ceilings. There is no cheap
+# clocks.min.* query field, so the floor only comes from the full supported-clocks
+# dump (`-q -d SUPPORTED_CLOCKS`) — ~90ms and ~1000 lines, ~2x our whole per-
+# refresh GPU query. But these bounds are fixed for the life of the GPU+driver, so
+# we pay that cost once per boot and cache "gr_min gr_max mem_min mem_max" (MHz) as
+# one line, read cheaply thereafter. Only runs when the GPU is active (it drives
+# nvidia-smi); skipped otherwise, and re-attempted next refresh until it succeeds.
+cache_nvidia_clock_range() {
+  [[ -f "$NVIDIA_CLOCK_RANGE_FILE" ]] && return
+  [[ -x "/usr/bin/nvidia-smi" && "$nvidia_runtime_status" == "active" ]] || return
+
+  # In the dump, "Graphics"/"Memory" clocks are listed high-to-low; first seen is
+  # the max, last seen is the min. One awk pass captures both per domain.
+  nvidia-smi -q -d SUPPORTED_CLOCKS 2>/dev/null | awk '
+    /Graphics/ { if (!gr_max) gr_max = $(NF-1); gr_min = $(NF-1) }
+    /Memory/   { if (!mem_max) mem_max = $(NF-1); mem_min = $(NF-1) }
+    END { if (gr_max) print gr_min, gr_max, mem_min, mem_max }' \
+    > "$NVIDIA_CLOCK_RANGE_FILE"
+
+  # A failed/empty dump would leave a zero-byte file that poisons the cache; drop
+  # it so we retry next refresh rather than caching nothing forever.
+  [[ -s "$NVIDIA_CLOCK_RANGE_FILE" ]] || rm -f "$NVIDIA_CLOCK_RANGE_FILE"
+}
+
 print_time() {
   printf 'Time: \t\t\t'
   date | sed -e 's/\W\W\+/ /'
@@ -87,7 +124,7 @@ print_computer() {
   grep 'model name' /proc/cpuinfo | head -n1 | sed -e 's/^model name\t\+: //'
 }
 
-# OS / kernel / display-server / desktop versions. Sourced from os-release so it
+# The platform: OS / kernel / display-server / desktop. Sourced from os-release so it
 # tracks across releases; values joined by " / ", keys enumerated in parens like
 # the "Other temps" line. Robust to a missing session env (watch/sudo) by asking
 # loginctl, and degrades to "?" rather than printing blanks.
@@ -95,8 +132,8 @@ print_computer() {
 # Every value here is fixed for the life of a boot, so the line is computed once
 # and cached. /tmp is tmpfs (cleared on reboot), so the cache self-invalidates
 # exactly when a value could change (new kernel, distro upgrade, session switch).
-cache_versions() {
-  [[ -f "$VERSIONS_FILE" ]] && return
+cache_platform() {
+  [[ -f "$PLATFORM_FILE" ]] && return
 
   (
     . /etc/os-release 2>/dev/null
@@ -118,12 +155,12 @@ cache_versions() {
     de="${de:-?}"
 
     echo "$os / $code / $kernel / $disp / $de (os/code/kernel/disp/de)"
-  ) > "$VERSIONS_FILE"
+  ) > "$PLATFORM_FILE"
 }
 
-print_versions() {
-  printf 'Versions: \t\t'
-  cat "$VERSIONS_FILE"
+print_platform() {
+  printf 'Platform: \t\t'
+  cat "$PLATFORM_FILE"
 }
 
 print_governor() {
@@ -155,17 +192,69 @@ print_core_temp() {
   echo "$sensors_data" | jq --raw-output '."coretemp-isa-0000" | [to_entries | map(select(.key | match("^Core.*";"i"))) | map(.value) | .[] | to_entries | map(select(.key | match(".*_input$";"i"))) | map(.value) | .[]] | add/length | floor | tostring + "°C"'
 }
 
-print_gpu_temp() {
-  [[ -x "/usr/bin/nvidia-smi" && "$nvidia_runtime_status" == "active" ]] || return
+# Order of fields in nvidia_gpu_query. Referenced by every consumer below, so the
+# awk column indices ($1.. in CSV) stay in one place. Keep this and the awk
+# indices in the print_* functions in sync.
+#   1 temperature.gpu    2 pstate                3 power.draw.instant
+#   4 clocks.gr          5 clocks.sm             6 clocks.mem         7 clocks.video
+#   8 clocks.max.gr      9 clocks.max.mem       10 clocks_event_reasons.active
+#  11 utilization.gpu   12 utilization.encoder  13 utilization.decoder
+#  14 utilization.memory 15 memory.used         16 memory.total
+#  17 pcie.link.gen.gpucurrent   18 pcie.link.gen.gpumax
+#  19 pcie.link.width.current    20 pcie.link.width.max
+readonly NVIDIA_SMI_FIELDS="temperature.gpu,pstate,power.draw.instant,clocks.gr,clocks.sm,clocks.mem,clocks.video,clocks.max.gr,clocks.max.mem,clocks_event_reasons.active,utilization.gpu,utilization.encoder,utilization.decoder,utilization.memory,memory.used,memory.total,pcie.link.gen.gpucurrent,pcie.link.gen.gpumax,pcie.link.width.current,pcie.link.width.max"
 
-  # Targeted query (3 fields, CSV) instead of the full `-q` dump: ~6x cheaper
-  # (~30ms vs ~180ms) and avoids parsing 269 lines to use 3. Fields come back as
-  # "<temp>, <pstate>, <power> W"; reformat to "<temp>°C / <pstate> / <power>W".
-  local gpu
-  gpu=$(nvidia-smi --query-gpu=temperature.gpu,pstate,power.draw.instant \
+# One targeted CSV query instead of the full `-q` dump: ~6x cheaper (~40ms vs
+# ~180ms) and avoids parsing 269 lines. Folding the clock/limit fields into this
+# single call (vs a second nvidia-smi) costs ~10ms, so all GPU-smi data rides one
+# process. Only called when the GPU is active, so it never wakes a suspended GPU.
+fetch_nvidia_gpu_query() {
+  [[ -x "/usr/bin/nvidia-smi" && "$nvidia_runtime_status" == "active" ]] || return
+  nvidia_gpu_query=$(nvidia-smi --query-gpu="$NVIDIA_SMI_FIELDS" \
     --format=csv,noheader,nounits 2>/dev/null)
+
+  # Per-process VRAM: assembled from TWO sources, normalized to "name<TAB>MiB".
+  #
+  # 1. Compute apps (type C / C+G) come from the clean CSV query family
+  #    --query-compute-apps. Reliable, machine-readable — our preferred source.
+  #
+  # 2. Graphics-only apps (type G) have no CSV query at all, so they are scraped
+  #    from the human-formatted table — kept quarantined in its own ugly function.
+  local compute graphics
+  compute=$(nvidia-smi --query-compute-apps=process_name,used_memory \
+    --format=csv,noheader,nounits 2>/dev/null |
+    awk -F', *' '{ sub(/.*\//, "", $1); print $1 "\t" $2 }')
+  graphics=$(scrape_nvidia_graphics_procs)
+  nvidia_gpu_procs=$(printf '%s\n%s\n' "$compute" "$graphics" | sed '/^$/d')
+}
+
+# Graphics-only apps (type G, e.g. gnome-shell) are NOT exposed by any CSV query —
+# there is no --query-graphics-apps, and --query-compute-apps omits them. Their
+# ONLY source is the human-formatted `nvidia-smi` process table, which is fragile
+# to parse: fixed-width columns, box-drawing borders, and a layout that can shift
+# across driver versions. This function is the sole place that ugliness lives; it
+# emits "name<TAB>MiB" per graphics process to stdout. If a future driver ever
+# adds a proper CSV query for graphics apps, delete this and use it instead.
+#
+# Table rows look like: "|  0  N/A  N/A  9816  G  /usr/bin/gnome-shell  65MiB |".
+# Fields: $6 = Type, $7 = process path, and the memory cell is the field ending in
+# "MiB" ($(NF-1), since $NF is the trailing "|"). Match only Type == "G"; compute
+# apps (C / C+G) come from the reliable CSV query in fetch_nvidia_gpu_query.
+scrape_nvidia_graphics_procs() {
+  nvidia-smi 2>/dev/null | awk '
+    $6 == "G" && $(NF-1) ~ /MiB$/ {
+      name = $7; sub(/.*\//, "", name)      # basename of the process path
+      mib = $(NF-1); sub(/MiB$/, "", mib)
+      print name "\t" mib
+    }'
+}
+
+print_gpu_temp() {
+  [[ -n "$nvidia_gpu_query" ]] || return
+
+  # Fields 1-3: "<temp>, <pstate>, <power>"; reformat to "<temp>°C / <pstate> / <power>W".
   printf 'GPU temp / st / pwr: \t'
-  echo "$gpu" | awk -F', *' '{ printf "%s°C / %s / %sW\n", $1, $2, $3 }'
+  echo "$nvidia_gpu_query" | awk -F', *' '{ printf "%s°C / %s / %sW\n", $1, $2, $3 }'
 }
 
 # Generic scan: every sensor chip that exposes a temperature reading, printed on
@@ -205,22 +294,175 @@ print_other_temps() {
     | "\([.[].temp | tostring] | join(" / ")) (\([.[].label] | join("/")))"'
 }
 
+# The hybrid-graphics configuration, from two independent facts:
+#
+#  * PRIME mode: nvidia / intel / on-demand. "on-demand" is hybrid — Intel
+#    renders by default, NVIDIA wakes only for offload requests. `prime-select
+#    query` reports this, but it is a 466-line Python script (~50ms of interpreter
+#    startup) that merely reads and maps /etc/prime-discrete. We read that file
+#    directly (sub-ms) and replicate its mapping: on->nvidia, on-demand->on-demand,
+#    anything else->intel, missing file->? (prime-select calls the last "unknown").
+#
+#  * Display wiring: whether any physical connector is wired straight to the
+#    NVIDIA GPU. We find NVIDIA's DRM card by matching its PCI address, then look
+#    for connected outputs on it. If it drives a display that is "reverse-PRIME"
+#    (NVIDIA must power on to scan out), which is typically why it can't suspend;
+#    if it drives none, it is pure render-offload and free to sleep.
+#
+# All sysfs / prime-select reads — cheap and, crucially, no nvidia-smi, so this
+# never wakes a suspended GPU.
+print_nvidia_prime() {
+  local mode profile outputs
+  if profile=$(cat /etc/prime-discrete 2>/dev/null); then
+    case "$profile" in
+      on)        mode="nvidia" ;;
+      on-demand) mode="on-demand" ;;
+      *)         mode="intel" ;;
+    esac
+  else
+    mode="?"
+  fi
+
+  # Connected connectors on the DRM card whose device is the NVIDIA PCI address.
+  outputs=$(for conn in /sys/class/drm/card*-*; do
+    [[ "$(cat "$conn/status" 2>/dev/null)" == "connected" ]] || continue
+    # A connector lives under its GPU's PCI device in sysfs, so the resolved path
+    # contains that PCI address (e.g. .../0000:01:00.0/drm/card0/card0-DP-5).
+    [[ "$(readlink -f "$conn")" == *"/${NVIDIA_PCI}/"* ]] || continue
+    # Strip the "cardN-" prefix so DP-5 shows instead of card0-DP-5.
+    basename "$conn" | sed -e 's/^card[0-9]*-//'
+  done | paste -sd,)
+
+  printf '  prime mode: \t\t'
+  if [[ -n "$outputs" ]]; then
+    printf '%s (NVIDIA driving %s - reverse-PRIME)\n' "$mode" "$outputs"
+  else
+    printf '%s (no display outputs - render-offload)\n' "$mode"
+  fi
+}
+
 print_nvidia_runtime() {
   printf 'Nvidia runtime for:\t'
   cat "$NVIDIA_GPU_NAME_FILE"
 
-  printf '  status: \t\t%s\n' "$nvidia_runtime_status"
+  # Runtime PM status, D3cold-allowed flag, and PCI power state — all facets of
+  # the GPU's current power state, so shown as one slash-joined line with a legend.
+  local d3 pstate
+  d3=$(cat "${NVIDIA_DEV}/d3cold_allowed")
+  pstate=$(cat "${NVIDIA_DEV}/power_state")
+  printf '  state: \t\t%s / %s / %s (status/d3-allowed/pstate)\n' \
+    "$nvidia_runtime_status" "$d3" "$pstate"
 
-  printf '  D3 allowed / pstate:\t'
-  cat "${NVIDIA_DEV}/d3cold_allowed" | tr -d '\n'
-  printf ' / '
-  cat "${NVIDIA_DEV}/power_state"
+  print_nvidia_prime
 
-  printf '  active time: \t\t'
-  cat "${NVIDIA_DEV}/power/runtime_active_time"
+  printf '  cumulative times: \t'
+  local active suspended
+  active=$(cat "${NVIDIA_DEV}/power/runtime_active_time")
+  suspended=$(cat "${NVIDIA_DEV}/power/runtime_suspended_time")
+  printf '%s / %s (active/suspended)\n' "$active" "$suspended"
 
-  printf '  suspended time: \t'
-  cat "${NVIDIA_DEV}/power/runtime_suspended_time"
+  print_nvidia_clocks
+  print_nvidia_utilization
+  print_nvidia_memory
+}
+
+# Live clocks + ceilings + active limiter, all from the shared nvidia_gpu_query
+# (fields 4-10). Only prints when the GPU is active; a suspended GPU has no query.
+#
+# The four clock domains (see `nvidia-smi --help-query-gpu`). Labels renamed from
+# nvidia's field names to describe what each drives; original field in parens:
+#   shader (clocks.gr) — the graphics/shader clock; the headline "core" GPU
+#           frequency, driving 3D rasterization and shading.
+#   strm (clocks.sm) — Streaming Multiprocessor (SM) clock (the CUDA/compute
+#           cores). On modern NVIDIA parts it shares a domain with the shader
+#           clock and reads identically, so we only surface it when it actually
+#           differs — otherwise it is redundant noise.
+#   memory (clocks.mem) — the VRAM (GDDR) clock.
+#   media (clocks.video) — the fixed-function video encoder/decoder (NVENC/NVDEC)
+#           clock; runs independently of the shader engine (e.g. busy during
+#           video playback while shaders stay idle).
+# Prints the bare frequencies first, then a parenthesized legend naming each in
+# order, then the min-max bounds for the two controllable domains (from the cached
+# supported-clocks dump) so a value reads as a position between floor and ceiling:
+#   210 / 405 / 765 (shader / memory / media; range shader 210-3105 / memory ...)
+# The range half is shown only if the cache is populated; media has no queryable
+# bounds so it never appears there.
+print_nvidia_clocks() {
+  [[ -n "$nvidia_gpu_query" ]] || return
+
+  # Boot-cached "gr_min gr_max mem_min mem_max"; empty until the dump succeeds.
+  local range=""
+  [[ -f "$NVIDIA_CLOCK_RANGE_FILE" ]] && range=$(cat "$NVIDIA_CLOCK_RANGE_FILE")
+
+  # strm (SM) usually equals shader on this GPU, so only include it when it
+  # diverges — otherwise it is a duplicate number.
+  printf '  clocks (MHz): \t'
+  echo "$nvidia_gpu_query" | awk -F', *' -v range="$range" \
+    '{ strm_v = ($5 == $4) ? "" : " / " $5;
+       strm_l = ($5 == $4) ? "" : "/strm";
+       split(range, r, " ");
+       ranges = (range == "") ? "" \
+         : sprintf("; ranges: shader %s-%s, memory %s-%s", r[1], r[2], r[3], r[4]);
+       printf "%s%s / %s / %s (shader%s/memory/media%s)\n", \
+         $4, strm_v, $6, $7, strm_l, ranges }'
+
+  # clocks_event_reasons.active is a bitmask of why the clock is being held down.
+  # Print the decoded labels alone when we recognize every set bit. Fall back to
+  # the raw hex only when it is uninformative on its own: "none" (mask 0) or when
+  # some set bit has no label ("unknown"), so the number is there to decode by hand.
+  printf '  clock limiter: \t'
+  echo "$nvidia_gpu_query" | awk -F', *' '
+    {
+      mask = strtonum($10)
+      split("gpu-idle app-clocks sw-power-cap hw-slowdown unknown-0x10 " \
+            "sw-thermal hw-thermal hw-power-brake sync-boost", name, " ")
+      # Bit i (0-based) -> name[i+1]; bit positions from nvml.h.
+      bits[1]=0x1; bits[2]=0x2; bits[3]=0x4; bits[4]=0x8; bits[5]=0x10
+      bits[6]=0x20; bits[7]=0x40; bits[8]=0x80; bits[9]=0x100
+      labels = ""; leftover = mask
+      for (i = 1; i <= 9; i++)
+        if (and(mask, bits[i])) {
+          labels = labels (labels ? "," : "") name[i]
+          leftover = leftover - bits[i]
+        }
+      if (mask == 0)         print "none (" $10 ")"
+      else if (leftover > 0) print "unknown (" $10 ")"
+      else                   print labels
+    }'
+}
+
+# Engine busy percentages plus the PCIe link's current-vs-max width/generation
+# (the link downshifts when idle to save power, so it doubles as a utilization
+# signal). Fields 11-13 and 17-20 of the shared query.
+print_nvidia_utilization() {
+  [[ -n "$nvidia_gpu_query" ]] || return
+
+  printf '  utilization: \t\t'
+  echo "$nvidia_gpu_query" | awk -F', *' \
+    '{ printf "%s%% / %s%% / %s%% (gpu/encoder/decoder); pcie gen %s of %s, width x%s of x%s\n", \
+       $11, $12, $13, $17, $18, $19, $20 }'
+}
+
+# VRAM: two distinct metrics — controller-bandwidth busy % (how hard the memory
+# bus is working) and capacity used-of-total — then the processes holding that
+# memory (each with its own MiB), which explain the used figure. The per-process
+# list (nvidia_gpu_procs) is empty when nothing is resident.
+print_nvidia_memory() {
+  [[ -n "$nvidia_gpu_query" ]] || return
+
+  printf '  memory: \t\t'
+  echo "$nvidia_gpu_query" | awk -F', *' \
+    '{ printf "bandwidth %s%%; using %s of %s MiB", $14, $15, $16 }'
+
+  # Append " (name NNN MiB, ...)"; nvidia_gpu_procs is "name<TAB>MiB" per line.
+  if [[ -n "$nvidia_gpu_procs" ]]; then
+    echo "$nvidia_gpu_procs" | awk -F'\t' \
+      'BEGIN { printf " (" }
+       { printf "%s%s %s MiB", (NR > 1 ? ", " : ""), $1, $2 }
+       END { print ")" }'
+  else
+    printf '\n'
+  fi
 }
 
 print_battery() {
@@ -275,15 +517,19 @@ print_busy_processes() {
 }
 
 main() {
+  mkdir -p "$CACHE_DIR"
+
   sensors_data=$(sensors -A -j 2>/dev/null)
   nvidia_runtime_status=$(cat "${NVIDIA_DEV}/power/runtime_status")
+  fetch_nvidia_gpu_query
 
   cache_nvidia_gpu_name
-  cache_versions
+  cache_nvidia_clock_range
+  cache_platform
 
   print_time
   print_computer
-  print_versions
+  print_platform
   print_governor
   print_cpu_boost
   print_cpu_avg_freq

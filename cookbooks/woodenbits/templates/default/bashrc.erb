@@ -121,3 +121,7 @@ run_scripts()
 if [ -d "$HOME/.bashrc.d" ]; then
     run_scripts $HOME/.bashrc.d
 fi
+
+# Installers (aisuite, devbar, ...) append raw `export PATH=` blocks below this line and can
+# duplicate entries across nested/login shells. Collapse them as the last step of every shell.
+dedup_path

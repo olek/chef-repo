@@ -129,7 +129,7 @@ end
     end
   end
 
-  %w(10-functions 20-aliases 20-path 20-prompt 20-settings 30-autocompletion 31-history).each do |name|
+  %w(10-functions 15-settings 20-aliases 20-path 20-prompt 30-autocompletion 31-history).each do |name|
     template "#{home_dir}/.bashrc.d/#{name}" do
       source "bashrc.d/#{name}.erb"
       variables(
@@ -142,7 +142,7 @@ end
   end
 
   # killing old files
-  %w(05-settings 30-aliases 40-prompt 50-other).each do |name|
+  %w(05-settings 20-settings 30-aliases 40-prompt 50-other).each do |name|
     file "#{home_dir}/.bashrc.d/#{name}" do
       action :delete
     end

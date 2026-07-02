@@ -1,28 +1,36 @@
 # Ubuntu Gnome-terminal reports 'xterm' instead of proper 'xterm-color'
-PS1="${debian_chroot:+($debian_chroot)}\[\e[01;32m\]\u@\h\[\e[00m\]: \`short_dir\` \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
-#PS1="${debian_chroot:+($debian_chroot)}\u@\h: \`short_dir\` $(__bundler_ps1 "[%s] ")\$ "
+#PS1="${debian_chroot:+($debian_chroot)}\[\e[01;32m\]\u@\h\[\e[00m\]: \`short_dir\` \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
+#PS1="${debian_chroot:+($debian_chroot)}\[\e[01;32m\]\u@\h\[\e[00m\]: \`short_dir\` \$\[\e[0m\] "
+# NOTE: $__short_dir is populated by PROMPT_COMMAND in 31-history.
+# We deliberately avoid embedding $(short_dir) / `short_dir` directly in PS1:
+# command substitution inside PS1 confuses readline's column tracking once the
+# expanded prompt nears $COLUMNS, causing line-editing glitches (especially in
+# vi mode) when cd'd into long directory names. Computing it once per prompt
+# via PROMPT_COMMAND and referencing the variable here sidesteps that.
+#PS1='\[\e[01;32m\]${__short_dir}\[\e[0m\] \$ '
+PS1='\[\e[38;5;25m\]${__short_dir}\[\e[0m\] \$ '
 
 # If this is an xterm set the title to user@host:dir
-case "$TERM" in
-xterm*|rxvt*)
-    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u: \`short_dir\`\a\]$PS1"
-    ;;
-*)
-    ;;
-esac
+#case "$TERM" in
+#xterm*|rxvt*)
+#    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u: \`short_dir\`\a\]$PS1"
+#    ;;
+#*)
+#    ;;
+#esac
 
-if [ "$TERM" == "screen" ]
-then
-    if [ "$USER" == "root" ]
-    then
-        WN="root"
-    else
-        if [ -z "$WN" ]
-        then
-            WN="?AAundefined?"
-        fi
-    fi
-    #s="\e[1m\e[34m"
-    #us="\e[0m"
-    export PS1="\[\e[1;32m\]$HOSTNAME \[\e[1;34m\]$WN\[\e[01;36m\] \`short_dir\` \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
-fi
+#if [ "$TERM" == "screen" ]
+#then
+#    if [ "$USER" == "root" ]
+#    then
+#        WN="root"
+#    else
+#        if [ -z "$WN" ]
+#        then
+#            WN="?AAundefined?"
+#        fi
+#    fi
+#    #s="\e[1m\e[34m"
+#    #us="\e[0m"
+#    export PS1="\[\e[1;32m\]$HOSTNAME \[\e[1;34m\]$WN\[\e[01;36m\] \`short_dir\` \[\e[36m\]$(__bundler_ps1 "[%s] ")\$\[\e[0m\] "
+#fi

@@ -269,3 +269,13 @@ function append_to_path {
         export PATH="$PATH:$new_dir"
     fi
 }
+
+# Collapse duplicate PATH entries, preserving the first occurrence of each.
+function dedup_path {
+    local IFS=: seen="" d out=""
+    for d in $PATH; do
+        case ":$seen:" in *":$d:"*) continue;; esac
+        seen="$seen:$d"; out="${out:+$out:}$d"
+    done
+    export PATH="$out"
+}

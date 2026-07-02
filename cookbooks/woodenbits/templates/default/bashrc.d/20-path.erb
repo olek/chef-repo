@@ -1,6 +1,8 @@
 <%- unless @is_root -%>
-prepend_to_path $HOME/bin
-prepend_to_path $HOME/.local/bin
+# prepends ordered from least to most local because their order in PATH will be reversed
+
 prepend_to_path /vaults/scc/bin
-prepend_to_path $HOME/.rbenv/bin
+prepend_to_path $HOME/.local/bin
+prepend_to_path $HOME/bin
+prepend_to_path $HOME/shed
 <%- end -%>

@@ -1,6 +1,9 @@
+engine = "whisper"
+
 [hotkey]
 enabled = true
 key = "SCROLLLOCK"          # push-to-talk key
+mode = "push_to_talk"
 
 [audio]
 device = "default"
@@ -12,9 +15,15 @@ model = "large-v3-turbo"
 language = "en"
 gpu_device = 1              # [machine-specific] NVIDIA = Vulkan device 1 (discrete GPU on dual-GPU system)
 initial_prompt = "GUS, Claude, Codanna, Serena, ast-grep, Feathers, Fowler, common-gateway, admin-api, e360-whatsapp, e360-messaging-runtime-libs, uacp-shared-libraries"
+gpu_isolation = false
+on_demand_loading = false
+flash_attention = true
+eager_processing = false
+mode = "local"
+translate = false
 
 [audio.feedback]
-enabled = true
+enabled = false             # Warning: enabling this keeps a PipeWire playback stream open constantly when idle, preventing the CPU from scaling down to its minimum frequency
 theme = "subtle"            # "default" is louder (needs volume ≤0.1); "mechanical" is clicky
 volume = 0.3
 
@@ -22,14 +31,19 @@ volume = 0.3
 mode = "type"
 fallback_to_clipboard = true
 type_delay_ms = 0
+auto_submit = false
+shift_enter_newlines = true
+pre_type_delay_ms = 0
 
 [output.notification]
 on_recording_start = true
 on_recording_stop = true
 on_transcription = false    # disabled — clutters screen with repeated text
+show_engine_icon = false
 
 [text]
 spoken_punctuation = true
+smart_auto_submit = false
 
 [text.replacements]
 "vox type" = "voxtype"
@@ -37,3 +51,28 @@ spoken_punctuation = true
 "grill with docs skill" = "/grill-with-docs skill"
 "refactor feathers skill" = "/refactor-feathers skill"
 "refactor fowler skill" = "/refactor-fowler skill"
+
+[meeting]
+enabled = false
+
+[meeting.diarization]
+enabled = false
+
+[meeting.audio]
+source = "mic"
+
+[osd]
+enabled = false
+frontend = "gtk4"
+position = "bottom-center"
+width_px = 400
+height_px = 48
+margin_px = 24
+top_margin = 0.85
+opacity = 0.95
+waveform_window_secs = 3.0
+peak_decay_db_per_sec = 6.0
+waveform_gain = 10.0
+
+[status]
+icon_theme = "emoji"

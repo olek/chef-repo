@@ -48,6 +48,7 @@ readonly CACHE_DIR="/tmp/perf-watch-cmd.data"
 readonly NVIDIA_GPU_NAME_FILE="${CACHE_DIR}/nvidia-gpu-name.txt"
 readonly PLATFORM_FILE="${CACHE_DIR}/platform.txt"
 readonly NVIDIA_CLOCK_RANGE_FILE="${CACHE_DIR}/nvidia-clock-range.txt"
+readonly LAST_RUN_CPU_STATS_FILE="${CACHE_DIR}/last-run-cpu-stats.txt"
 
 # Populated once in main() and read by the temperature rows.
 sensors_data=""
@@ -484,36 +485,116 @@ print_cumulative_cpu() {
   ps -axo pid,pcpu,cputime,etime,comm --cumulative --sort -time | head -n6
 }
 
-# Who is eating CPU *right now*. We deliberately avoid both `top` (heavyweight,
-# ~250ms, draws a full screen we'd trim away) and plain `ps` (its %CPU is a
-# lifetime average, so a process that was busy hours ago still ranks high).
-# pidstat samples /proc over a 1s interval, giving true instantaneous %CPU; we
-# sort by it and keep the busiest handful. Cost is the 1s sample, not CPU work.
+# Who is eating CPU over the elapsed interval. We deliberately avoid both `top`
+# (heavyweight, ~250ms, draws a full screen we'd trim away) and plain `ps` (its
+# %CPU is a lifetime average, so a process that was busy hours ago still ranks
+# high). We calculate CPU usage over the elapsed interval using /proc/*/stat tick
+# differences relative to elapsed uptime. Like top/pidstat, %CPU is per-core
+# and can exceed 100% for multi-threaded processes.
 print_busy_processes() {
-  printf 'Top instantaneous CPU (%% over 1s):\n'
-  # S_TIME_FORMAT=ISO forces a single-token HH:MM:SS timestamp; otherwise a
-  # locale's AM/PM splits the time column and shifts every field. We match only
-  # real per-second rows on that timestamp in $1, which also drops the trailing
-  # "Average:" summary block and the header. Columns: PID=$3, %CPU=$8, and the
-  # command ($10..$NF). -l gives the full command line instead of just the comm
-  # name; we strip the leading path so $10 "/snap/.../firefox -foo" shows as
-  # "firefox -foo", then truncate to 80 chars so one busy process can't blow up
-  # the line (and more of the args survive once the path is gone). The owner is
-  # pidstat's numeric UID ($2), resolved to a name via a passwd map built once in
-  # BEGIN; dynamic snap/service UIDs with no entry fall back to the number.
-  S_TIME_FORMAT=ISO pidstat -l 1 1 2>/dev/null |
-    awk 'BEGIN { while (("getent passwd" | getline line) > 0) {
-                   split(line, f, ":"); user[f[3]] = f[1] } }
-         $1 ~ /^[0-9]+:[0-9]+:[0-9]+$/ && $8+0 > 0 {
-           sub(/.*\//, "", $10)
-           cmd = $10; for (i = 11; i <= NF; i++) cmd = cmd " " $i
-           if (length(cmd) > 80) cmd = substr(cmd, 1, 79) "…"
-           owner = ($2 in user) ? user[$2] : $2
-           if (length(owner) > 12) owner = substr(owner, 1, 11) "…"
-           printf "%7s  %-12s  %3d%%  %s\n", $3, owner, $8 + 0.5, cmd
-         }' |
-    sort -k3 -rn |
-    head -n6
+  local cur_uptime clk_tck
+  cur_uptime=$(cat /proc/uptime 2>/dev/null | awk '{print $1}')
+  clk_tck=$(getconf CLK_TCK 2>/dev/null || echo 100)
+
+  # Check if we have a previous state
+  local interval="0"
+  if [[ -f "$LAST_RUN_CPU_STATS_FILE" && -n "$cur_uptime" ]]; then
+    local prev_uptime prev_clk_tck
+    read -r prev_uptime prev_clk_tck < "$LAST_RUN_CPU_STATS_FILE"
+    if [[ -n "$prev_uptime" && "$prev_clk_tck" == "$clk_tck" ]]; then
+      interval=$(awk -v cur="$cur_uptime" -v prev="$prev_uptime" 'BEGIN { print cur - prev }')
+    fi
+  fi
+
+  # If interval is too small or state is missing, print a placeholder and write state
+  if (( $(awk -v intv="$interval" 'BEGIN { print (intv < 0.5) }') )); then
+    printf 'Top instantaneous CPU:\n'
+    printf '  [Measuring... will be updated on the next run]\n'
+
+    # Save state for the next run
+    (
+      echo "$cur_uptime $clk_tck"
+      awk '{
+        match($0, /.*\) /)
+        rest = substr($0, RSTART + RLENGTH)
+        split(rest, f, " ")
+        print $1, f[12] + f[13]
+      }' /proc/[0-9]*/stat 2>/dev/null
+    ) > "${LAST_RUN_CPU_STATS_FILE}.tmp" && mv "${LAST_RUN_CPU_STATS_FILE}.tmp" "$LAST_RUN_CPU_STATS_FILE"
+    return
+  fi
+
+  printf 'Top instantaneous CPU (%% over %.1fs):\n' "$interval"
+
+  # Calculate CPU usage across the elapsed interval
+  awk -v state_file="$LAST_RUN_CPU_STATS_FILE" -v interval="$interval" -v clk_tck="$clk_tck" '
+    BEGIN {
+      while (("getent passwd" | getline line) > 0) {
+        split(line, f, ":")
+        user[f[3]] = f[1]
+      }
+      close("getent passwd")
+
+      getline < state_file
+      while ((getline < state_file) > 0) {
+        prev_ticks[$1] = $2
+      }
+      close(state_file)
+
+      while (("ps -eo pid,uid,args" | getline line) > 0) {
+        split(line, f)
+        pid = f[1]
+        if (pid ~ /^[0-9]+$/) {
+          uid[pid] = f[2]
+          sub(/.*\//, "", f[3])
+          cmd = f[3]
+          for (i = 4; i <= length(f); i++) {
+            cmd = cmd " " f[i]
+          }
+          cmdline[pid] = cmd
+        }
+      }
+      close("ps -eo pid,uid,args")
+    }
+    {
+      pid = $1
+      match($0, /.*\) /)
+      rest = substr($0, RSTART + RLENGTH)
+      split(rest, f, " ")
+      curr_ticks = f[12] + f[13]
+
+      if (pid in uid) {
+        p_prev = (pid in prev_ticks && curr_ticks >= prev_ticks[pid]) ? prev_ticks[pid] : 0
+        delta = curr_ticks - p_prev
+        cpu = (delta / (interval * clk_tck)) * 100
+
+        if (cpu > 0.01) {
+          owner = (uid[pid] in user) ? user[uid[pid]] : uid[pid]
+          if (length(owner) > 12) owner = substr(owner, 1, 11) "…"
+          cmd = cmdline[pid]
+          if (length(cmd) > 80) cmd = substr(cmd, 1, 79) "…"
+          printf "%.4f\t%7s\t%-12s\t%s\n", cpu, pid, owner, cmd
+        }
+      }
+    }
+  ' /proc/[0-9]*/stat 2>/dev/null |
+    sort -k1 -rn |
+    head -n6 |
+    awk -F'\t' '{
+      cpu = $1 + 0.5
+      printf "%7s  %-12s  %3d%%  %s\n", $2, $3, cpu, $4
+    }'
+
+  # Save new state for the next run
+  (
+    echo "$cur_uptime $clk_tck"
+    awk '{
+      match($0, /.*\) /)
+      rest = substr($0, RSTART + RLENGTH)
+      split(rest, f, " ")
+      print $1, f[12] + f[13]
+    }' /proc/[0-9]*/stat 2>/dev/null
+  ) > "${LAST_RUN_CPU_STATS_FILE}.tmp" && mv "${LAST_RUN_CPU_STATS_FILE}.tmp" "$LAST_RUN_CPU_STATS_FILE"
 }
 
 main() {

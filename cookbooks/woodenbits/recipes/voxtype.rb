@@ -1,7 +1,7 @@
 # Cookbook Name:: woodenbits
 # Recipe:: voxtype
 
-voxtype_version = '0.7.1'
+voxtype_version = '0.7.5'
 voxtype_deb_filename = "voxtype_#{voxtype_version}-1_amd64.deb"
 voxtype_deb_path = "#{Chef::Config[:file_cache_path]}/#{voxtype_deb_filename}"
 
@@ -150,6 +150,7 @@ end
 # Install Voxtype package
 dpkg_package 'voxtype' do
   source voxtype_deb_path
+  version "#{voxtype_version}-1"
   action :install
 end
 
@@ -234,6 +235,7 @@ target_users.each do |user|
   execute "restart-voxtype-service-for-#{user}" do
     command "systemctl --user -M #{user}@ daemon-reload && systemctl --user -M #{user}@ restart voxtype"
     action :nothing
+    subscribes :run, 'dpkg_package[voxtype]', :delayed
   end
 
   # Enable and run Voxtype user service

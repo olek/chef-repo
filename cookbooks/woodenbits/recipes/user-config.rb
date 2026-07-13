@@ -250,6 +250,13 @@ users.each do |user|
       end
     end
 
+    directory "#{home_dir}/shed" do
+      owner user
+      group user_group
+      mode '0750'
+      action :create
+    end
+
     template "#{home_dir}/.mplayer/config" do
       source 'home/conf/mplayer-config.erb'
       mode '0640'
@@ -281,17 +288,27 @@ users.each do |user|
       end
     end
 
-    template "#{home_dir}/bin/truecrypt-init.sh" do
-      source 'home/bin/truecrypt-init.sh.erb'
+    # Clean up old Chef-generated scripts in bin to avoid duplicates
+    %w(truecrypt-init.sh perf-watch-cmd cpu-epp-show cpu-max-freq-set turtlespeed lightspeed timed mpc-radio-init
+        display-off term-color-test update-pocock-skills ydotool-init.sh ydotool-cleanup.sh zoom-install.sh
+        fix-scrolling.sh tmuxstart).each do |script|
+      file "#{home_dir}/bin/#{script}" do
+        action :delete
+      end
+    end
+
+    template "#{home_dir}/shed/truecrypt-init.sh" do
+      source 'home/shed/truecrypt-init.sh.erb'
       mode '0500'
       owner user
       group user_group
     end
 
     %w(perf-watch-cmd cpu-epp-show cpu-max-freq-set turtlespeed lightspeed timed mpc-radio-init
-        display-off term-color-test update-pocock-skills ydotool-init.sh ydotool-cleanup.sh zoom-install.sh).each do |script|
-      template "#{home_dir}/bin/#{script}" do
-        source "home/bin/#{script}.erb"
+        display-off term-color-test update-pocock-skills ydotool-init.sh ydotool-cleanup.sh zoom-install.sh
+        fix-scrolling.sh).each do |script|
+      template "#{home_dir}/shed/#{script}" do
+        source "home/shed/#{script}.erb"
         mode '0700'
         owner user
         group user_group

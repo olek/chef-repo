@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+
+# NOTE: This script is only for X11/Xorg setups and will NOT work on Wayland.
+# For Wayland, trackball scrolling config requires:
+#   gsettings set org.gnome.desktop.peripherals.trackball scroll-wheel-emulation-button 8
+# and udev hwdb configuration in /etc/udev/hwdb.d/71-mouse-local.hwdb:
+#   evdev:name:kanata-kinesis:*
+#    ID_INPUT_TRACKBALL=1
+
+# --- Active Configuration (X11) ---
+# Prevent 'back' physical button from triggering 'back' logical button
+xinput set-button-map $(xinput list --id-only 'pointer:kanata-kinesis') 1 2 3 4 5 6 7 0
+xinput set-prop 'pointer:kanata-kinesis' 'libinput Scroll Method Enabled' 0 0 1
+# 8 means 'physical back' button
+xinput set-prop 'pointer:kanata-kinesis' 'libinput Button Scrolling Button' 8
+xinput set-prop 'pointer:kanata-kinesis' 'libinput Drag Lock Buttons' 8
+
+# --- Obsolete Configuration (X11) ---
+# This is an old configuration that was used before Kensington Expert Mouse
+# input was fed into the Kanata process (i.e. when using directly a
+# Kensington Expert Mouse from X.org before Kanata existed).
+#
+# xinput list-props 'Kensington      Kensington Expert Mouse'
+# xinput set-button-map "Kensington      Kensington Expert Mouse" 0 2 3 4 5 6 7 1
+# xinput set-prop 'Kensington      Kensington Expert Mouse' 'libinput Drag Lock Buttons' 1
+# xinput set-prop 'Kensington      Kensington Expert Mouse' 'libinput Scroll Method Enabled' 0 0 1
+# # 1 for scrolling with lower-left button, 3 for lower-right button
+# xinput set-prop 'Kensington      Kensington Expert Mouse' 'libinput Button Scrolling Button' 1

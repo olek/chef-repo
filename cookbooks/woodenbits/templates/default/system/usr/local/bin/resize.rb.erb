@@ -123,7 +123,7 @@ class Window
   end
 end
 
-`$HOME/bin/fix-scrolling.sh`
+`$HOME/shed/fix-scrolling.sh`
 
 windows = `wmctrl -l -x | grep -v 'N/A'`.split("\n").map { |line| Window.new(line) }
 

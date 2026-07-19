@@ -257,6 +257,13 @@ users.each do |user|
       action :create
     end
 
+    directory "#{home_dir}/shed/adhoc" do
+      owner user
+      group user_group
+      mode '0750'
+      action :create
+    end
+
     template "#{home_dir}/.mplayer/config" do
       source 'home/conf/mplayer-config.erb'
       mode '0640'

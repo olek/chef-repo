@@ -109,56 +109,54 @@ filetype plugin indent on    " required
 " Put your non-Plugin stuff after this line
 
 set ff=unix
+set history=10000
+set encoding=utf-8      " Set default encoding to UTF-8
+set nrformats-=octal
 
+" Backup & Undo
+set backup              " keep a backup file
 set backupdir=~/tmp/vi,~/tmp,.
 set directory=~/tmp/vi,~/tmp,.
+set undofile            " Persistent undo
+set undodir=~/tmp/vi-undo
+set undolevels=1000
+set undoreload=10000
 
-set history=10000
-"set noequalalways winheight=9999 helpheight=9999
-"let netrw_winsize = 9999
-
-set textwidth=120
-set formatoptions=tcoql
-set smarttab
-set autoindent
-set shiftround " round up broken indentation when shifting
-set more
-set nostartofline
-set showmatch
+" Display & Navigation
+set ruler               " show the cursor position all the time
+set number              " show line numbers
+set showcmd             " display incomplete commands
+set showmatch           " show matching brackets
 set laststatus=2
 set cmdheight=2
 set switchbuf=usetab
 set belloff=all
+set more
+set nostartofline
+
+" Formatting & Indentation
+set textwidth=120
+set formatoptions=tcoql
+set smarttab
+set autoindent
+set shiftround          " round up broken indentation when shifting
 
 " allow backspacing over everything in insert mode
 set backspace=indent,eol,start
 
-set backup		" keep a backup file
-set ruler		" show the cursor position all the time
-set number              " Show line numbers
-set showcmd		" display incomplete commands
-set incsearch		" do incremental searching
+" Search settings
+set hlsearch            " highlight matches
+set incsearch           " do incremental searching
 
 syntax on
-
-set nrformats-=octal
-set encoding=utf-8    " Set default encoding to UTF-8
-
-" Persistent undo
-set undofile
-set undodir=~/tmp/vi-undo
-
-set undolevels=1000
-set undoreload=10000
 
 set tags=tags,../tags,../../tags
 
 " make autocompletion work on words-like-those
 set iskeyword+=-
 
-if exists('+macmeta')
-  set macmeta
-endif
+let mapleader = "\<Space>"
+let maplocalleader = ","
 
 " enable jumping to the end of ruby block with %
 runtime macros/matchit.vim
@@ -168,14 +166,26 @@ runtime macros/matchit.vim
 " (happens when dropping a file on gvim).
 " Do not remember position for git commit messages
 "   " see :help last-position-jump
-autocmd BufReadPost *
-  \ if &filetype !~ '^git\c' && line("'\"") > 0 && line("'\"") <= line("$") |
-  \   exe "normal! g`\"" |
-  \ endif
+augroup vimrc_restore_cursor
+  autocmd!
+  autocmd BufReadPost *
+    \ if &filetype !~ '^git\c' && line("'\"") > 0 && line("'\"") <= line("$") |
+    \   exe "normal! g`\"" |
+    \ endif
+augroup END
+
+" Make Y yank everything from the cursor to the end of the line. This makes Y
+" act more like C or D because by default, Y yanks the current line (i.e. the
+" same as yy).
+noremap Y y$
 
 <%- if @is_olek -%>
 
-"autocmd BufWritePre * :%s/\s\+$//e
+" use "\f" for returning to edit previous file
+nnoremap \f <C-^>
+
+" clear search matching
+noremap <leader><space> :noh<cr>:call clearmatches()<cr>
 
 " Usage:  :let ma = Mark() ... execute ma
 " has the same effect as  :normal ma ... :normal 'a
@@ -226,60 +236,6 @@ function! StripTrailingSpaces()
   endif
 endfunction
 
-" Remove trailing blanks upon saving except from lines containing sigdashes
-"au BufWritePre * silent! call StripTrailingSpaces()
-autocmd BufWritePre * call StripTrailingSpaces()
-
-" use "\f" for returning to edit previous file
-map \f <C-^>
-
-" ====== allowing to search for ruby or rails doc right from the VI
-"let g:browser = 'firefox -new-tab '
-let g:browser = 'open '
-" Open the Ruby ApiDock page for the word under cursor, in a new Firefox tab
-function! OpenRubyDoc(keyword)
-  let url = 'http://apidock.com/ruby/'.a:keyword
-  "exec '!'.g:browser.' '.url.' &'
-  exec '!'.g:browser.' '.url
-endfunction
-noremap RB :call OpenRubyDoc(expand('<cword>'))<CR>
-
-" Open the Rails ApiDock page for the word under cursos, in a new Firefox tab
-function! OpenRailsDoc(keyword)
-  let url = 'http://apidock.com/rails/'.a:keyword
-  "exec '!'.g:browser.' '.url.' &'
-  exec '!'.g:browser.' '.url
-endfunction
-noremap RR :call OpenRailsDoc(expand('<cword>'))<CR>
-
-" clear search matching
-noremap <leader><space> :noh<cr>:call clearmatches()<cr>
-
-" ctrlp
-let g:ctrlp_custom_ignore = '\v[\/](target|dist)|(\.(swp|ico|git|svn|jav|class))$'
-" alt-ctrl-p searches is special folder for java dependencies, allows to navigate sources of third party packages efficiently
-noremap <M-C-P> <Esc>:CtrlP ~/tmp/sdeps<CR>
-
-" vim-indentobject
-" let g:indentobject_meaningful_indentation = ["haml", "sass", "python", "yaml", "markdown"]
-
-" Fugitive
-" ,g for Ggrep
-nmap <leader>g :Ggrep
-
-" ,f for global git serach for word under the cursor (with highlight)
-nmap <leader>f :let @/="\\<<C-R><C-W>\\>"<CR>:set hls<CR>:silent Ggrep -w "<C-R><C-W>"<CR>:ccl<CR>:cw<CR><CR>
-
-" same in visual mode
-:vmap <leader>f y:let @/=escape(@", '\\[]$^*.')<CR>:set hls<CR>:silent Ggrep -F "<C-R>=escape(@", '\\"#')<CR>"<CR>:ccl<CR>:cw<CR><CR>
-
-" Cmd-Shift-R for RSpec
-" nmap <silent> <D-R> :call RunRspecCurrentFileConque()<CR>
-" Cmd-Shift-L for RSpec Current Line
-" nmap <silent> <D-L> :call RunRspecCurrentLineConque()<CR>
-" ,Cmd-R for Last conque command
-" nmap <silent> <D-P> :call RunLastConqueCommand()<CR>
-
 function! <SID>SetupMavenMap()
   doautocmd MavenAutoDetect BufNewFile,BufReadPost
 
@@ -294,6 +250,50 @@ function! <SID>SetupMavenMap()
   nmap <buffer> <leader>url :TestLast<CR>
   nmap <buffer> <leader>urv :TestVisit<CR>
 endfunction
+
+" Filetype & Buffer autocmds
+augroup vimrc_autocmds
+  autocmd!
+  " Remove trailing blanks upon saving except from lines containing sigdashes
+  autocmd BufWritePre * call StripTrailingSpaces()
+  autocmd FileType clojure setlocal lispwords+=ns,authorize,etaggable,GET,POST,PUT,DELETE,HEAD,ANY,context,with-meta,if-let,if-not,when-let,when-not,fn,loop,condp,dotrace,doseq,binding,catch,trace,testing,locking,proxy,reify,doto,use-fixtures,as->,fetch,while,go-loop
+  " TODO find out why setlocal did not work for next 2 lines
+  autocmd FileType java setlocal expandtab shiftwidth=4 softtabstop=4
+  autocmd FileType xml setlocal expandtab shiftwidth=4 softtabstop=4
+  " Close quicklist after selecting an entry with ctrl-enter
+  autocmd FileType qf nnoremap <buffer> <C-CR> <CR>:cclose<CR>
+  autocmd BufNewFile,BufReadPost *.* call s:SetupMavenMap()
+augroup END
+
+function! ToggleCommentTextwidth()
+  if !exists('b:comment_mode')
+    let b:comment_mode = &textwidth
+    setlocal textwidth=80
+  else
+    let &l:textwidth = b:comment_mode
+    unlet b:comment_mode
+  endif
+endfunction
+
+" Toggle between default textwidth and 80 textwidth (for comments etc)
+nnoremap <leader>tc :call ToggleCommentTextwidth()<CR>
+
+" Plugins setup
+
+" ctrlp
+let g:ctrlp_custom_ignore = '\v[\/](target|dist)|(\.(swp|ico|git|svn|jav|class))$'
+" alt-ctrl-p searches is special folder for java dependencies, allows to navigate sources of third party packages efficiently
+noremap <M-C-P> <Esc>:CtrlP ~/tmp/sdeps<CR>
+
+" Fugitive
+" ,g for Ggrep
+nnoremap <leader>g :Ggrep
+
+" ,f for global git search for word under the cursor (with highlight)
+nnoremap <leader>f :let @/="\\<<C-R><C-W>\\>"<CR>:set hls<CR>:silent Ggrep -w "<C-R><C-W>"<CR>:ccl<CR>:cw<CR><CR>
+
+" same in visual mode
+vnoremap <leader>f y:let @/=escape(@", '\\[]$^*.')<CR>:set hls<CR>:silent Ggrep -F "<C-R>=escape(@", '\\"#')<CR>"<CR>:ccl<CR>:cw<CR><CR>
 
 let g:rbpt_colorpairs = [
     \ ['brown',       'RoyalBlue3'],
@@ -323,52 +323,32 @@ let g:maven_keymaps = 1
 let g:test#strategy="tslime"
 let g:test#preserve_screen = 1
 
-autocmd VimEnter * RainbowParenthesesToggle
-autocmd Syntax * RainbowParenthesesLoadRound
-autocmd Syntax * RainbowParenthesesLoadSquare
-autocmd Syntax * RainbowParenthesesLoadBraces
+augroup vimrc_rainbow
+  autocmd!
+  autocmd VimEnter * RainbowParenthesesToggle
+  autocmd Syntax * RainbowParenthesesLoadRound
+  autocmd Syntax * RainbowParenthesesLoadSquare
+  autocmd Syntax * RainbowParenthesesLoadBraces
+augroup END
 
-autocmd FileType clojure setlocal lispwords+=ns,authorize,etaggable,GET,POST,PUT,DELETE,HEAD,ANY,context,with-meta,if-let,if-not,when-let,when-not,fn,loop,condp,dotrace,doseq,binding,catch,trace,testing,locking,proxy,reify,doto,use-fixtures,as->,fetch,while,go-loop
+" Setup inspired by Janus
 
-" TODO find out why setlocal did not work for next 2 lines
-autocmd FileType java setlocal expandtab shiftwidth=4 softtabstop=4
-autocmd FileType xml setlocal expandtab shiftwidth=4 softtabstop=4
-"autocmd FileType xml setlocal equalprg=xmllint\ --format\ --recover\ -\ 2>/dev/null
+""
+"" Janus Basic Setup
+""
 
-" Close quicklist after selecting an entry with ctrl-enter
-autocmd FileType qf nnoremap <buffer> <C-CR> <CR>:cclose<CR>
-
-autocmd BufNewFile,BufReadPost *.* call s:SetupMavenMap()
-
-" Make Y yank everything from the cursor to the end of the line. This makes Y
-" act more like C or D because by default, Y yanks the current line (i.e. the
-" same as yy).
-noremap Y y$
-
-function! ToggleCommentTextwidth()
-  if !exists('b:comment_mode')
-	let b:comment_mode = &textwidth
-	setlocal textwidth=80
-  else
-	let &l:textwidth =  b:comment_mode
-	unlet b:comment_mode
-  endif
-endfun
-
-" Toggle between default textwidth and 80 textwidth (for comments etc)
-nmap <leader>tc :call ToggleCommentTextwidth()<CR>
-
-" ==============================================================================
-" Inspired by Janus
+" List chars
+set listchars=""                  " Reset the listchars
+set listchars=tab:\ \             " a tab should display as "  ", trailing whitespace as "."
+set listchars+=trail:.            " show trailing spaces as dots
+set listchars+=extends:>          " The character to show in the last column when wrap is
+                                  " off and the line continues beyond the right of the screen
+set listchars+=precedes:<         " The character to show in the last column when wrap is
 
 " format the entire file, come back to same line, center
-nmap <leader>fef mzggVG='zzz
+nnoremap <leader>fef mzggVG='zzz
 
 <%- end -%>
-
-" ==============================================================================
-" ==============================================================================
-" ==============================================================================
 
 ""
 "" General Janus Mappings (Normal, Visual, Operator-pending)
@@ -376,57 +356,39 @@ nmap <leader>fef mzggVG='zzz
 
 " use :w!! to write to a file using sudo if you forgot to 'sudo vim file'
 " (it will prompt for sudo password when writing)
-cmap w!! %!sudo tee > /dev/null %
+cnoremap w!! %!sudo tee > /dev/null %
 
 " Toggle paste mode
-nmap <silent> <F4> :set invpaste<CR>:set paste?<CR>
-imap <silent> <F4> <ESC>:set invpaste<CR>:set paste?<CR>
+nnoremap <silent> <F4> :set invpaste<CR>:set paste?<CR>
+inoremap <silent> <F4> <ESC>:set invpaste<CR>:set paste?<CR>
 
 " format the entire file
-" nmap <leader>fef ggVG=
+" nnoremap <leader>fef ggVG=
 
 " upper/lower word
-nmap <leader>u mQviwU`Q
-nmap <leader>l mQviwu`Q
+nnoremap <leader>u mQviwU`Q
+nnoremap <leader>l mQviwu`Q
 
 " upper/lower first char of word
-nmap <leader>U mQgewvU`Q
-nmap <leader>L mQgewvu`Q
+nnoremap <leader>U mQgewvU`Q
+nnoremap <leader>L mQgewvu`Q
 
 " cd to the directory containing the file in the buffer
-nmap <silent> <leader>cd :lcd %:h<CR>
+nnoremap <silent> <leader>cd :lcd %:h<CR>
 
 " Create the directory containing the file in the buffer
-nmap <silent> <leader>md :!mkdir -p %:p:h<CR>
+nnoremap <silent> <leader>md :!mkdir -p %:p:h<CR>
 
 " Some helpers to edit mode
 " http://vimcasts.org/e/14
 cnoremap %% <C-R>=expand('%:h').'/'<cr>
-map <leader>ew :e %%
-map <leader>es :sp %%
-map <leader>ev :vsp %%
-map <leader>et :tabe %%
+nnoremap <leader>ew :e %%
+nnoremap <leader>es :sp %%
+nnoremap <leader>ev :vsp %%
+nnoremap <leader>et :tabe %%
 
 " Open current file in IntelliJ
 nnoremap <leader>ei :silent !idea.sh --line <C-R>=line('.')<CR> <C-R>=expand("%")<CR><CR>
-
-" Copy current file name (relative/absolute) to system clipboard (mac version)
-if has("mac") || has("gui_macvim") || has("gui_mac")
-  " relative path  (src/foo.txt)
-  nnoremap <leader>cpr :let @*=expand("%")<CR>
-
-  " absolute path  (/something/src/foo.txt)
-  nnoremap <leader>cpa :let @*=expand("%:p")<CR>
-
-  " filename   	(foo.txt)
-  nnoremap <leader>cpn :let @*=expand("%:t")<CR>
-
-  " short filename   	(foo)
-  nnoremap <leader>cps :let @*=expand("%:t:r")<CR>
-
-  " directory name (/something/src)
-  nnoremap <leader>cpd:let @*=expand("%:p:h")<CR>
-endif
 
 " Copy current file name (relative/absolute) to system clipboard (Linux version)
 if has("gui_gtk") || has("gui_gtk2") || has("gui_gnome") || has("unix")
@@ -446,160 +408,79 @@ if has("gui_gtk") || has("gui_gtk2") || has("gui_gnome") || has("unix")
   nnoremap <leader>cpd :let @+=expand("%:p:h")<CR>
 endif
 
-map <leader>ee :e <C-R>=expand('%')<cr>
+nnoremap <leader>ee :e <C-R>=expand('%')<cr>
 
 " Swap two words
-nmap <silent> gw :s/\(\%#\w\+\)\(\_W\+\)\(\w\+\)/\3\2\1/<CR>`'
+nnoremap <silent> gw :s/\(\%#\w\+\)\(\_W\+\)\(\w\+\)/\3\2\1/<CR>`'
 
 " Underline the current line with '='
-nmap <silent> <leader>ul :t.\|s/./=/g\|:nohls<cr>
+nnoremap <silent> <leader>ul :t.\|s/./=/g\|:nohls<cr>
 
 " set text wrapping toggles
-nmap <silent> <leader>tw :set invwrap<CR>:set wrap?<CR>
+nnoremap <silent> <leader>tw :set invwrap<CR>:set wrap?<CR>
 
 " find merge conflict markers
-nmap <silent> <leader>fc <ESC>/\v^[<=>]{7}( .*\|$)<CR>
-
-" Map the arrow keys to be based on display lines, not physical lines
-" Olek - do not like that at all
-" map <Down> gj
-" map <Up> gk
+nnoremap <silent> <leader>fc <ESC>/\v^[<=>]{7}( .*\|$)<CR>
 
 " Toggle hlsearch with <leader>hs
-nmap <leader>hs :set hlsearch! hlsearch?<CR>
+nnoremap <leader>hs :set hlsearch! hlsearch?<CR>
 
 " Adjust viewports to the same size
-map <Leader>= <C-w>=
+nnoremap <Leader>= <C-w>=
 
-if has("gui_macvim") && has("gui_running")
-  " Map command-[ and command-] to indenting or outdenting
-  " while keeping the original selection in visual mode
-  vmap <D-]> >gv
-  vmap <D-[> <gv
+" Map command-[ and command-] to indenting or outdenting
+" while keeping the original selection in visual mode
+vnoremap <A-]> >gv
+vnoremap <A-[> <gv
 
-  nmap <D-]> >>
-  nmap <D-[> <<
+nnoremap <A-]> >>
+nnoremap <A-[> <<
 
-  omap <D-]> >>
-  omap <D-[> <<
+onoremap <A-]> >>
+onoremap <A-[> <<
 
-  imap <D-]> <Esc>>>i
-  imap <D-[> <Esc><<i
+inoremap <A-]> <Esc>>>i
+inoremap <A-[> <Esc><<i
 
-  " Bubble single lines
-  nmap <D-Up> [e
-  nmap <D-Down> ]e
-  nmap <D-k> [e
-  nmap <D-j> ]e
+" Bubble single lines
+nnoremap <C-Up> [e
+nnoremap <C-Down> ]e
+nnoremap <C-k> [e
+nnoremap <C-j> ]e
 
-  " Bubble multiple lines
-  vmap <D-Up> [egv
-  vmap <D-Down> ]egv
-  vmap <D-k> [egv
-  vmap <D-j> ]egv
+" Bubble multiple lines
+vnoremap <C-Up> [egv
+vnoremap <C-Down> ]egv
+vnoremap <C-k> [egv
+vnoremap <C-j> ]egv
 
-  " Map Command-# to switch tabs
-  map  <D-0> 0gt
-  imap <D-0> <Esc>0gt
-  map  <D-1> 1gt
-  imap <D-1> <Esc>1gt
-  map  <D-2> 2gt
-  imap <D-2> <Esc>2gt
-  map  <D-3> 3gt
-  imap <D-3> <Esc>3gt
-  map  <D-4> 4gt
-  imap <D-4> <Esc>4gt
-  map  <D-5> 5gt
-  imap <D-5> <Esc>5gt
-  map  <D-6> 6gt
-  imap <D-6> <Esc>6gt
-  map  <D-7> 7gt
-  imap <D-7> <Esc>7gt
-  map  <D-8> 8gt
-  imap <D-8> <Esc>8gt
-  map  <D-9> 9gt
-  imap <D-9> <Esc>9gt
-else
-  " Map command-[ and command-] to indenting or outdenting
-  " while keeping the original selection in visual mode
-  vmap <A-]> >gv
-  vmap <A-[> <gv
-
-  nmap <A-]> >>
-  nmap <A-[> <<
-
-  omap <A-]> >>
-  omap <A-[> <<
-
-  imap <A-]> <Esc>>>i
-  imap <A-[> <Esc><<i
-
-  " Bubble single lines
-  nmap <C-Up> [e
-  nmap <C-Down> ]e
-  nmap <C-k> [e
-  nmap <C-j> ]e
-
-  " Bubble multiple lines
-  vmap <C-Up> [egv
-  vmap <C-Down> ]egv
-  vmap <C-k> [egv
-  vmap <C-j> ]egv
-
-  " Make shift-insert work like in Xterm
-  " Olek - insert key is disabled anyway
-  " map <S-Insert> <MiddleMouse>
-  " map! <S-Insert> <MiddleMouse>
-
-  " Map Control-# to switch tabs
-  " Olek - switched Ctrl to Alt
-  map  <A-0> 0gt
-  imap <A-0> <Esc>0gt
-  map  <A-1> 1gt
-  imap <A-1> <Esc>1gt
-  map  <A-2> 2gt
-  imap <A-2> <Esc>2gt
-  map  <A-3> 3gt
-  imap <A-3> <Esc>3gt
-  map  <A-4> 4gt
-  imap <A-4> <Esc>4gt
-  map  <A-5> 5gt
-  imap <A-5> <Esc>5gt
-  map  <A-6> 6gt
-  imap <A-6> <Esc>6gt
-  map  <A-7> 7gt
-  imap <A-7> <Esc>7gt
-  map  <A-8> 8gt
-  imap <A-8> <Esc>8gt
-  map  <A-9> 9gt
-  imap <A-9> <Esc>9gt
-endif
+" Map Control-# to switch tabs
+" Olek - switched Ctrl to Alt
+nnoremap <A-0> 0gt
+inoremap <A-0> <Esc>0gt
+nnoremap <A-1> 1gt
+inoremap <A-1> <Esc>1gt
+nnoremap <A-2> 2gt
+inoremap <A-2> <Esc>2gt
+nnoremap <A-3> 3gt
+inoremap <A-3> <Esc>3gt
+nnoremap <A-4> 4gt
+inoremap <A-4> <Esc>4gt
+nnoremap <A-5> 5gt
+inoremap <A-5> <Esc>5gt
+nnoremap <A-6> 6gt
+inoremap <A-6> <Esc>6gt
+nnoremap <A-7> 7gt
+inoremap <A-7> <Esc>7gt
+nnoremap <A-8> 8gt
+inoremap <A-8> <Esc>8gt
+nnoremap <A-9> 9gt
+inoremap <A-9> <Esc>9gt
 
 ""
 "" Command-Line Mappings
 ""
 
 " Insert the current directory into a command-line path
-cmap <C-P> <C-R>=expand("%:p:h") . "/"<CR>
+cnoremap <C-P> <C-R>=expand("%:p:h") . "/"<CR>
 
-
-""
-"" Janus Basic Setup
-""
-
-" List chars
-set listchars=""                  " Reset the listchars
-set listchars=tab:\ \             " a tab should display as "  ", trailing whitespace as "."
-set listchars+=trail:.            " show trailing spaces as dots
-set listchars+=extends:>          " The character to show in the last column when wrap is
-                                  " off and the line continues beyond the right of the screen
-set listchars+=precedes:<         " The character to show in the last column when wrap is
-                                  " off and the line continues beyond the right of the screen
-""
-"" Searching
-""
-
-set hlsearch    " highlight matches
-set incsearch   " incremental searching
-"set ignorecase  " searches are case insensitive...
-"set smartcase   " ... unless they contain at least one capital letter

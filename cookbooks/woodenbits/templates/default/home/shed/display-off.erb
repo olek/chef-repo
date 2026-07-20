@@ -13,6 +13,16 @@ parse-args() {
 }
 
 turn-off-screen-in-wayland() {
+    # Note on Wayland screen blanking vs. hardware DPMS PowerSaveMode 3:
+    # Directly forcing Mutter's hardware DPMS OFF (PowerSaveMode = 3) via D-Bus:
+    #   busctl --user set-property org.gnome.Mutter.DisplayConfig /org/gnome/Mutter/DisplayConfig org.gnome.Mutter.DisplayConfig PowerSaveMode i 3
+    # was evaluated. However, manually forcing PowerSaveMode 3 in a script requires building and maintaining an 
+    # in-script input listener to detect keyboard/mouse activity and restore PowerSaveMode to 0 (ON), which is unnecessarily complex.
+    #
+    # Instead, this script calls org.gnome.ScreenSaver SetActive b true for clean software blanking.
+    # To prevent gsd-power from escalating to hardware DPMS OFF after 10 minutes (which causes an NVIDIA EGL teardown crash),
+    # a persistent systemd user service (~/.config/systemd/user/inhibit-idle.service) is used to run:
+    #   gnome-session-inhibit --inhibit idle --inhibit-only
     echo "Turning off monitors..."
     if [[ "${XDG_CURRENT_DESKTOP:-}" == *GNOME* ]]; then
         if $DRY_RUN; then

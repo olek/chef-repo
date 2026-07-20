@@ -108,6 +108,23 @@ filetype plugin indent on    " required
 " see :h vundle for more details or wiki for FAQ
 " Put your non-Plugin stuff after this line
 
+"set rtp+=~/.vim/bundle/vim-project/
+" Custom starting path for vim-project
+call project#rc("/data/dev")
+
+Project 'lm/common-gateway', 'cg'
+Project 'lm/admin-api', 'aa'
+Project 'lm/security-commons', 'sc'
+Project 'lm/job-engine', 'je'
+Project 'lm/uacp-shared-libraries', 'usl'
+Project 'scrt2/messaging-channels-service', 'scrt2-mcs'
+Project 'scrt2/livemessage-service', 'scrt2-lms'
+Project 'scrt2/livemessage-schemas', 'scrt2-lm-schemas'
+Project 'scrt2/conversation', 'scrt2-conversation'
+Project 'scrt2/conversation-fork', 'scrt2-conversation-fork'
+Project 'e360/queue-manager-service', 'e360-qm'
+Project 'e360/messaging-runtime-libs', 'e360-libs'
+
 set ff=unix
 set history=10000
 set encoding=utf-8      " Set default encoding to UTF-8
@@ -281,7 +298,7 @@ nnoremap <leader>tc :call ToggleCommentTextwidth()<CR>
 " Plugins setup
 
 " ctrlp
-let g:ctrlp_custom_ignore = '\v[\/](target|dist)|(\.(swp|ico|git|svn|jav|class))$'
+let g:ctrlp_custom_ignore = '\v[\/](target\/classes|target\/site|target\/surefire-reports|dist)|(\.(swp|ico|git|svn|jav|class))$'
 " alt-ctrl-p searches is special folder for java dependencies, allows to navigate sources of third party packages efficiently
 noremap <M-C-P> <Esc>:CtrlP ~/tmp/sdeps<CR>
 

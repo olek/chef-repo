@@ -2,7 +2,8 @@
 set -e
 set -o pipefail
 
-# Runs other command while turbo boost on CPU is enabled, then disables it
+# Runs command with custom energy performance preference, then reverts in back.
+# Requires cpu.epp.set.policy file to grant root permissions to this script
 
 epp_value=$1
 
@@ -12,7 +13,7 @@ if [[ -z $epp_value ]]; then
 fi
 
 for i in /sys/devices/system/cpu/cpufreq/policy[0-9]*/energy_performance_preference; do
-  echo "$epp_value" > "$i";
+  echo "$epp_value" > "$i" || true;
 done
 
 #case "$epp_value" in

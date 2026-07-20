@@ -1,10 +1,19 @@
+<%-
+  if @user == 'opoplavsky'
+    kanata_dir = '/data/dev/misc/kanata/kanata-setup'
+    chef_dir   = '~/git/chef-repo'
+  else
+    kanata_dir = '~/git/my/kanata-setup'
+    chef_dir   = '~/git/my/chef-repo'
+  end
+-%>
 cd ~
 
 new_session -n root
 new_window -n perf-watch
 new_window -n ncmpc
-new_window -n kanata -c ~/git/my/kanata-setup
-new_window -n chef -c ~/git/my/chef-repo
+new_window -n kanata -c <%= kanata_dir %>
+new_window -n chef -c <%= chef_dir %>
 new_window -n cmd
 #new_window -n cmd2
 #new_window -n disks

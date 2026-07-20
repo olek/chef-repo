@@ -34,3 +34,9 @@ set -g status-right ''
 
 # Reserve more space for longer session names on the left status line
 set -g status-left-length 25
+
+# Claude Code related settings
+set -g focus-events on # Pass focus events to Claude Code
+set -g allow-passthrough on # Fixes desktop notifications and progress bars
+set -s extended-keys on # Fixes Shift+Enter formatting issues
+set -as terminal-features 'xterm*:extkeys'

@@ -25,9 +25,14 @@ user 'ydotool' do
   action :create
 end
 
-# Ensure uinput group exists and has members
+# Ensure uinput group exists and has members.
+# Only the ydotool daemon opens /dev/uinput directly, so it is the sole hard
+# dependency here. 'olek' is kept because some minor side functionality on the
+# personal machine reportedly needs direct uinput access (exact use forgotten);
+# 'opoplavsky' is deliberately NOT added - it never needed it (was an artifact
+# of that LDAP account, and the work machine talks to ydotoold via the socket).
 group 'uinput' do
-  members (['ydotool'] + ['olek', 'opoplavsky'].select { |u| node[:etc][:passwd].key?(u) })
+  members (['ydotool'] + ['olek'].select { |u| node[:etc][:passwd].key?(u) })
   append true
   action :create
 end

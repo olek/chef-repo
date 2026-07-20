@@ -74,7 +74,7 @@ else
   if which notify-send &> /dev/null; then
     # Linux
     argsCopy=("$@")
-    notify-send -i $icon "${argsCopy[*]}" "${rich_notification}"
+    notify-send --transient --icon $icon "${argsCopy[*]}" "${rich_notification}"
   else
     if which ntfy &> /dev/null; then
       # Universal third-party

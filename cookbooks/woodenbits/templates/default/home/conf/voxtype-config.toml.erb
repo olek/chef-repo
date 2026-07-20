@@ -13,6 +13,10 @@ max_duration_secs = 60
 [whisper]
 model = "large-v3-turbo"
 language = "en"
+# GOTCHA: this template is deployed identically to every machine, but the right
+# value is host-dependent. If another workstation has a different GPU layout
+# (single GPU, or the discrete card at a different Vulkan index), 1 will be wrong
+# there. Make this username-conditional (like ~/.tmuxstart/general) if that ever bites.
 gpu_device = 1              # [machine-specific] NVIDIA = Vulkan device 1 (discrete GPU on dual-GPU system)
 initial_prompt = "GUS, Claude, Codanna, Serena, ast-grep, Feathers, Fowler, common-gateway, admin-api, e360-whatsapp, e360-messaging-runtime-libs, uacp-shared-libraries"
 gpu_isolation = true

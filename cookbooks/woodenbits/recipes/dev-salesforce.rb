@@ -8,7 +8,7 @@ if node[:hostname].start_with?('opoplavsky-')
   # for listing all files in a project
   package 'tree'
 
-  package 'nodejs'
+  #package 'nodejs'
   package 'jq' # json pretty print
 
   # current version is awfull
@@ -16,8 +16,8 @@ if node[:hostname].start_with?('opoplavsky-')
 
   package 'docker-ce'
 
-  package 'redis-tools'
-  package 'postgresql-client'
+  #package 'redis-tools'
+  #package 'postgresql-client'
 
   #package 'virtualbox'
 

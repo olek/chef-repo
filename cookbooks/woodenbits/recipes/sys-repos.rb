@@ -15,7 +15,8 @@ src_dir = "/etc/apt/sources.list.d"
 package 'curl' # dependency, some repos can not be configured without curl
 
 execute "enable multiverse repo" do
-  filename = "#{src_dir}/#{codename}-multiverse.list"
+  repo_name = "#{codename}-multiverse"
+  filename = "#{src_dir}/#{repo_name}.list"
 
   command %Q(
     echo "deb #{main_repo_host} #{codename} multiverse" >> #{filename}
@@ -24,7 +25,7 @@ execute "enable multiverse repo" do
   )
 
   notifies :run, 'execute[update apt]', :immediately
-  creates filename
+  not_if { apt_repo_exists?(repo_name) }
 end
 
 #execute "enable google talk repo" do
@@ -42,7 +43,8 @@ end
 #end
 
 execute "enable brave repo" do
-  filename = "#{src_dir}/#{codename}-brave.list"
+  repo_name = "#{codename}-brave"
+  filename = "#{src_dir}/#{repo_name}.list"
 
   command %Q(
     curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
@@ -51,11 +53,12 @@ execute "enable brave repo" do
   )
 
   notifies :run, 'execute[update apt]', :immediately
-  creates filename
+  not_if { apt_repo_exists?(repo_name) }
 end
 
 execute "enable signal-desktop repo" do
-  filename = "#{src_dir}/#{codename}-signal-desktop.sources"
+  repo_name = "#{codename}-signal-desktop"
+  filename = "#{src_dir}/#{repo_name}.sources"
 
   command %Q(
     wget -O- https://updates.signal.org/desktop/apt/keys.asc | gpg --dearmor > /usr/share/keyrings/signal-desktop-keyring.gpg
@@ -64,12 +67,13 @@ execute "enable signal-desktop repo" do
   )
 
   notifies :run, 'execute[update apt]', :immediately
-  creates filename
+  not_if { apt_repo_exists?(repo_name) }
 end
 
 if node[:hostname].start_with?('opoplavsky-')
   execute "enable docker repo" do
-    filename = "#{src_dir}/#{codename}-docker.list"
+    repo_name = "#{codename}-docker"
+    filename = "#{src_dir}/#{repo_name}.list"
 
     command %Q(
       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
@@ -78,8 +82,10 @@ if node[:hostname].start_with?('opoplavsky-')
     )
 
     notifies :run, 'execute[update apt]', :immediately
-    creates filename
+    not_if { apt_repo_exists?(repo_name) }
   end
+
+
 
   # insomnia new release is awful
   #execute "enable insomnia repo" do

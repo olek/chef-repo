@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 
-sudo chef-solo --config /etc/chef/solo.rb "$@"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+sudo chef-solo --config "${SCRIPT_DIR}/solo.rb" "$@"
+
 

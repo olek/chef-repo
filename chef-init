@@ -25,32 +25,20 @@ fi
 # Get the absolute directory where this script resides (the chef-repo root)
 CHEFREPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# 2. Setup config directories
-echo "Configuring /etc/chef..."
-mkdir -p /etc/chef
+# 2. Ensure Chef runtime directories exist in /var with correct permissions
+echo "Ensuring Chef runtime directories exist..."
+mkdir -p /var/log/chef /var/cache/chef /var/lib/chef/backup /var/run/chef
+chmod 0755 /var/log/chef /var/cache/chef /var/lib/chef /var/lib/chef/backup /var/run/chef
+chown -R root:root /var/log/chef /var/cache/chef /var/lib/chef /var/run/chef
 
-# 3. Create solo.rb config from template
-echo "Generating /etc/chef/solo.rb from template..."
-ruby -rerb -e '
-  class Node
-    def [](key)
-      key == :hostname ? "'"${HOSTNAME}"'" : nil
-    end
-  end
-  node = Node.new
 
-  module Chef
-    Config = { cookbook_path: ["'"${CHEFREPO_DIR}"'/cookbooks"] }
-  end
+# 3. Ensure node JSON attributes file exists in nodes/ directory
 
-  template = File.read("'"${CHEFREPO_DIR}"'/cookbooks/woodenbits/templates/default/system/etc/chef/solo.rb.erb")
-  erb = ERB.new(template)
-  puts erb.result(binding)
-' > /etc/chef/solo.rb
-
-# 4. Create solo-attributes.json if not present
-if [ ! -f /etc/chef/solo-attributes.json ]; then
-  cat <<EOF > /etc/chef/solo-attributes.json
+NODE_FILE="${CHEFREPO_DIR}/nodes/${HOSTNAME}.json"
+if [ ! -f "${NODE_FILE}" ]; then
+  echo "Creating default node configuration: ${NODE_FILE}"
+  mkdir -p "${CHEFREPO_DIR}/nodes"
+  cat <<EOF > "${NODE_FILE}"
 {
   "run_list": [
     "role[workstation]"

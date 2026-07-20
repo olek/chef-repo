@@ -21,7 +21,7 @@ git clone <this-repo-url> ~/git/my/chef-repo
 ```
 
 ### Step 2: Run the Initialization Script
-Run the automated bootstrap script under `sudo` to install Cinc/Chef Client and configure `/etc/chef/solo.rb`:
+Run the automated bootstrap script under `sudo` to install Cinc/Chef Client:
 ```bash
 cd ~/git/my/chef-repo
 sudo ./chef-init
@@ -34,7 +34,7 @@ Run the configuration update using:
 ```
 
 ### Log Files
-Chef Solo is configured via `/etc/chef/solo.rb` to write logs natively to `/var/log/chef/client.log`. You can monitor execution in real-time or troubleshoot errors by running:
+Chef Solo is configured via `solo.rb` to write logs natively to `/var/log/chef/client.log`. You can monitor execution in real-time or troubleshoot errors by running:
 ```bash
 tail -f /var/log/chef/client.log
 ```
@@ -55,8 +55,8 @@ The repository contains three helper scripts to manage your workstation setup.
 > [!NOTE]
 > All scripts internally embed or escalate via `sudo` (rather than allowing you to run them directly from a real root shell). This is intentional: the Chef recipes and bootstrap scripts must dynamically resolve the workstation owner by inspecting the `$SUDO_USER` environment variable. Running these scripts as the real root user (where `$SUDO_USER` is empty) will cause user-space configurations to fail.
 
-*   **[chef-init](file:///home/olek/git/my/chef-repo/chef-init)**: Bootstraps the local environment by installing Cinc/Chef Client (if not present) and dynamically rendering `/etc/chef/solo.rb` from the repository template. (Automatically escalates via `sudo`).
-*   **[chef-update](file:///home/olek/git/my/chef-repo/chef-update)**: Triggers `chef-solo` to apply your workstation recipes and synchronize configuration files. (Executes `chef-solo` under `sudo`).
+*   **[chef-init](file:///home/olek/git/my/chef-repo/chef-init)**: Bootstraps the local environment by installing Cinc/Chef Client (if not present) and ensuring node JSON configuration exists in `nodes/`. (Automatically escalates via `sudo`).
+*   **[chef-update](file:///home/olek/git/my/chef-repo/chef-update)**: Triggers `chef-solo` using `./solo.rb` to apply your workstation recipes and synchronize configuration files. (Executes `chef-solo` under `sudo`).
 *   **[chef-upgrade](file:///home/olek/git/my/chef-repo/chef-upgrade)**: Checks the currently installed version of Chef/Cinc Client. If it is below major version 18, it upgrades it to version 18. (Automatically escalates via `sudo`).
 
 ---

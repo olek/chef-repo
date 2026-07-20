@@ -10,20 +10,6 @@ directory '/vaults' do
   action :create
 end
 
-# Manage solo.rb to direct log output to /var/log/chef/client.log
-directory '/etc/chef' do
-  owner 'root'
-  group 'root'
-  mode '0755'
-  action :create
-end
-
-template '/etc/chef/solo.rb' do
-  source 'system/etc/chef/solo.rb.erb'
-  owner 'root'
-  group 'root'
-  mode '0644'
-end
 #execute "turn off chef-client verbose logging" do
 #  command "echo 'verbose_logging false' >> /etc/cinc/client.rb"
 #  not_if "grep 'verbose_logging false' /etc/cinc/client.rb"

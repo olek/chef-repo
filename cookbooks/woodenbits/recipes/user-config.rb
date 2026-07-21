@@ -142,7 +142,10 @@ end
       source "home/conf/#{name}.erb"
       variables(
         :is_root => user == 'root',
-        :is_olek => user == 'olek'
+        # Gates the full plugin list + mappings in vimrc.erb. Both 'olek'
+        # (personal) and 'opoplavsky' (work) want the complete setup; only
+        # root gets the stripped-down config.
+        :full_config => %w(olek opoplavsky).include?(user)
       )
       mode '0640'
       owner user

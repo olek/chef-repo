@@ -13,7 +13,7 @@ Plugin 'VundleVim/Vundle.vim'
 " My Bundles here:
 "
 " General {{{
-<%- if @is_olek -%>
+<%- if @full_config -%>
 "Plugin 'tsaleh/vim-align' " Horizontal and vertical alignment of code
 "Plugin 'tpope/vim-haml'
 "Plugin 'tpope/vim-rails' " Ruby on rails support
@@ -196,7 +196,7 @@ augroup END
 " same as yy).
 noremap Y y$
 
-<%- if @is_olek -%>
+<%- if @full_config -%>
 
 " use "\f" for returning to edit previous file
 nnoremap \f <C-^>

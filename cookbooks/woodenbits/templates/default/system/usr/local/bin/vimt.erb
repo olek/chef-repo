@@ -1,5 +1,88 @@
-#!/bin/sh
+#!/bin/bash
+#
+# Open a file in GVim in a tab, reusing an existing tab if the file is
+# already open. Accepts either a plain path or a custom URL of the form
+#
+#     gvim:///path/to/file.txt:42
+#
+# where the trailing ":42" is an optional line number to jump to.
 
-gvim --remote-send ':tablast<CR>'
-gvim --remote-send ':tabnew<CR>'
-gvim --remote-silent "$@"
+set -euo pipefail
+
+# Populated by parse_target from the single command-line argument.
+target_file=""
+target_line=""
+
+# Split the argument into a file path and (optional) line number.
+# Handles both a plain path and a gvim:// URL with a trailing :LINE.
+parse_target() {
+  # Strip the URL scheme if present; a plain path is left untouched.
+  local -r arg="${1#gvim://}"
+
+  # A trailing ":<digits>" is treated as a line number; anything else
+  # (e.g. a colon inside the filename) stays part of the path.
+  if [[ "$arg" =~ ^(.*):([0-9]+)$ ]]; then
+    target_file="${BASH_REMATCH[1]}"
+    target_line="${BASH_REMATCH[2]}"
+  else
+    target_file="$arg"
+    target_line=""
+  fi
+}
+
+# Resolve to an absolute path so GVim matches an already-open buffer
+# regardless of the editor's current working directory.
+absolute_path() {
+  local -r path="$1"
+  local -r dir="$(dirname -- "$path")"
+  local -r base="$(basename -- "$path")"
+  printf '%s/%s\n' "$(cd "$dir" && pwd)" "$base"
+}
+
+# Escape characters that are special inside a GVim ex command line
+# (space, backslash, %, #, and the | command separator).
+escape_for_ex() {
+  sed 's/[ \\%#|]/\\&/g' <<< "$1"
+}
+
+# Check if any GVim server is running. If not, start GVim and exit the script.
+launch_gvim_and_exit_unless_running() {
+  if [[ -z "$(gvim --serverlist 2>/dev/null)" ]]; then
+    if [[ -n "$target_line" ]]; then
+      gvim "+${target_line}" "$target_file"
+    else
+      gvim "$target_file"
+    fi
+    exit 0
+  fi
+}
+
+main() {
+  parse_target "$1"
+
+  launch_gvim_and_exit_unless_running
+
+  local -r resolved="$(absolute_path "$target_file")"
+  local -r escaped="$(escape_for_ex "$resolved")"
+
+  # :tab drop jumps to the tab already showing the file, or opens a new
+  # one. Unlike a plain :tabnew it never leaves an empty leftover tab.
+  gvim --remote-send ":tab drop ${escaped}<CR>"
+
+  # The line jump is a separate command because :drop ignores a +LINE
+  # prefix when the file is already open in a window.
+  if [[ -n "$target_line" ]]; then
+    gvim --remote-send ":${target_line}<CR>"
+  fi
+
+  # Raise the GVim window and give it input focus.
+  #
+  # Known issue: under GNOME Wayland this only raises the window; the
+  # compositor refuses to hand keyboard focus to a background process,
+  # so the terminal keeps the keyboard. There is no supported CLI fix on
+  # native Wayland. Workaround: run GVim under XWayland (start its server
+  # with GDK_BACKEND=x11), where foreground() reliably pulls focus.
+  gvim --remote-send ':call foreground()<CR>'
+}
+
+main "$@"

@@ -76,6 +76,8 @@ git_configs = {
   "delta.navigate" => "true",
   "delta.light" => "true",
   "delta.hyperlinks" => "true",
+  # {path} is absolute, yielding gvim:///abs/path:LINE (handled by vimt).
+  "delta.hyperlinks-file-link-format" => "gvim://{path}:{line}",
 }
 
 
@@ -229,20 +231,11 @@ users.each do |user|
 
     local_git_configs = git_configs.merge('user.name' => 'Olek Poplavsky')
 
-    # Per-user overrides:
-    #  - personal machine (user 'olek'): force personal email; plain-path delta
-    #    hyperlinks since there is no IDE to hand off to.
-    #  - work machine (user 'opoplavsky'): leave user.email alone so the
-    #    locally-configured work address is preserved; open delta hyperlinks in
-    #    IntelliJ.
+    # On the personal machine force the personal email; the work machine
+    # keeps its locally-configured work address.
     if user == 'olek'
       local_git_configs = local_git_configs.merge(
-        'user.email' => 'olek@woodenbits.com',
-        'delta.hyperlinks-file-link-format' => 'file://{path}'
-      )
-    elsif user == 'opoplavsky'
-      local_git_configs = local_git_configs.merge(
-        'delta.hyperlinks-file-link-format' => 'idea://open?file={path}&line={line}'
+        'user.email' => 'olek@woodenbits.com'
       )
     end
 

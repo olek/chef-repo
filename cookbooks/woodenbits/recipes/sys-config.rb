@@ -168,6 +168,21 @@ end
   end
 end
 
+# Register a handler for gvim:///path/to/file:LINE URLs so the OS can open
+# them in GVim via vimt. Rebuild the desktop database when the entry changes.
+execute 'update-desktop-database' do
+  command 'update-desktop-database /usr/share/applications'
+  action :nothing
+end
+
+template '/usr/share/applications/gvim-url-handler.desktop' do
+  source 'system/usr/share/applications/gvim-url-handler.desktop.erb'
+  mode '0644'
+  owner 'root'
+  group 'root'
+  notifies :run, 'execute[update-desktop-database]', :immediately
+end
+
 # Delete the old unmanaged setup script
 file '/usr/local/bin/nvidia-app-custom-setup-on-boot' do
   action :delete

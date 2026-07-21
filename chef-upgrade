@@ -7,7 +7,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Target minimum major version
-TARGET_MAJOR=18
+TARGET_MAJOR=19
 
 # Detect if chef-solo is installed and get version
 if command -v chef-solo &> /dev/null; then

@@ -77,12 +77,23 @@ end
 end
 
 template "/etc/udev/rules.d/59-vial.rules" do
-  source "system/etc/udev-rules.d-59-vial.rules.erb"
+  source "system/etc/udev/rules.d/59-vial.rules.erb"
   mode 0644
   owner 'root'
   group 'root'
 
   notifies :run, 'execute[reload udev]', :delayed
+end
+
+if node[:etc][:passwd].key?('olek')
+  template "/etc/udev/rules.d/99-nvidia-pm-on.rules" do
+    source "system/etc/udev/rules.d/99-nvidia-pm-on.rules.erb"
+    mode 0644
+    owner 'root'
+    group 'root'
+
+    notifies :run, 'execute[reload udev]', :delayed
+  end
 end
 
 

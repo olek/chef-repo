@@ -4,4 +4,6 @@ set -o vi
 export TERM=xterm-256color
 
 # 1.12 is about right for old 2560x1440 monitor
-gnome-tsf 1.12
+# guard: only meaningful inside a live GNOME session bus; a no-op (and silent)
+# in headless / root `sudo -i` shells where dbus-launch is absent
+[ -n "$DBUS_SESSION_BUS_ADDRESS" ] && gnome-tsf 1.12

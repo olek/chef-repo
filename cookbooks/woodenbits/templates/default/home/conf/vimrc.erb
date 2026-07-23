@@ -108,6 +108,7 @@ filetype plugin indent on    " required
 " see :h vundle for more details or wiki for FAQ
 " Put your non-Plugin stuff after this line
 
+<%- if @full_config -%>
 "set rtp+=~/.vim/bundle/vim-project/
 " Custom starting path for vim-project
 call project#rc("/data/dev")
@@ -125,6 +126,7 @@ Project 'scrt2/conversation-fork', 'scrt2-conversation-fork'
 Project 'e360/queue-manager-service', 'e360-qm'
 Project 'e360/messaging-runtime-libs', 'e360-libs'
 Project '~/git/my/chef-repo', 'chef-repo'
+<%- end -%>
 
 set ff=unix
 set history=10000

@@ -247,12 +247,26 @@ users.each do |user|
       end
     end
 
-    %w(.mplayer .tmuxstart git git/personal git/employer git/other).each do |dir|
+    %w(.mplayer .tmuxstart).each do |dir|
       directory "#{home_dir}/#{dir}" do
         owner user
         group user_group
         mode '0700'
         action :create
+      end
+    end
+
+    # If ~/git is a symlink, it's user-managed (pointing at wherever the real
+    # checkout tree lives) -- leave it and its subtree alone. Otherwise create
+    # a real ~/git with the standard buckets.
+    unless File.symlink?("#{home_dir}/git")
+      %w(git git/personal git/employer git/other).each do |dir|
+        directory "#{home_dir}/#{dir}" do
+          owner user
+          group user_group
+          mode '0700'
+          action :create
+        end
       end
     end
 

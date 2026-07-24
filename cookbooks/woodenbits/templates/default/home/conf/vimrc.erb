@@ -55,6 +55,7 @@ Plugin 'VundleVim/Vundle.vim'
 "Plugin 'gisraptor/vim-lilypond-integrator'
 Plugin 'tpope/vim-endwise' " Ends certain structures automatically (if/end etc)
 Plugin 'tpope/vim-fugitive' " Git wrapper
+Plugin 'tpope/vim-rhubarb' " GitHub/GHE support for fugitive's :GBrowse
 Plugin 'tpope/vim-sleuth' "automatically adjusts 'shiftwidth' and 'expandtab' heuristically based on the current file
 Plugin 'tpope/vim-repeat' " improves '.' repeat command for vim-surround plugin
 Plugin 'tpope/vim-surround' " Better surrounding of parentheses, brackets, quotes, XML tags, and more
@@ -409,6 +410,13 @@ nnoremap <leader>et :tabe %%
 
 " Open current file in IntelliJ
 nnoremap <leader>ei :silent !idea --line <C-R>=line('.')<CR> <C-R>=expand("%")<CR><CR>
+
+" Open current file/line (or visual range) in the origin repo's web UI.
+" :GBrowse (fugitive + rhubarb) derives the URL from the git remote; the
+" domain list below teaches rhubarb that git.soma is GitHub Enterprise.
+let g:fugitive_github_domains = ['git.soma.salesforce.com']
+nnoremap <leader>eb :GBrowse<CR>
+xnoremap <leader>eb :GBrowse<CR>
 
 " Copy current file name (relative/absolute) to system clipboard (Linux version)
 if has("gui_gtk") || has("gui_gtk2") || has("gui_gnome") || has("unix")

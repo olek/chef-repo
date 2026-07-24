@@ -174,7 +174,7 @@ target_users.each do |user|
     directory dir do
       owner user
       group user_group
-      mode '0750'
+      mode '0755'
       action :create
     end
   end

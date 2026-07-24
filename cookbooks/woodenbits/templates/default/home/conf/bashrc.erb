@@ -134,10 +134,14 @@ if [ "$(id -un)" = "opoplavsky" ]; then
     export NODE_EXTRA_CA_CERTS="$HOME/.devbar/certs/corporate-ca-bundle.pem"
     # devbar-managed-end
 
-    # >>> aisuite >>>
-    export NODE_EXTRA_CA_CERTS="/home/opoplavsky/.aisuite/conf/npm-sfdc-certs.pem"
-    export PATH="$PATH:/home/opoplavsky/.aisuite/bin:/home/opoplavsky/.aisuite/bin/aliases"
-    # <<< aisuite <<<
+    # The aisuite installer rewrites the block between these markers on every
+    # run, always unindented. We deliberately leave these lines flush-left --
+    # despite the enclosing `if` -- so they match the installer's output and
+    # Chef stops fighting it over indentation on each run.
+# >>> aisuite >>>
+export NODE_EXTRA_CA_CERTS="/home/opoplavsky/.aisuite/conf/npm-sfdc-certs.pem"
+export PATH="$PATH:/home/opoplavsky/.aisuite/bin:/home/opoplavsky/.aisuite/bin/aliases"
+# <<< aisuite <<<
 fi
 
 # collapse any duplicate PATH entries accumulated above (and across nested shells)

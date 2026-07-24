@@ -247,7 +247,7 @@ users.each do |user|
       end
     end
 
-    %w(.mplayer .tmuxstart).each do |dir|
+    %w(.mplayer .tmuxstart git git/personal git/employer git/other).each do |dir|
       directory "#{home_dir}/#{dir}" do
         owner user
         group user_group

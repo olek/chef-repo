@@ -408,7 +408,7 @@ nnoremap <leader>ev :vsp %%
 nnoremap <leader>et :tabe %%
 
 " Open current file in IntelliJ
-nnoremap <leader>ei :silent !idea.sh --line <C-R>=line('.')<CR> <C-R>=expand("%")<CR><CR>
+nnoremap <leader>ei :silent !idea --line <C-R>=line('.')<CR> <C-R>=expand("%")<CR><CR>
 
 " Copy current file name (relative/absolute) to system clipboard (Linux version)
 if has("gui_gtk") || has("gui_gtk2") || has("gui_gnome") || has("unix")

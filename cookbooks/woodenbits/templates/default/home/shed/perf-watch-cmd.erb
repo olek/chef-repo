@@ -67,17 +67,17 @@ nvidia_gpu_procs=""
 cache_nvidia_gpu_name() {
   [[ -f "$NVIDIA_GPU_NAME_FILE" ]] && return
 
-  local gpu_name driver_version flavor_str mod_path
-  gpu_name=$(lspci | grep '^01:00.0' | sed -e 's/^01:00.0 VGA compatible controller: //')
+  local -r gpu_name=$(lspci | grep '^01:00.0' | sed -e 's/^01:00.0 VGA compatible controller: //')
   # Loaded-module version (e.g. 580.159.03); does not wake a suspended GPU.
-  driver_version=$(cat /sys/module/nvidia/version 2>/dev/null)
+  local -r driver_version=$(cat /sys/module/nvidia/version 2>/dev/null)
+  local flavor_str
 
   if [[ -n "$driver_version" ]]; then
     flavor_str=""
     if grep -iq "open" /proc/driver/nvidia/version 2>/dev/null; then
       flavor_str="open, "
     fi
-    mod_path=$(modinfo -F filename nvidia 2>/dev/null)
+    local -r mod_path=$(modinfo -F filename nvidia 2>/dev/null)
     if [[ "$mod_path" == */dkms/* ]]; then
       flavor_str="${flavor_str}dkms"
     else
@@ -138,20 +138,20 @@ cache_platform() {
 
   (
     . /etc/os-release 2>/dev/null
-    local os code kernel disp de gnome_ver session
+    local os code
     os="${NAME:-?} ${VERSION%% *}"
     code="${VERSION_CODENAME:-?}"
-    kernel=$(uname -r)
+    local -r kernel=$(uname -r)
 
-    disp="$XDG_SESSION_TYPE"
+    local disp="$XDG_SESSION_TYPE"
     if [[ -z "$disp" ]]; then
-      session=$(loginctl list-sessions --no-legend 2>/dev/null | awk 'NR==1{print $1}')
+      local -r session=$(loginctl list-sessions --no-legend 2>/dev/null | awk 'NR==1{print $1}')
       disp=$(loginctl show-session "$session" -p Type --value 2>/dev/null)
     fi
     disp="${disp:-?}"
 
-    de="${XDG_CURRENT_DESKTOP##*:}"
-    gnome_ver=$(gnome-shell --version 2>/dev/null | awk '{print $3}')
+    local de="${XDG_CURRENT_DESKTOP##*:}"
+    local -r gnome_ver=$(gnome-shell --version 2>/dev/null | awk '{print $3}')
     [[ -n "$gnome_ver" ]] && de="$de $gnome_ver"
     de="${de:-?}"
 
@@ -165,9 +165,8 @@ print_platform() {
 }
 
 print_governor() {
-  local gov pref
-  gov=$(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor)
-  pref=$(cat /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference)
+  local -r gov=$(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor)
+  local -r pref=$(cat /sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference)
   printf 'Governor / pref: \t%s / %s\n' "$gov" "$pref"
 }
 
@@ -221,11 +220,10 @@ fetch_nvidia_gpu_query() {
   #
   # 2. Graphics-only apps (type G) have no CSV query at all, so they are scraped
   #    from the human-formatted table — kept quarantined in its own ugly function.
-  local compute graphics
-  compute=$(nvidia-smi --query-compute-apps=process_name,used_memory \
+  local -r compute=$(nvidia-smi --query-compute-apps=process_name,used_memory \
     --format=csv,noheader,nounits 2>/dev/null |
     awk -F', *' '{ sub(/.*\//, "", $1); print $1 "\t" $2 }')
-  graphics=$(scrape_nvidia_graphics_procs)
+  local -r graphics=$(scrape_nvidia_graphics_procs)
   nvidia_gpu_procs=$(printf '%s\n%s\n' "$compute" "$graphics" | sed '/^$/d')
 }
 
@@ -313,7 +311,7 @@ print_other_temps() {
 # All sysfs / prime-select reads — cheap and, crucially, no nvidia-smi, so this
 # never wakes a suspended GPU.
 print_nvidia_prime() {
-  local mode profile outputs
+  local mode profile
   if profile=$(cat /etc/prime-discrete 2>/dev/null); then
     case "$profile" in
       on)        mode="nvidia" ;;
@@ -325,7 +323,7 @@ print_nvidia_prime() {
   fi
 
   # Connected connectors on the DRM card whose device is the NVIDIA PCI address.
-  outputs=$(for conn in /sys/class/drm/card*-*; do
+  local -r outputs=$(for conn in /sys/class/drm/card*-*; do
     [[ "$(cat "$conn/status" 2>/dev/null)" == "connected" ]] || continue
     # A connector lives under its GPU's PCI device in sysfs, so the resolved path
     # contains that PCI address (e.g. .../0000:01:00.0/drm/card0/card0-DP-5).
@@ -342,26 +340,52 @@ print_nvidia_prime() {
   fi
 }
 
-print_nvidia_runtime() {
+print_nvidia_header() {
   printf 'Nvidia runtime for:\t'
   cat "$NVIDIA_GPU_NAME_FILE"
+}
 
-  # Runtime PM status, D3cold-allowed flag, and PCI power state — all facets of
-  # the GPU's current power state, so shown as one slash-joined line with a legend.
-  local d3 pstate
-  d3=$(cat "${NVIDIA_DEV}/d3cold_allowed")
-  pstate=$(cat "${NVIDIA_DEV}/power_state")
-  printf '  state: \t\t%s / %s / %s (status/d3-allowed/pstate)\n' \
-    "$nvidia_runtime_status" "$d3" "$pstate"
+print_nvidia_state() {
+  # Runtime PM status, PCI power state, D3cold-allowed flag, and D3-supported status —
+  # all facets of the GPU's current power state, shown as one slash-joined line.
+  #
+  # Difference between D3 allowed and D3 supported:
+  # - D3 allowed (/sys/bus/pci/devices/.../d3cold_allowed): An OS-level policy flag indicating
+  #   whether the Linux kernel is permitted to transition the GPU into the D3cold state when idle.
+  # - D3 supported (/proc/driver/nvidia/gpus/.../power): A hardware and driver-level capability
+  #   indicating whether the NVIDIA driver and hardware actually support Runtime D3 power management.
+  local -r d3=$(cat "${NVIDIA_DEV}/d3cold_allowed")
+  local -r pstate=$(cat "${NVIDIA_DEV}/power_state")
+  local d3_supported
+  if [[ -f "/proc/driver/nvidia/gpus/${NVIDIA_PCI}/power" ]]; then
+    d3_supported=$(awk -F: '/Runtime D3 status/ {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' "/proc/driver/nvidia/gpus/${NVIDIA_PCI}/power")
+  else
+    d3_supported="?"
+  fi
+  printf '  state: \t\t%s / %s / %s / [%s] (status/pstate/d3-allowed/d3-supported)\n' \
+    "$nvidia_runtime_status" "$pstate" "$d3" "$d3_supported"
+}
 
-  print_nvidia_prime
+print_nvidia_driver_params() {
+  local -r params=$(modprobe --showconfig 2>/dev/null | awk '/^[[:space:]]*options/ && $2 ~ /^nvidia/ {sub(/^[[:space:]]*options[[:space:]]+[^[:space:]]+[[:space:]]+/, ""); print}' | tr -d '"' | sort -u | paste -sd ' ')
+  if [[ -n "$params" ]]; then
+    printf '  driver params: \t%s\n' "$params"
+  fi
+}
 
+print_nvidia_cumulative_times() {
   printf '  cumulative times: \t'
-  local active suspended
-  active=$(cat "${NVIDIA_DEV}/power/runtime_active_time")
-  suspended=$(cat "${NVIDIA_DEV}/power/runtime_suspended_time")
+  local -r active=$(cat "${NVIDIA_DEV}/power/runtime_active_time")
+  local -r suspended=$(cat "${NVIDIA_DEV}/power/runtime_suspended_time")
   printf '%s / %s (active/suspended)\n' "$active" "$suspended"
+}
 
+print_nvidia_runtime() {
+  print_nvidia_header
+  print_nvidia_state
+  print_nvidia_driver_params
+  print_nvidia_prime
+  print_nvidia_cumulative_times
   print_nvidia_clocks
   print_nvidia_utilization
   print_nvidia_memory
@@ -392,8 +416,7 @@ print_nvidia_clocks() {
   [[ -n "$nvidia_gpu_query" ]] || return
 
   # Boot-cached "gr_min gr_max mem_min mem_max"; empty until the dump succeeds.
-  local range=""
-  [[ -f "$NVIDIA_CLOCK_RANGE_FILE" ]] && range=$(cat "$NVIDIA_CLOCK_RANGE_FILE")
+  local -r range=$(cat "$NVIDIA_CLOCK_RANGE_FILE" 2>/dev/null)
 
   # strm (SM) usually equals shader on this GPU, so only include it when it
   # diverges — otherwise it is a duplicate number.
@@ -492,9 +515,8 @@ print_cumulative_cpu() {
 # differences relative to elapsed uptime. Like top/pidstat, %CPU is per-core
 # and can exceed 100% for multi-threaded processes.
 print_busy_processes() {
-  local cur_uptime clk_tck
-  cur_uptime=$(cat /proc/uptime 2>/dev/null | awk '{print $1}')
-  clk_tck=$(getconf CLK_TCK 2>/dev/null || echo 100)
+  local -r cur_uptime=$(cat /proc/uptime 2>/dev/null | awk '{print $1}')
+  local -r clk_tck=$(getconf CLK_TCK 2>/dev/null || echo 100)
 
   # Check if we have a previous state
   local interval="0"

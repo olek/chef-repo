@@ -259,8 +259,12 @@ users.each do |user|
     # If ~/git is a symlink, it's user-managed (pointing at wherever the real
     # checkout tree lives) -- leave it and its subtree alone. Otherwise create
     # a real ~/git with the standard buckets.
+    #
+    # Work-related buckets are deliberately absent: their names track whoever
+    # the employer happens to be, so they get created by hand rather than
+    # asserted here.
     unless File.symlink?("#{home_dir}/git")
-      %w(git git/personal git/employer git/other).each do |dir|
+      %w(git git/personal git/other).each do |dir|
         directory "#{home_dir}/#{dir}" do
           owner user
           group user_group

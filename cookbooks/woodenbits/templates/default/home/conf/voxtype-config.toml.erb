@@ -21,8 +21,21 @@ gpu_device = 1              # [machine-specific] NVIDIA = Vulkan device 1 (discr
 initial_prompt = "GUS, Claude, Codanna, Serena, ast-grep, Feathers, Fowler, common-gateway, admin-api, e360-whatsapp, e360-messaging-runtime-libs, uacp-shared-libraries"
 gpu_isolation = true
 on_demand_loading = false
-flash_attention = true
+# Upstream default is false. This was set to true when the template was expanded
+# to cover every available option (deployed Jul 21 2026, alongside the 0.7.1 ->
+# 0.7.5 upgrade), not because it was wanted. FA is exact attention in theory but
+# not bit-identical: different accumulation order, FP16 accumulation on some
+# backends. large-v3-turbo has only 4 decoder layers and is the family's most
+# repetition-loop-prone model, and the Vulkan FA kernels are the least
+# battle-tested. Suspected cause of a transcription-quality regression; leave off.
+flash_attention = false
 eager_processing = false
+# Pinned explicitly rather than left to the default: 0.7.5's CLI exposes
+# --no-whisper-context-optimization (a negative flag, implying default ON), while
+# the shipped /etc template says it is disabled by default and warns of repetition
+# loops on large-v3/turbo. The sources conflict, so state it and don't depend on
+# which one is right.
+context_window_optimization = false
 mode = "local"
 translate = false
 

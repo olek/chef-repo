@@ -118,9 +118,20 @@ print_time() {
   date | sed -e 's/\W\W\+/ /'
 }
 
+# Machine name / CPU. The name half prefers the SMBIOS "Product Name" (DMI
+# product_name), which OEMs fill with the human-friendly marketing model
+# (e.g. "HP ZBook Fury 16 G11 Mobile Workstation PC") and which already embeds
+# the vendor. When that field is empty — some whiteboxes/VMs leave it blank — we
+# fall back to the older sys_vendor + product_family pair. Both fields live in
+# the same DMI table, so this is purely a which-field-reads-nicer choice.
 print_computer() {
   printf 'Computer: \t\t'
-  cat /sys/devices/virtual/dmi/id/{sys_vendor,product_family} | tr '\n' ' '
+  local -r product_name=$(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null)
+  if [[ -n "$product_name" ]]; then
+    printf '%s ' "$product_name"
+  else
+    cat /sys/devices/virtual/dmi/id/{sys_vendor,product_family} 2>/dev/null | tr '\n' ' '
+  fi
   printf '/ '
   grep 'model name' /proc/cpuinfo | head -n1 | sed -e 's/^model name\t\+: //'
 }

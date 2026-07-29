@@ -1,3 +1,6 @@
+" NOTE: root never gets this file -- user-config.rb deletes root's ~/.gvimrc
+" and skips rendering. So this template only ever serves full-config users.
+
 " set the X11 font to use
 " set guifont=-misc-fixed-medium-r-normal--14-130-75-75-c-70-iso8859-1
 
@@ -36,6 +39,10 @@ function! SmallerFont()
 endfunction
 command! SmallerFont call SmallerFont()
 
+" Font plus / minus
+nnoremap <silent> <leader>fp :LargerFont<CR>
+nnoremap <silent> <leader>fm :SmallerFont<CR>
+
 " set the gui options to:
 "   g: grey inactive menu items
 "   m: display menu bar
@@ -47,30 +54,16 @@ set guioptions-=m  "remove menu bar
 set guioptions-=T  "remove toolbar
 set guioptions-=r  "remove right-hand scroll bar
 
-<%- if @is_root -%>
-color torte
-<%- else -%>
-color default
-<%- end -%>
-
-set background=light
-
 " selected light themes followed by the dark themes on separate line for easier management
 silent SetColors
   \ vc minimal lingodirector sienna smpl stackoverflow winter morning bclear chela_light grape habiLight highlighter_term kyle nedit newsprint pleasant summerfruit blueshift
   \ slate 1989 colorsbox-material darktango deus earendel ekinivim moria nefertiti seattle tango-desert void zenburn anotherdark brighton codedark darkZ ecostation feral flattown ghostbuster japanesque lilypink materialtheme mrpink nord obsidian2 parsec Tomorrow-Night-Eighties softblue termschool DimGrey bubblegum corn
 
-" Fallback theme for default, forcing manual choice after restart
-colorscheme tomatosoup
+" default theme
+colorscheme flattown
 
 highlight WhiteSpaceEOL ctermbg=darkgreen guibg=lightgreen
 match WhiteSpaceEOL /^\s\+\t\+\|^\t\+\s\+\|\s\+$/
-
-" Prevents last window from being accidentally closed
-if has('macunix')
-  macm File.Close key=<nop>
-end
-nnoremap <silent> <D-w> <Esc>:bd<CR>
 
 " Tab headings & Navigation
 " Go to the last active tab, like ctrl-^ but for tabs
@@ -79,8 +72,55 @@ augroup gvimrc_tab
   autocmd TabLeave * let g:lasttab = tabpagenr()
 augroup END
 
-nnoremap <silent> <c-tab> :exe "tabn ".g:lasttab<cr>
-vnoremap <silent> <c-tab> :exe "tabn ".g:lasttab<cr>
+nnoremap <silent> <C-Tab> :exe "tabn ".g:lasttab<CR>
+vnoremap <silent> <C-Tab> :exe "tabn ".g:lasttab<CR>
+
+" Move the current tab left/right, browser-style, with Ctrl-Shift-PageUp/Down.
+" Plain Ctrl-PageUp/Down still just switch tabs (Vim's default).
+" Wrap around: :tabmove 0 sends it to the front, $ to the end.
+function! MoveTabLeft()
+  if tabpagenr() == 1
+    tabmove $
+  else
+    tabmove -1
+  endif
+endfunction
+
+function! MoveTabRight()
+  if tabpagenr() == tabpagenr('$')
+    tabmove 0
+  else
+    tabmove +1
+  endif
+endfunction
+
+nnoremap <silent> <C-S-PageUp> :call MoveTabLeft()<CR>
+inoremap <silent> <C-S-PageUp> <Esc>:call MoveTabLeft()<CR>
+nnoremap <silent> <C-S-PageDown> :call MoveTabRight()<CR>
+inoremap <silent> <C-S-PageDown> <Esc>:call MoveTabRight()<CR>
+
+" Jump directly to tab N with Alt-#
+" Janus-inspired; Olek switched the original Ctrl to Alt
+nnoremap <A-0> 0gt
+inoremap <A-0> <Esc>0gt
+nnoremap <A-1> 1gt
+inoremap <A-1> <Esc>1gt
+nnoremap <A-2> 2gt
+inoremap <A-2> <Esc>2gt
+nnoremap <A-3> 3gt
+inoremap <A-3> <Esc>3gt
+nnoremap <A-4> 4gt
+inoremap <A-4> <Esc>4gt
+nnoremap <A-5> 5gt
+inoremap <A-5> <Esc>5gt
+nnoremap <A-6> 6gt
+inoremap <A-6> <Esc>6gt
+nnoremap <A-7> 7gt
+inoremap <A-7> <Esc>7gt
+nnoremap <A-8> 8gt
+inoremap <A-8> <Esc>8gt
+nnoremap <A-9> 9gt
+inoremap <A-9> <Esc>9gt
 
 function! GuiTabLabel()
   let label = ''
@@ -129,6 +169,30 @@ augroup gvimrc_guitablabel
   autocmd!
   autocmd VimEnter * set guitablabel=%!GuiTabLabel()
 augroup END
+
+" Lightweight tab/file persistence: reopen the same files & tab layout next time,
+" plus the GUI window's size (resize = lines/columns).
+" Deliberately omit 'options'/'winsize' so we don't reassert stale settings or
+" inner split sizes. Also no 'winpos': under Wayland the compositor owns window
+" placement and ignores app position requests, so it would be dead weight here.
+set sessionoptions=buffers,tabpages,curdir,resize
+let g:session_file = expand('~/.vim/last-session.vim')
+
+augroup gvimrc_autosession
+  autocmd!
+  " Save on quit
+  autocmd VimLeavePre * execute 'mksession! ' . g:session_file
+  " Restore only on a bare launch (no file args), if a session exists.
+  " 'nested' lets the restored buffers fire the normal file-open autocmds
+  " (syntax, cursor-restore, vim-project titles).
+  autocmd VimEnter * nested if argc() == 0 && filereadable(g:session_file)
+    \ | execute 'source ' . g:session_file | endif
+augroup END
+
+" Reload both configs in the running session (vimrc first, then gvimrc).
+" Additive: redefines mappings but does not remove ones deleted from the files.
+command! Reload source $MYVIMRC | source $MYGVIMRC
+nnoremap <leader>rc :Reload<CR>
 
 let s:gvimrc_after_local = expand($HOME . '/.gvimrc.after')
 if filereadable(s:gvimrc_after_local)

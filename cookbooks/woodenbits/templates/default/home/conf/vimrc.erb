@@ -202,11 +202,17 @@ noremap Y y$
 
 <%- if @full_config -%>
 
-" use "\f" for returning to edit previous file
-nnoremap \f <C-^>
+" Buffer operations
+" toggle to the alternate file (#), usually the previously edited one
+nnoremap <leader>ba <C-^>
+" easier way to close file
+nnoremap <leader>bd :bdelete<CR>
+nnoremap <leader>bq :quit<CR>
+" easier way to save file
+nnoremap <leader>bw :write<CR>
 
 " clear search matching
-noremap <leader><space> :noh<cr>:call clearmatches()<cr>
+noremap <leader><Space> :noh<CR>:call clearmatches()<CR>
 
 " Usage:  :let ma = Mark() ... execute ma
 " has the same effect as  :normal ma ... :normal 'a
@@ -306,16 +312,6 @@ let g:ctrlp_custom_ignore = '\v[\/](target\/classes|target\/site|target\/surefir
 " alt-ctrl-p searches is special folder for java dependencies, allows to navigate sources of third party packages efficiently
 noremap <M-C-P> <Esc>:CtrlP ~/tmp/sdeps<CR>
 
-" Fugitive
-" ,g for Ggrep
-nnoremap <leader>g :Ggrep
-
-" ,f for global git search for word under the cursor (with highlight)
-nnoremap <leader>f :let @/="\\<<C-R><C-W>\\>"<CR>:set hls<CR>:silent Ggrep -w "<C-R><C-W>"<CR>:ccl<CR>:cw<CR><CR>
-
-" same in visual mode
-vnoremap <leader>f y:let @/=escape(@", '\\[]$^*.')<CR>:set hls<CR>:silent Ggrep -F "<C-R>=escape(@", '\\"#')<CR>"<CR>:ccl<CR>:cw<CR><CR>
-
 let g:rbpt_colorpairs = [
     \ ['brown',       'RoyalBlue3'],
     \ ['Darkblue',    'SeaGreen3'],
@@ -366,9 +362,6 @@ set listchars+=extends:>          " The character to show in the last column whe
                                   " off and the line continues beyond the right of the screen
 set listchars+=precedes:<         " The character to show in the last column when wrap is
 
-" format the entire file, come back to same line, center
-nnoremap <leader>fef mzggVG='zzz
-
 <%- end -%>
 
 ""
@@ -381,10 +374,7 @@ cnoremap w!! %!sudo tee > /dev/null %
 
 " Toggle paste mode
 nnoremap <silent> <F4> :set invpaste<CR>:set paste?<CR>
-inoremap <silent> <F4> <ESC>:set invpaste<CR>:set paste?<CR>
-
-" format the entire file
-" nnoremap <leader>fef ggVG=
+inoremap <silent> <F4> <Esc>:set invpaste<CR>:set paste?<CR>
 
 " upper/lower word
 nnoremap <leader>u mQviwU`Q
@@ -395,18 +385,22 @@ nnoremap <leader>U mQgewvU`Q
 nnoremap <leader>L mQgewvu`Q
 
 " cd to the directory containing the file in the buffer
-nnoremap <silent> <leader>cd :lcd %:h<CR>
+nnoremap <leader>cd :lcd %:h<CR>
 
 " Create the directory containing the file in the buffer
-nnoremap <silent> <leader>md :!mkdir -p %:p:h<CR>
+nnoremap <leader>md :!mkdir -p %:p:h<CR>
 
 " Some helpers to edit mode
 " http://vimcasts.org/e/14
-cnoremap %% <C-R>=expand('%:h').'/'<cr>
-nnoremap <leader>ew :e %%
-nnoremap <leader>es :sp %%
-nnoremap <leader>ev :vsp %%
-nnoremap <leader>et :tabe %%
+" Typing %% on the command line expands to the current file's directory + '/'
+cnoremap %% <C-R>=expand('%:h').'/'<CR>
+" nmap (not nnoremap) so the %% expands via the cnoremap above
+nmap <leader>ew :e %%
+nmap <leader>es :sp %%
+nmap <leader>ev :vsp %%
+nmap <leader>et :tabe %%
+
+nnoremap <leader>ee :e <C-R>=expand('%')<CR>
 
 " Open current file in IntelliJ
 nnoremap <leader>ei :silent !idea --line <C-R>=line('.')<CR> <C-R>=expand("%")<CR><CR>
@@ -436,74 +430,17 @@ if has("gui_gtk") || has("gui_gtk2") || has("gui_gnome") || has("unix")
   nnoremap <leader>cpd :let @+=expand("%:p:h")<CR>
 endif
 
-nnoremap <leader>ee :e <C-R>=expand('%')<cr>
-
-" Swap two words
-nnoremap <silent> gw :s/\(\%#\w\+\)\(\_W\+\)\(\w\+\)/\3\2\1/<CR>`'
-
 " Underline the current line with '='
-nnoremap <silent> <leader>ul :t.\|s/./=/g\|:nohls<cr>
+nnoremap <silent> <leader>ul :t.\|s/./=/g\|:nohls<CR>
 
 " set text wrapping toggles
 nnoremap <silent> <leader>tw :set invwrap<CR>:set wrap?<CR>
-
-" find merge conflict markers
-nnoremap <silent> <leader>fc <ESC>/\v^[<=>]{7}( .*\|$)<CR>
 
 " Toggle hlsearch with <leader>hs
 nnoremap <leader>hs :set hlsearch! hlsearch?<CR>
 
 " Adjust viewports to the same size
-nnoremap <Leader>= <C-w>=
-
-" Map command-[ and command-] to indenting or outdenting
-" while keeping the original selection in visual mode
-vnoremap <A-]> >gv
-vnoremap <A-[> <gv
-
-nnoremap <A-]> >>
-nnoremap <A-[> <<
-
-onoremap <A-]> >>
-onoremap <A-[> <<
-
-inoremap <A-]> <Esc>>>i
-inoremap <A-[> <Esc><<i
-
-" Bubble single lines
-nnoremap <C-Up> [e
-nnoremap <C-Down> ]e
-nnoremap <C-k> [e
-nnoremap <C-j> ]e
-
-" Bubble multiple lines
-vnoremap <C-Up> [egv
-vnoremap <C-Down> ]egv
-vnoremap <C-k> [egv
-vnoremap <C-j> ]egv
-
-" Map Control-# to switch tabs
-" Olek - switched Ctrl to Alt
-nnoremap <A-0> 0gt
-inoremap <A-0> <Esc>0gt
-nnoremap <A-1> 1gt
-inoremap <A-1> <Esc>1gt
-nnoremap <A-2> 2gt
-inoremap <A-2> <Esc>2gt
-nnoremap <A-3> 3gt
-inoremap <A-3> <Esc>3gt
-nnoremap <A-4> 4gt
-inoremap <A-4> <Esc>4gt
-nnoremap <A-5> 5gt
-inoremap <A-5> <Esc>5gt
-nnoremap <A-6> 6gt
-inoremap <A-6> <Esc>6gt
-nnoremap <A-7> 7gt
-inoremap <A-7> <Esc>7gt
-nnoremap <A-8> 8gt
-inoremap <A-8> <Esc>8gt
-nnoremap <A-9> 9gt
-inoremap <A-9> <Esc>9gt
+nnoremap <leader>= <C-w>=
 
 ""
 "" Command-Line Mappings

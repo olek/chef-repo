@@ -226,19 +226,42 @@ users.each do |user|
     ext_uuid = 'column-placer@woodenbits'
     ext_dir = "#{home_dir}/.local/share/gnome-shell/extensions/#{ext_uuid}"
 
-    directory ext_dir do
-      owner user
-      group user_group
-      recursive true
-      mode '0755'
+    [ext_dir, "#{ext_dir}/schemas"].each do |dir|
+      directory dir do
+        owner user
+        group user_group
+        recursive true
+        mode '0755'
+      end
     end
 
-    %w(metadata.json extension.js).each do |name|
-      cookbook_file "#{ext_dir}/#{name}" do
-        source "home/gnome-extensions/#{ext_uuid}/#{name}"
+    ext_files = {
+      'metadata.json' => 'metadata.json',
+      'extension.js'  => 'extension.js',
+      'schemas/org.gnome.shell.extensions.column-placer.gschema.xml' =>
+        'schemas/org.gnome.shell.extensions.column-placer.gschema.xml',
+    }
+    ext_files.each do |dest, src|
+      cookbook_file "#{ext_dir}/#{dest}" do
+        source "home/gnome-extensions/#{ext_uuid}/#{src}"
         owner user
         group user_group
         mode '0644'
+      end
+    end
+
+    # The keybinding uses GSettings, which needs the gschema compiled into a
+    # binary gschemas.compiled next to the XML. Recompile whenever the XML is
+    # newer (or the compiled file is missing).
+    execute "compile column-placer gschema for #{user}" do
+      command "glib-compile-schemas #{ext_dir}/schemas"
+      user user
+      group user_group
+      only_if do
+        compiled = "#{ext_dir}/schemas/gschemas.compiled"
+        xml = "#{ext_dir}/schemas/org.gnome.shell.extensions.column-placer.gschema.xml"
+        !File.exist?(compiled) ||
+          (File.exist?(xml) && File.mtime(xml) > File.mtime(compiled))
       end
     end
 

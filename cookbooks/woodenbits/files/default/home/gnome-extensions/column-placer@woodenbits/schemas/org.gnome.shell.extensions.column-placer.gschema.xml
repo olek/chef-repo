@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.column-placer"
+          path="/org/gnome/shell/extensions/column-placer/">
+    <key name="retile-all" type="as">
+      <default><![CDATA[['<Super><Alt>t']]]></default>
+      <summary>Re-tile all windows</summary>
+      <description>
+        Sweep every open window and re-apply its column rule, as if each had
+        just been created. Overrides any manual Tactile adjustments.
+      </description>
+    </key>
+  </schema>
+</schemalist>

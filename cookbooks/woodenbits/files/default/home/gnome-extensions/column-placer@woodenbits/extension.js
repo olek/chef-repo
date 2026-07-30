@@ -21,8 +21,10 @@
 //     EM.enableExtension('column-placer@woodenbits'); })(imports.ui.main.extensionManager)
 
 import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const COLUMNS = 4;
@@ -88,6 +90,18 @@ export default class ColumnPlacerExtension extends Extension {
     this._sourceIds = new Set();
     this._createdId = global.display.connect('window-created',
       (_display, window) => this._onWindowCreated(window));
+
+    // A keyboard shortcut (default <Super><Alt>t, see the gschema) to
+    // re-tile everything at once -- handy after monitor changes or once
+    // windows have drifted from their columns. addKeybinding needs a real
+    // GSettings, which is why this extension ships a compiled gschema.
+    this._settings = this.getSettings();
+    Main.wm.addKeybinding(
+      'retile-all',
+      this._settings,
+      Meta.KeyBindingFlags.NONE,
+      Shell.ActionMode.NORMAL,
+      () => this._retileAll());
   }
 
   disable() {
@@ -100,6 +114,16 @@ export default class ColumnPlacerExtension extends Extension {
         GLib.Source.remove(id);
       this._sourceIds = null;
     }
+    Main.wm.removeKeybinding('retile-all');
+    this._settings = null;
+  }
+
+  _retileAll() {
+    // Re-apply the column rule to every currently open window. This is the
+    // same placement used at creation time, so it overrides any manual
+    // Tactile adjustment made since -- that's the point of a "reset" hotkey.
+    for (const actor of global.get_window_actors())
+      this._place(actor.get_meta_window(), false);
   }
 
   _onWindowCreated(window) {

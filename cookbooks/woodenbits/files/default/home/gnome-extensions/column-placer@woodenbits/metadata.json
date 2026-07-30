@@ -1,0 +1,7 @@
+{
+  "uuid": "column-placer@woodenbits",
+  "name": "Column Placer",
+  "description": "Auto-places windows into a 4-column grid on creation, keyed by WM_CLASS. Complements Tactile (which stays for interactive moves).",
+  "shell-version": ["45", "46", "47", "48"],
+  "version": 1
+}

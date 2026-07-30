@@ -215,6 +215,33 @@ users.each do |user|
       not_if %Q(#{sudo} "gsettings get org.gnome.desktop.peripherals.trackball scroll-wheel-emulation-button | grep -q 8")
     end
 
+    # Column Placer: local GNOME Shell extension that auto-places windows into a
+    # 4-column grid on creation (keyed by WM_CLASS). Deployed as plain files --
+    # no schema, rules are hardcoded in extension.js. Tactile stays for
+    # interactive moves; this only sets the initial placement.
+    #
+    # Chef only stages the files; enable it once via the GNOME Extensions app
+    # (it live-loads without a shell restart, which a plain gsettings flip can't
+    # do for a UUID the running shell has never scanned).
+    ext_uuid = 'column-placer@woodenbits'
+    ext_dir = "#{home_dir}/.local/share/gnome-shell/extensions/#{ext_uuid}"
+
+    directory ext_dir do
+      owner user
+      group user_group
+      recursive true
+      mode '0755'
+    end
+
+    %w(metadata.json extension.js).each do |name|
+      cookbook_file "#{ext_dir}/#{name}" do
+        source "home/gnome-extensions/#{ext_uuid}/#{name}"
+        owner user
+        group user_group
+        mode '0644'
+      end
+    end
+
 =begin
   template "#{home_dir}/.gitconfig" do
     source 'gitconfig.erb'

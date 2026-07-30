@@ -360,7 +360,7 @@ users.each do |user|
       action :create_if_missing
     end
 
-    %w(general).each do |name|
+    %w(ops).each do |name|
       template "#{home_dir}/.tmuxstart/#{name}" do
         source "home/conf/tmuxstart/#{name}.erb"
         variables(
@@ -370,6 +370,11 @@ users.each do |user|
         owner user
         group user_group
       end
+    end
+
+    # Clean up old tmuxstart session file that was renamed (general -> ops)
+    file "#{home_dir}/.tmuxstart/general" do
+      action :delete
     end
 
     # Clean up old Chef-generated scripts in bin to avoid duplicates

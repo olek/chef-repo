@@ -18,8 +18,16 @@ split() { tmux split-window -t $session:"$@"; }
 swap() { tmux swap-pane -t $session:"$@"; }
 
 
-# Print usage information if there's not exactly 1 argument
-usage() { echo "Usage: $0 tmux-session"; }
+# Print usage information
+usage() { echo "Usage: $0 [-d] tmux-session   (-d: build detached, don't attach/switch)"; }
+
+# Optional -d flag: build the session in the background and don't attach or switch to it
+detached=
+if [ "$1" = "-d" ]; then
+    detached=1
+    shift
+fi
+
 [ $# -ne 1 ] && usage && exit 1
 
 session=$1
@@ -33,7 +41,9 @@ if ! tmux has-session -t $session ; then
         tmux new-session -d -s $session
     fi
 fi
-if [ "$TMUX_OLD" = "" ]; then
+if [ "$detached" ]; then
+    :
+elif [ "$TMUX_OLD" = "" ]; then
     tmux attach-session -t $session
 else
     tmux switch-client -t $session

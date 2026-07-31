@@ -64,7 +64,9 @@ const RULES = [
   { match: 'gvim',                  cols: [1, 3] }, // ts -- right three-quarters
   { match: 'google-chrome',         cols: [1, 3] }, // ts -- right three-quarters
   { match: 'firefox_firefox',       cols: [1, 3] }, // ts -- right three-quarters (snap Firefox reports this)
+  { match: 'brave-browser',         cols: [1, 3] }, // ts -- right three-quarters (snap Firefox reports this)
   { match: 'slack',                 cols: [1, 3] }, // ts -- right three-quarters
+  { match: 'signal*',               cols: [2, 3] }, // ns -- Signal messenger
   { match: 'chrome-*',              cols: [2, 3] }, // ns -- Chrome app/PWA windows
   { match: 'jetbrains-idea',        cols: [0, 3] }, // hs -- full width
 ];
@@ -139,7 +141,7 @@ export default class ColumnPlacerExtension extends Extension {
     });
     this._sourceIds.add(id);
 
-    for (const delay of [150, 400, 800]) {
+    for (const delay of [150, 400, 800, 1200, 1500]) {
       const tid = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
         this._sourceIds.delete(tid);
         this._place(window, false);
@@ -186,6 +188,6 @@ export default class ColumnPlacerExtension extends Extension {
     const x = Math.round(area.x + startCol * colWidth);
     const width = Math.round((endCol - startCol + 1) * colWidth);
 
-    window.move_resize_frame(true, x, area.y, width, area.height);
+    window.move_resize_frame(false, x, area.y, width, area.height);
   }
 }

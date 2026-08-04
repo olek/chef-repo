@@ -5,6 +5,16 @@
 # hardware/paths so the same script runs across machines; we deliberately do NOT
 # `set -e` for that reason.
 #
+# Usage: perf-watch-cmd [--no-gpu-wake]
+#   --no-gpu-wake  Skip every operation that could resume a suspended NVIDIA GPU
+#                  (nvidia-smi opens the device node; lspci reads PCI config space
+#                  — both force a runtime-resume out of RTD3). Passive sysfs/procfs
+#                  reads stay on, so the runtime-status / D3 / cumulative rows still
+#                  render; only the live nvidia-smi detail (temp, clocks, util,
+#                  per-process VRAM) and the lspci model name are suppressed. Use
+#                  when watching on battery, where each poll-induced wake keeps the
+#                  GPU oscillating instead of staying suspended.
+#
 # Reference commands useful for wrangling nvidia or general power consumption:
 #
 # * watching nvidia gpu runtime status (active/suspended)
@@ -50,6 +60,14 @@ readonly PLATFORM_FILE="${CACHE_DIR}/platform.txt"
 readonly NVIDIA_CLOCK_RANGE_FILE="${CACHE_DIR}/nvidia-clock-range.txt"
 readonly LAST_RUN_CPU_STATS_FILE="${CACHE_DIR}/last-run-cpu-stats.txt"
 
+# When true (set by --no-gpu-wake), suppress every GPU-waking operation
+# (nvidia-smi, lspci); passive sysfs/procfs reads still run. See usage header.
+no_gpu_wake=false
+# In no-wake mode the GPU-name/driver line is held here instead of the on-disk
+# cache (the "?" model placeholder must never poison the cache for later normal
+# runs). Empty otherwise; print_nvidia_header prefers it over the cache file.
+nvidia_gpu_name_line=""
+
 # Populated once in main() and read by the temperature rows.
 sensors_data=""
 nvidia_runtime_status=""
@@ -64,13 +82,28 @@ nvidia_gpu_procs=""
 
 # Cache the GPU make/model + loaded driver version so we don't poke lspci (and
 # risk waking a suspended GPU) on every refresh.
+#
+# The make/model comes from lspci, which reads PCI config space and resumes a
+# suspended GPU. Under --no-gpu-wake we substitute a "?" model and, crucially, do
+# NOT write to the on-disk cache (a "?" there would be read back by the top guard
+# and persist until reboot, hiding the real name from later normal runs). Instead
+# the assembled line is held in $nvidia_gpu_name_line for this run only. The
+# driver-version half is all passive sysfs/procfs, so it stays accurate either way.
 cache_nvidia_gpu_name() {
+  # A populated cache always wins (real name from an earlier normal run).
   [[ -f "$NVIDIA_GPU_NAME_FILE" ]] && return
+  # Already assembled the in-memory (no-wake) line this run? Nothing to do.
+  [[ -n "$nvidia_gpu_name_line" ]] && return
 
-  local -r gpu_name=$(lspci | grep '^01:00.0' | sed -e 's/^01:00.0 VGA compatible controller: //')
+  local gpu_name
+  if [[ "$no_gpu_wake" == true ]]; then
+    gpu_name="?"
+  else
+    gpu_name=$(lspci | grep '^01:00.0' | sed -e 's/^01:00.0 VGA compatible controller: //')
+  fi
   # Loaded-module version (e.g. 580.159.03); does not wake a suspended GPU.
   local -r driver_version=$(cat /sys/module/nvidia/version 2>/dev/null)
-  local flavor_str
+  local flavor_str line
 
   if [[ -n "$driver_version" ]]; then
     flavor_str=""
@@ -83,9 +116,15 @@ cache_nvidia_gpu_name() {
     else
       flavor_str="${flavor_str}non-dkms"
     fi
-    echo "$gpu_name / $driver_version ($flavor_str)" > "$NVIDIA_GPU_NAME_FILE"
+    line="$gpu_name / $driver_version ($flavor_str)"
   else
-    echo "$gpu_name / " > "$NVIDIA_GPU_NAME_FILE"
+    line="$gpu_name / "
+  fi
+
+  if [[ "$no_gpu_wake" == true ]]; then
+    nvidia_gpu_name_line="$line"   # this run only; never cached to disk
+  else
+    echo "$line" > "$NVIDIA_GPU_NAME_FILE"
   fi
 }
 
@@ -97,6 +136,7 @@ cache_nvidia_gpu_name() {
 # one line, read cheaply thereafter. Only runs when the GPU is active (it drives
 # nvidia-smi); skipped otherwise, and re-attempted next refresh until it succeeds.
 cache_nvidia_clock_range() {
+  [[ "$no_gpu_wake" == true ]] && return
   [[ -f "$NVIDIA_CLOCK_RANGE_FILE" ]] && return
   [[ -x "/usr/bin/nvidia-smi" && "$nvidia_runtime_status" == "active" ]] || return
 
@@ -220,6 +260,7 @@ readonly NVIDIA_SMI_FIELDS="temperature.gpu,pstate,power.draw.instant,clocks.gr,
 # single call (vs a second nvidia-smi) costs ~10ms, so all GPU-smi data rides one
 # process. Only called when the GPU is active, so it never wakes a suspended GPU.
 fetch_nvidia_gpu_query() {
+  [[ "$no_gpu_wake" == true ]] && return
   [[ -x "/usr/bin/nvidia-smi" && "$nvidia_runtime_status" == "active" ]] || return
   nvidia_gpu_query=$(nvidia-smi --query-gpu="$NVIDIA_SMI_FIELDS" \
     --format=csv,noheader,nounits 2>/dev/null)
@@ -353,7 +394,12 @@ print_nvidia_prime() {
 
 print_nvidia_header() {
   printf 'Nvidia runtime for:\t'
-  cat "$NVIDIA_GPU_NAME_FILE"
+  # Prefer the in-memory no-wake line (uncached "?" model); else the disk cache.
+  if [[ -n "$nvidia_gpu_name_line" ]]; then
+    printf '%s\n' "$nvidia_gpu_name_line"
+  else
+    cat "$NVIDIA_GPU_NAME_FILE"
+  fi
 }
 
 print_nvidia_state() {
@@ -630,7 +676,24 @@ print_busy_processes() {
   ) > "${LAST_RUN_CPU_STATS_FILE}.tmp" && mv "${LAST_RUN_CPU_STATS_FILE}.tmp" "$LAST_RUN_CPU_STATS_FILE"
 }
 
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --no-gpu-wake) no_gpu_wake=true ;;
+      -h|--help)
+        sed -n '/^# Usage:/,/^#$/p' "$0" | sed -e 's/^# \?//'
+        exit 0 ;;
+      *)
+        printf 'perf-watch-cmd: unknown option %s (try --help)\n' "$1" >&2
+        exit 2 ;;
+    esac
+    shift
+  done
+}
+
 main() {
+  parse_args "$@"
+
   mkdir -p "$CACHE_DIR"
 
   sensors_data=$(sensors -A -j 2>/dev/null)

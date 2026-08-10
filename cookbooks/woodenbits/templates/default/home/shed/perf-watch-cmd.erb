@@ -166,8 +166,9 @@ print_time() {
 # the same DMI table, so this is purely a which-field-reads-nicer choice.
 print_computer() {
   printf 'Computer: \t\t'
-  local -r product_name=$(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null)
-  if [[ -n "$product_name" ]]; then
+  local product_name=""
+  read -r product_name < /sys/devices/virtual/dmi/id/product_name 2>/dev/null
+  if [[ -n "$product_name" && "$product_name" == *[[:space:]]* ]]; then
     printf '%s ' "$product_name"
   else
     cat /sys/devices/virtual/dmi/id/{sys_vendor,product_family} 2>/dev/null | tr '\n' ' '

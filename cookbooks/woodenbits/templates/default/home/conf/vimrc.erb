@@ -200,8 +200,6 @@ augroup END
 " same as yy).
 noremap Y y$
 
-<%- if @full_config -%>
-
 " Buffer operations
 " toggle to the alternate file (#), usually the previously edited one
 nnoremap <leader>ba <C-^>
@@ -210,6 +208,8 @@ nnoremap <leader>bd :bdelete<CR>
 nnoremap <leader>bq :quit<CR>
 " easier way to save file
 nnoremap <leader>bw :write<CR>
+
+<%- if @full_config -%>
 
 " clear search matching
 noremap <leader><Space> :noh<CR>:call clearmatches()<CR>

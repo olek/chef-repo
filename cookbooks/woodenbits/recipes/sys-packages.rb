@@ -94,6 +94,16 @@ package 'inxi'
 # ========== power management
 
 package 'powertop'
+
+if %w(opoplavsky-ltl1 severus).include?(node[:hostname])
+  package 'tlp'
+
+  # power-profiles-daemon fights TLP over EPP / runtime PM; purged 2026-02-09,
+  # keep it gone so a GNOME meta-package can't silently pull it back in.
+  package 'power-profiles-daemon' do
+    action :purge
+  end
+end
 #package 'powertop-1.13'
 package 'fatrace'
 package 'smartmontools'

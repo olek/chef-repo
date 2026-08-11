@@ -237,3 +237,25 @@ file "/home/#{username}/bin/cpu-epp-set" do
   action :delete
 end
 
+# TLP power-management tuning, laptop-specific (SK-hynix NVMe, i915 iGPU,
+# Raptor Lake HX). Only reloaded when the config changes; the tlp package
+# auto-enables its service on install.
+if %w(opoplavsky-ltl1 severus).include?(node[:hostname])
+  execute 'reload tlp' do
+    command 'tlp start'
+    action :nothing
+  end
+
+  template '/etc/tlp.d/01-woodenbits.conf' do
+    source 'system/etc/tlp.d-01-woodenbits.conf.erb'
+    owner 'root'
+    group 'root'
+    # 0644 matches upstream /etc/tlp.conf; contents are power policy, no secrets
+    mode '0644'
+    variables(
+      hostname: node[:hostname]
+    )
+    notifies :run, 'execute[reload tlp]', :delayed
+  end
+end
+

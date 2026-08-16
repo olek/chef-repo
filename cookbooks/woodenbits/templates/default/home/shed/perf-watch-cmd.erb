@@ -420,6 +420,59 @@ print_nvidia_header() {
   fi
 }
 
+get_nvidia_pm_control() {
+  if [[ -z "${NVIDIA_PCI:-}" ]]; then
+    return 0
+  fi
+
+  local -r pci_prefix="${NVIDIA_PCI%.*}"
+  local dev=''
+  local dev_id=''
+  local ctrl=''
+  local class=''
+  local class_hex=''
+  local label=''
+  local misconfigured=false
+  local status_parts=()
+
+  for dev in "/sys/bus/pci/devices/${pci_prefix}."*; do
+    [[ -d "$dev" ]] || continue
+
+    dev_id=$(basename "$dev")
+    ctrl=$(cat "$dev/power/control" 2>/dev/null || echo "?")
+    class=$(cat "$dev/class" 2>/dev/null || echo "")
+
+    class_hex="${class#0x}"
+    class_hex="${class_hex:0:4}"
+
+    case "$class_hex" in
+      0300|0302) label="gpu" ;;
+      0403)      label="audio" ;;
+      0c03)      label="usb" ;;
+      0c80)      label="ucsi" ;;
+      *)         label="func-${dev_id##*.}" ;;
+    esac
+
+    if [[ "$ctrl" != "auto" ]]; then
+      misconfigured=true
+      status_parts+=("${label}:${ctrl}!")
+    else
+      status_parts+=("${label}:${ctrl}")
+    fi
+  done
+
+  local join_str=''
+  join_str=$(printf '/%s' "${status_parts[@]}")
+
+  if [[ "$misconfigured" == true ]]; then
+    echo "${join_str:1}"
+  else
+    echo "auto"
+  fi
+
+  return 0
+}
+
 print_nvidia_state() {
   # Runtime PM status, PCI power state, D3cold-allowed flag, and D3-supported status —
   # all facets of the GPU's current power state, shown as one slash-joined line.
@@ -437,8 +490,11 @@ print_nvidia_state() {
   else
     d3_supported="?"
   fi
-  printf '  state: \t\t%s / %s / %s / [%s] (status/pstate/d3-allowed/d3-supported)\n' \
-    "$nvidia_runtime_status" "$pstate" "$d3" "$d3_supported"
+
+  local -r pm_ctrl=$(get_nvidia_pm_control)
+
+  printf '  state: \t\t%s / %s / %s / [%s] / [%s] (status/pstate/d3-allowed/d3-supported/pm-control)\n' \
+    "$nvidia_runtime_status" "$pstate" "$d3" "$d3_supported" "$pm_ctrl"
 }
 
 print_nvidia_driver_params() {

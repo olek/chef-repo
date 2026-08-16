@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+set -euo pipefail
+detect-nvidia-gpu() {
+    local dev=''
+
+    for dev in /sys/bus/pci/devices/*; do
+        if [[ -f "$dev/vendor" && "$(cat "$dev/vendor")" == '0x10de' &&
+              -f "$dev/class" && "$(cat "$dev/class")" =~ ^0x03 ]]; then
+            echo "$dev"
+
+            return 0
+        fi
+    done
+
+    # Return 0 even if not found to prevent 'set -e' from aborting on non-NVIDIA systems
+    return 0
+}
+
+readonly SETTLE_SECONDS=1
+readonly SAMPLE_INTERVAL_SECONDS=60
+readonly UID_PATTERN='^[0-9]+$'
+readonly WAKE_EVENT_PATTERN='KEYBOARD_KEY|POINTER_BUTTON|TOUCH_DOWN'
+readonly NVIDIA_DEVICE=$(detect-nvidia-gpu)
+readonly MUTTER_DESTINATION='org.gnome.Mutter.DisplayConfig'
+readonly MUTTER_PATH='/org/gnome/Mutter/DisplayConfig'
+readonly MUTTER_INTERFACE='org.gnome.Mutter.DisplayConfig'
+readonly POWER_SAVE_ON=0
+readonly POWER_SAVE_OFF=3
+
+USER_SLICE=''
+USER_CGROUP=''
+USER_NAME=''
+USER_UID=''
+TELEMETRY_FILE=''
+TELEMETRY_PID=''
+
+usage() {
+    echo "Usage: catnap-watcher UID" >&2
+}
+
+parse-args() {
+    local readonly uid="${1:-}"
+
+    if (( $# != 1 )) || [[ ! "$uid" =~ $UID_PATTERN ]]; then
+        usage
+        exit 2
+    fi
+
+    USER_UID="$uid"
+    USER_SLICE="user-${USER_UID}.slice"
+    USER_CGROUP="/sys/fs/cgroup/user.slice/${USER_SLICE}"
+    USER_NAME=$(getent passwd "$USER_UID" | cut --delimiter=: --fields=1)
+}
+
+
+thaw-userspace() {
+    if [[ -n "$USER_SLICE" ]]; then
+        systemctl thaw "$USER_SLICE" || true
+    fi
+}
+
+set-display-power-mode() {
+    local readonly mode="$1"
+
+    runuser --user "$USER_NAME" -- env \
+        "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${USER_UID}/bus" \
+        busctl --user set-property "$MUTTER_DESTINATION" "$MUTTER_PATH" \
+        "$MUTTER_INTERFACE" PowerSaveMode i "$mode"
+}
+
+read-file() {
+    local readonly path="$1"
+    local readonly fallback="${2:-unavailable}"
+
+    cat "$path" 2>/dev/null || printf '%s\n' "$fallback"
+}
+
+read-hwmon-temperature() {
+    local readonly device_name="$1"
+    local readonly temperature_file="$2"
+    local hwmon=''
+
+    for hwmon in /sys/class/hwmon/hwmon*; do
+        if [[ "$(read-file "$hwmon/name")" == "$device_name" ]]; then
+            read-file "$hwmon/$temperature_file"
+
+            return
+        fi
+    done
+
+    printf 'unavailable\n'
+}
+
+sample-telemetry() {
+    printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+        "$(date --iso-8601=seconds)" \
+        "$(read-file "${USER_CGROUP}/cpu.stat" | awk '$1 == "usage_usec" { print $2 }')" \
+        "$(read-file /sys/fs/cgroup/system.slice/cpu.stat | awk '$1 == "usage_usec" { print $2 }')" \
+        "$(read-file /sys/class/powercap/intel-rapl:0/energy_uj)" \
+        "$(read-file /sys/class/powercap/intel-rapl:1/energy_uj)" \
+        "$(read-file /sys/class/power_supply/BAT0/status)" \
+        "$(read-file /sys/class/power_supply/BAT0/energy_now)" \
+        "$(read-hwmon-temperature coretemp temp1_input)" \
+        "$(read-hwmon-temperature nvme temp1_input)" \
+        "$(read-hwmon-temperature iwlwifi_1 temp1_input)" \
+        "$(read-file "${NVIDIA_DEVICE}/power/runtime_status")" \
+        "$(read-file "${NVIDIA_DEVICE}/power/runtime_active_time")" \
+        "$(read-file "${NVIDIA_DEVICE}/power/runtime_suspended_time")" \
+        >> "$TELEMETRY_FILE"
+}
+
+collect-telemetry() {
+    printf '%s\n' 'timestamp,user_cpu_usec,system_cpu_usec,package_energy_uj,psys_energy_uj,battery_status,battery_energy_uwh,cpu_package_temp_mc,nvme_temp_mc,wifi_temp_mc,nvidia_runtime_status,nvidia_active_ms,nvidia_suspended_ms' \
+        > "$TELEMETRY_FILE"
+
+    while true; do
+        sample-telemetry
+        sleep "$SAMPLE_INTERVAL_SECONDS"
+    done
+}
+
+start-telemetry() {
+    local readonly uid="$1"
+    local readonly user_record=$(getent passwd "$uid")
+    local readonly home_directory=$(cut --delimiter=: --fields=6 <<< "$user_record")
+    local readonly user_group=$(cut --delimiter=: --fields=4 <<< "$user_record")
+    local readonly telemetry_directory="${home_directory}/.local/state/catnap"
+    local readonly run_id=$(date '+%Y%m%d-%H%M%S')
+
+    install --directory --owner="$uid" --group="$user_group" --mode=0755 "$telemetry_directory"
+    TELEMETRY_FILE="${telemetry_directory}/${run_id}-samples.csv"
+    echo "Writing passive telemetry: $TELEMETRY_FILE"
+    collect-telemetry &
+    TELEMETRY_PID="$!"
+}
+
+stop-telemetry() {
+    if [[ -n "$TELEMETRY_PID" ]]; then
+        kill "$TELEMETRY_PID" 2>/dev/null || true
+        wait "$TELEMETRY_PID" 2>/dev/null || true
+        sample-telemetry
+        echo "Wrote passive telemetry: $TELEMETRY_FILE"
+        TELEMETRY_PID=''
+    fi
+}
+
+wait-for-input() {
+    local readonly accept_after=$((SECONDS + SETTLE_SECONDS))
+    local event=''
+
+    while IFS= read -r event; do
+        if (( SECONDS >= accept_after )) && [[ "$event" =~ $WAKE_EVENT_PATTERN ]]; then
+            return 0
+        fi
+    done < <(stdbuf --output=L libinput debug-events)
+
+    echo "ERROR: libinput stopped before detecting wake input." >&2
+
+    return 1
+}
+
+main() {
+    parse-args "$@"
+    # The user D-Bus service is in the frozen slice, so thaw before restoring
+    # Mutter's display power mode.
+    trap 'thaw-userspace; set-display-power-mode "$POWER_SAVE_ON" || true; stop-telemetry' EXIT
+    trap 'exit 0' INT TERM HUP
+
+    start-telemetry "$1"
+    set-display-power-mode "$POWER_SAVE_OFF"
+    systemctl freeze "$USER_SLICE"
+    wait-for-input
+}
+
+main "$@"

@@ -1,13 +1,6 @@
 # Cookbook Name:: woodenbits
 # Recipe:: user-config
 
-users =
-  if node[:etc][:passwd].key?('opoplavsky')
-    ['opoplavsky']
-  else
-    `awk -F'[/:]' '{if ($3 >= 1000 && $3 <= 1010) print $1}' /etc/passwd`.split
-  end
-
 git_configs = {
   "alias.br" => "branch",
   "alias.bra" => "branch -a",
@@ -80,6 +73,12 @@ git_configs = {
   "delta.hyperlinks-file-link-format" => "gvim://{path}:{line}",
 }
 
+users =
+  if node[:etc][:passwd].key?('opoplavsky')
+    ['opoplavsky']
+  else
+    `awk -F'[/:]' '{if ($3 >= 1000 && $3 <= 1010) print $1}' /etc/passwd`.split
+  end
 
 template '/etc/sudoers.d/truecrypt' do
   source 'system/etc/sudoers.d-truecrypt.erb'
@@ -197,10 +196,11 @@ end
   end
 end
 
-# can not change gnome settings for non-current user
+sudo_username = ENV.fetch('SUDO_USER')
 
 users.each do |user|
-  if user == 'olek' || user == 'opoplavsky'
+  # can not change gnome settings for non-current user
+  if user == sudo_username
     home_dir = "/home/#{user}"
     user_group = `id --group --name #{user}`.chomp
 
@@ -398,6 +398,15 @@ users.each do |user|
         fix-scrolling.sh).each do |script|
       template "#{home_dir}/shed/#{script}" do
         source "home/shed/#{script}.erb"
+        mode '0700'
+        owner user
+        group user_group
+      end
+    end
+
+    if user == sudo_username
+      template "#{home_dir}/shed/catnap" do
+        source 'home/shed/catnap.erb'
         mode '0700'
         owner user
         group user_group

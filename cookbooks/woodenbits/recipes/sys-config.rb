@@ -220,7 +220,7 @@ service 'nvidia-minmax-clocks' do
   action [:enable, :start]
 end
 
-username = node[:hostname].start_with?('opoplavsky-') ? 'opoplavsky' : 'olek'
+sudo_username = ENV.fetch('SUDO_USER')
 
 template "/usr/share/polkit-1/actions/cpu.epp.set.policy" do
   source 'system/usr/share-polkit-1-actions-cpu.epp.set.policy.erb'
@@ -233,7 +233,7 @@ file "/etc/polkit-1/rules.d/10-cpu-epp.rules" do
   action :delete
 end
 
-file "/home/#{username}/bin/cpu-epp-set" do
+file "/home/#{sudo_username}/bin/cpu-epp-set" do
   action :delete
 end
 
@@ -259,3 +259,35 @@ if %w(opoplavsky-ltl1 severus).include?(node[:hostname])
   end
 end
 
+sudo_uid = `id --user #{sudo_username}`.chomp
+
+template '/etc/polkit-1/rules.d/50-catnap.rules' do
+  source 'system/etc/polkit-1/rules.d-50-catnap.rules.erb'
+  owner 'root'
+  group 'root'
+  mode '0644'
+  variables(
+    username: sudo_username,
+    catnap_uid: sudo_uid
+  )
+end
+
+execute 'reload systemd for catnap' do
+  command 'systemctl daemon-reload'
+  action :nothing
+end
+
+template '/usr/local/sbin/catnap-watcher' do
+  source 'system/usr/local/sbin-catnap-watcher.erb'
+  owner 'root'
+  group 'root'
+  mode '0755'
+end
+
+template '/etc/systemd/system/catnap@.service' do
+  source 'system/etc/systemd/system/catnap@.service.erb'
+  owner 'root'
+  group 'root'
+  mode '0644'
+  notifies :run, 'execute[reload systemd for catnap]', :immediately
+end

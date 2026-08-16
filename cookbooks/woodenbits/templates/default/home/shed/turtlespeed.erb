@@ -11,7 +11,7 @@ if [[ -z $command ]]; then
   exit 1
 fi
 
-declare -r previous_epp=$(cpu-epp-show | head -n1 | awk 'NF>1{print $NF}')
+declare -r previous_epp=$(cpu-epp-show)
 
 # trap ctrl-c and call on_exit()
 trap on_exit INT EXIT

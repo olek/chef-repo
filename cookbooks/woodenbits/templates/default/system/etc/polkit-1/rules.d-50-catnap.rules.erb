@@ -1,0 +1,16 @@
+polkit.addRule(function(action, subject) {
+    if (subject.active && subject.local &&
+        subject.user === "<%= @username %>" &&
+        action.id === "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("verb") === "start" &&
+        action.lookup("unit") === "catnap@<%= @catnap_uid %>.service") {
+        return polkit.Result.YES;
+    }
+
+    if (subject.user === "<%= @username %>" &&
+        action.id === "com.woodenbits.pkexec.run-cpu-epp-set") {
+        return polkit.Result.YES;
+    }
+
+    return polkit.Result.NOT_HANDLED;
+});

@@ -1,0 +1,13 @@
+[Unit]
+Description=Freeze userspace until keyboard or mouse input
+Documentation=man:systemctl(1)
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/systemd-inhibit --what=idle:sleep --who=catnap --why="Freeze userspace cgroup under catnap" /usr/local/sbin/catnap-watcher %i
+ExecStopPost=-/usr/bin/systemctl thaw user-%i.slice
+TimeoutStopSec=5s
+KillSignal=SIGTERM
+Slice=system.slice
+StandardOutput=journal
+StandardError=journal

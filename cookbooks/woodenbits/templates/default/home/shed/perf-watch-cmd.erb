@@ -49,8 +49,24 @@
 #   to go to D3Cold state, but NO configuration changes seems to be necessary. And re-plugging HDMI will automatically
 #   activate nvidia gpu. Not bad.
 
-readonly NVIDIA_PCI="0000:01:00.0"
-readonly NVIDIA_DEV="/sys/bus/pci/devices/${NVIDIA_PCI}"
+detect_nvidia_gpu() {
+  local dev=''
+
+  for dev in /sys/bus/pci/devices/*; do
+    if [[ -f "$dev/vendor" && "$(cat "$dev/vendor")" == '0x10de' &&
+          -f "$dev/class" && "$(cat "$dev/class")" =~ ^0x03 ]]; then
+      basename "$dev"
+
+      return 0
+    fi
+  done
+
+  # Return 0 even if not found to prevent 'set -e' from aborting on non-NVIDIA systems
+  return 0
+}
+
+readonly NVIDIA_PCI=$(detect_nvidia_gpu)
+readonly NVIDIA_DEV=${NVIDIA_PCI:+"/sys/bus/pci/devices/${NVIDIA_PCI}"}
 
 # All boot-lifetime caches live under one /tmp directory (tmpfs, so it clears on
 # reboot — exactly when any cached value could change). Created in main().
@@ -96,10 +112,11 @@ cache_nvidia_gpu_name() {
   [[ -n "$nvidia_gpu_name_line" ]] && return
 
   local gpu_name
-  if [[ "$no_gpu_wake" == true ]]; then
+  if [[ "$no_gpu_wake" == true ]] || [[ -z "${NVIDIA_PCI:-}" ]]; then
     gpu_name="?"
   else
-    gpu_name=$(lspci | grep '^01:00.0' | sed -e 's/^01:00.0 VGA compatible controller: //')
+    local -r slot="${NVIDIA_PCI#0000:}"
+    gpu_name=$(lspci | grep "^${slot}" | sed -e "s/^${slot} VGA compatible controller: //" -e "s/^${slot} 3D controller: //")
   fi
   # Loaded-module version (e.g. 580.159.03); does not wake a suspended GPU.
   local -r driver_version=$(cat /sys/module/nvidia/version 2>/dev/null)
@@ -439,6 +456,10 @@ print_nvidia_cumulative_times() {
 }
 
 print_nvidia_runtime() {
+  if [[ -z "${NVIDIA_DEV:-}" ]]; then
+    return 0
+  fi
+
   print_nvidia_header
   print_nvidia_state
   print_nvidia_driver_params
@@ -698,8 +719,10 @@ main() {
   mkdir -p "$CACHE_DIR"
 
   sensors_data=$(sensors -A -j 2>/dev/null)
-  nvidia_runtime_status=$(cat "${NVIDIA_DEV}/power/runtime_status")
-  fetch_nvidia_gpu_query
+  if [[ -n "${NVIDIA_DEV:-}" && -f "${NVIDIA_DEV}/power/runtime_status" ]]; then
+    nvidia_runtime_status=$(cat "${NVIDIA_DEV}/power/runtime_status")
+    fetch_nvidia_gpu_query
+  fi
 
   cache_nvidia_gpu_name
   cache_nvidia_clock_range

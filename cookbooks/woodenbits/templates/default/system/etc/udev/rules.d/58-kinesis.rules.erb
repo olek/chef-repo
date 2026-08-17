@@ -1,0 +1,4 @@
+# Kinesis Advantage 360 Pro (Clique configurator)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="29ea", ATTRS{idProduct}=="0362", MODE="0660", GROUP="users", TAG+="uaccess", TAG+="udev-acl"
+KERNEL=="ttyACM*", ATTRS{idVendor}=="29ea", ATTRS{idProduct}=="0362", MODE="0660", GROUP="users", TAG+="uaccess", TAG+="udev-acl"
+KERNEL=="hidraw*", ATTRS{idVendor}=="29ea", ATTRS{idProduct}=="0362", MODE="0660", GROUP="users", TAG+="uaccess", TAG+="udev-acl"

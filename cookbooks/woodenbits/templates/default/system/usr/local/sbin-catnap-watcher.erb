@@ -59,6 +59,14 @@ thaw-userspace() {
     fi
 }
 
+suspend-gnome-shell() {
+    killall -STOP gnome-shell
+}
+
+resume-gnome-shell() {
+    killall -CONT gnome-shell
+}
+
 set-display-power-mode() {
     local readonly mode="$1"
 
@@ -163,11 +171,16 @@ main() {
     parse-args "$@"
     # The user D-Bus service is in the frozen slice, so thaw before restoring
     # Mutter's display power mode.
-    trap 'thaw-userspace; set-display-power-mode "$POWER_SAVE_ON" || true; stop-telemetry' EXIT
+    trap 'thaw-userspace; resume-gnome-shell || true; sleep 1; set-display-power-mode "$POWER_SAVE_ON" || true; stop-telemetry' EXIT
     trap 'exit 0' INT TERM HUP
 
     start-telemetry "$1"
     set-display-power-mode "$POWER_SAVE_OFF"
+    # Allow Mutter/GNOME Shell time to process the display power-off and disable active outputs
+    sleep 2
+    suspend-gnome-shell
+    # Give GNOME Shell time to transition to stopped state and settle the GPU driver
+    sleep 1
     systemctl freeze "$USER_SLICE"
     wait-for-input
 }

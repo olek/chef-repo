@@ -123,6 +123,15 @@ print-summary() {
         'Catnap finished' "$summary"
 }
 
+# The summary is the point of a run; best-effort telemetry must never abort it.
+# If some command still exits the run under 'set -e', record where, so a lost
+# summary is never silent again.
+log-abort() {
+    printf '%s run=%s aborted at line %s: exit %s\n' \
+        "$(date '+%Y-%m-%d %H:%M:%S')" "${run_id:-unknown}" "$1" "$2" \
+        >> "${TELEMETRY_DIR}/abort.log"
+}
+
 main() {
     declare -A stats=()
     local run_id before_file after_file
@@ -146,7 +155,7 @@ main() {
     run_id=$(date '+%Y%m%d-%H%M%S')
     before_file="${TELEMETRY_DIR}/${run_id}-before.txt"
     after_file="${TELEMETRY_DIR}/${run_id}-after.txt"
-    capture-telemetry "$before_file"
+    capture-telemetry "$before_file" || true
     stats[before_epoch]=$(date +%s)
     stats[before_cpu]=$(systemctl show "user-$(id -u).slice" --property=CPUUsageNSec --value)
     stats[before_energy]=$(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || true)
@@ -167,6 +176,7 @@ main() {
     PREVIOUS_EPP=$(cpu-epp-show)
 
     trap 'exit 1' INT TERM HUP
+    trap 'log-abort "$LINENO" "$?"' ERR
     trap 'if [[ -n "${PREVIOUS_EPP:-}" ]]; then pkexec cpu-epp-set "$PREVIOUS_EPP" || true; fi' EXIT
 
     pkexec cpu-epp-set power
@@ -196,7 +206,7 @@ main() {
         stats[after_nvidia_suspended]=$(cat "$nvidia_suspended_file")
     fi
 
-    capture-telemetry "$after_file"
+    capture-telemetry "$after_file" || true
 
     # Let the just-thawed compositor and re-powered display finish redrawing
     # before emitting the summary, so the terminal echo is not lost in the

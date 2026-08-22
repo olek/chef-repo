@@ -81,7 +81,7 @@ users =
   end
 
 template '/etc/sudoers.d/truecrypt' do
-  source 'system/etc/sudoers.d-truecrypt.erb'
+  source 'system/etc/sudoers.d/truecrypt.erb'
   variables(
     :users => users
   )
@@ -404,13 +404,8 @@ users.each do |user|
       end
     end
 
-    if user == sudo_username
-      template "#{home_dir}/shed/catnap" do
-        source 'home/shed/catnap.erb'
-        mode '0700'
-        owner user
-        group user_group
-      end
+    file "#{home_dir}/shed/catnap" do
+      action :delete
     end
 
     %w(asoundrc).each do |name|

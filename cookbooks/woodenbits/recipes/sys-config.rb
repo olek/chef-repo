@@ -176,7 +176,7 @@ template "/etc/ncmpc/config" do
   mode 0644
 end
 
-%w(vims vimt manage-gnome-shell cpu-epp-set).each do |script|
+%w(vims vimt manage-gnome-shell cpu-epp-set catnap).each do |script|
   template "/usr/local/bin/#{script}" do
     source "system/usr/local/bin/#{script}.erb"
     mode '0755'
@@ -269,17 +269,21 @@ if %w(opoplavsky-ltl1 severus).include?(node[:hostname])
   end
 end
 
-sudo_uid = `id --user #{sudo_username}`.chomp
+file '/etc/polkit-1/rules.d/50-catnap.rules' do
+  action :delete
+end
 
-template '/etc/polkit-1/rules.d/50-catnap.rules' do
-  source 'system/etc/polkit-1/rules.d-50-catnap.rules.erb'
+directory '/var/log/catnap' do
   owner 'root'
   group 'root'
-  mode '0644'
-  variables(
-    username: sudo_username,
-    catnap_uid: sudo_uid
-  )
+  mode '0755'
+end
+
+template '/etc/sudoers.d/catnap' do
+  source 'system/etc/sudoers.d/catnap.erb'
+  owner 'root'
+  group 'root'
+  mode '0440'
 end
 
 execute 'reload systemd for catnap' do
@@ -294,8 +298,13 @@ template '/usr/local/sbin/catnap-watcher' do
   mode '0755'
 end
 
-template '/etc/systemd/system/catnap@.service' do
-  source 'system/etc/systemd/system/catnap@.service.erb'
+file '/etc/systemd/system/catnap@.service' do
+  action :delete
+  notifies :run, 'execute[reload systemd for catnap]', :immediately
+end
+
+template '/etc/systemd/system/catnap.service' do
+  source 'system/etc/systemd/system/catnap.service.erb'
   owner 'root'
   group 'root'
   mode '0644'

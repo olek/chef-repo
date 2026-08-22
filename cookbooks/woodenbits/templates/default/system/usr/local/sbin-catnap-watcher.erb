@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 detect-nvidia-gpu() {
     local dev=''
 
@@ -18,7 +19,6 @@ detect-nvidia-gpu() {
 
 readonly SETTLE_SECONDS=1
 readonly SAMPLE_INTERVAL_SECONDS=60
-readonly UID_PATTERN='^[0-9]+$'
 readonly WAKE_EVENT_PATTERN='KEYBOARD_KEY|POINTER_BUTTON|TOUCH_DOWN'
 readonly NVIDIA_DEVICE=$(detect-nvidia-gpu)
 readonly MUTTER_DESTINATION='org.gnome.Mutter.DisplayConfig'
@@ -26,55 +26,116 @@ readonly MUTTER_PATH='/org/gnome/Mutter/DisplayConfig'
 readonly MUTTER_INTERFACE='org.gnome.Mutter.DisplayConfig'
 readonly POWER_SAVE_ON=0
 readonly POWER_SAVE_OFF=3
+readonly LOG_DIR='/var/log/catnap'
 
-USER_SLICE=''
-USER_CGROUP=''
-USER_NAME=''
-USER_UID=''
+INITIAL_EPP=''
 TELEMETRY_FILE=''
 TELEMETRY_PID=''
 
-usage() {
-    echo "Usage: catnap-watcher UID" >&2
-}
+get-cpu-epp() {
+    local readonly first_policy='/sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference'
 
-parse-args() {
-    local readonly uid="${1:-}"
-
-    if (( $# != 1 )) || [[ ! "$uid" =~ $UID_PATTERN ]]; then
-        usage
-        exit 2
+    if [[ -f "$first_policy" ]]; then
+        cat "$first_policy"
     fi
-
-    USER_UID="$uid"
-    USER_SLICE="user-${USER_UID}.slice"
-    USER_CGROUP="/sys/fs/cgroup/user.slice/${USER_SLICE}"
-    USER_NAME=$(getent passwd "$USER_UID" | cut --delimiter=: --fields=1)
 }
 
+set-cpu-epp() {
+    local readonly epp_mode="$1"
+    local policy_file=''
+
+    for policy_file in /sys/devices/system/cpu/cpufreq/policy[0-9]*/energy_performance_preference; do
+        if [[ -f "$policy_file" ]]; then
+            echo "$epp_mode" > "$policy_file" || true
+        fi
+    done
+}
+
+freeze-userspace() {
+    local user_slice_dir=''
+    local slice_name=''
+
+    for user_slice_dir in /sys/fs/cgroup/user.slice/user-*.slice; do
+        if [[ -d "$user_slice_dir" ]]; then
+            slice_name=$(basename "$user_slice_dir")
+            systemctl freeze "$slice_name" || true
+        fi
+    done
+}
 
 thaw-userspace() {
-    if [[ -n "$USER_SLICE" ]]; then
-        systemctl thaw "$USER_SLICE" || true
-    fi
+    local user_slice_dir=''
+    local slice_name=''
+
+    for user_slice_dir in /sys/fs/cgroup/user.slice/user-*.slice; do
+        if [[ -d "$user_slice_dir" ]]; then
+            slice_name=$(basename "$user_slice_dir")
+            systemctl thaw "$slice_name" || true
+        fi
+    done
 }
 
 suspend-gnome-shell() {
     killall -9 gvfsd-trash 2>/dev/null || true
-    killall -STOP gnome-shell
+    killall -STOP gnome-shell 2>/dev/null || true
 }
 
 resume-gnome-shell() {
-    killall -CONT gnome-shell
+    killall -CONT gnome-shell 2>/dev/null || true
 }
 
 set-display-power-mode() {
     local readonly mode="$1"
+    local user_dir=''
+    local uid=''
+    local username=''
 
-    runuser --user "$USER_NAME" -- env \
-        "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${USER_UID}/bus" \
-        busctl --user set-property "$MUTTER_DESTINATION" "$MUTTER_PATH" \
-        "$MUTTER_INTERFACE" PowerSaveMode i "$mode"
+    for user_dir in /run/user/*; do
+        if [[ -d "$user_dir" ]]; then
+            uid=$(basename "$user_dir")
+            username=$(id -nu "$uid" 2>/dev/null || continue)
+            runuser --user "$username" -- env \
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
+                busctl --user set-property "$MUTTER_DESTINATION" "$MUTTER_PATH" \
+                "$MUTTER_INTERFACE" PowerSaveMode i "$mode" 2>/dev/null || true
+        fi
+    done
+}
+
+reset-screensaver() {
+    local user_dir=''
+    local uid=''
+    local username=''
+
+    for user_dir in /run/user/*; do
+        if [[ -d "$user_dir" ]]; then
+            uid=$(basename "$user_dir")
+            username=$(id -nu "$uid" 2>/dev/null || continue)
+            runuser --user "$username" -- env \
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
+                busctl --user call org.gnome.ScreenSaver /org/gnome/ScreenSaver org.gnome.ScreenSaver SetActive b false >/dev/null 2>&1 || true
+            runuser --user "$username" -- env \
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
+                busctl --user set-property org.gnome.SessionManager /org/gnome/SessionManager/Presence org.gnome.SessionManager.Presence status u 0 >/dev/null 2>&1 || true
+        fi
+    done
+}
+
+notify-users() {
+    local readonly summary="$1"
+    local user_dir=''
+    local uid=''
+    local username=''
+
+    for user_dir in /run/user/*; do
+        if [[ -d "$user_dir" ]]; then
+            uid=$(basename "$user_dir")
+            username=$(id -nu "$uid" 2>/dev/null || continue)
+            sudo -u "$username" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
+                notify-send --app-name=catnap --icon=weather-clear-night --urgency=normal \
+                'Catnap finished' "$summary" 2>/dev/null || true
+        fi
+    done
 }
 
 read-file() {
@@ -103,7 +164,7 @@ read-hwmon-temperature() {
 sample-telemetry() {
     printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
         "$(date --iso-8601=seconds)" \
-        "$(read-file "${USER_CGROUP}/cpu.stat" | awk '$1 == "usage_usec" { print $2 }')" \
+        "$(read-file /sys/fs/cgroup/user.slice/cpu.stat | awk '$1 == "usage_usec" { print $2 }')" \
         "$(read-file /sys/fs/cgroup/system.slice/cpu.stat | awk '$1 == "usage_usec" { print $2 }')" \
         "$(read-file /sys/class/powercap/intel-rapl:0/energy_uj)" \
         "$(read-file /sys/class/powercap/intel-rapl:1/energy_uj)" \
@@ -129,15 +190,10 @@ collect-telemetry() {
 }
 
 start-telemetry() {
-    local readonly uid="$1"
-    local readonly user_record=$(getent passwd "$uid")
-    local readonly home_directory=$(cut --delimiter=: --fields=6 <<< "$user_record")
-    local readonly user_group=$(cut --delimiter=: --fields=4 <<< "$user_record")
-    local readonly telemetry_directory="${home_directory}/.local/state/catnap"
-    local readonly run_id=$(date '+%Y%m%d-%H%M%S')
+    local readonly run_id="$1"
 
-    install --directory --owner="$uid" --group="$user_group" --mode=0755 "$telemetry_directory"
-    TELEMETRY_FILE="${telemetry_directory}/${run_id}-samples.csv"
+    install --directory --owner=root --group=root --mode=0755 "$LOG_DIR"
+    TELEMETRY_FILE="${LOG_DIR}/${run_id}-samples.csv"
     echo "Writing passive telemetry: $TELEMETRY_FILE"
     collect-telemetry &
     TELEMETRY_PID="$!"
@@ -151,6 +207,57 @@ stop-telemetry() {
         echo "Wrote passive telemetry: $TELEMETRY_FILE"
         TELEMETRY_PID=''
     fi
+}
+
+print-and-save-summary() {
+    local -n telemetry="$1"
+    local readonly elapsed_seconds=$((telemetry[after_epoch] - telemetry[before_epoch]))
+    local readonly timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local summary="Finished ${elapsed_seconds}s catnap at ${timestamp}"
+    local details=''
+
+    if [[ "${telemetry[before_cpu]:-}" =~ ^[0-9]+$ && "${telemetry[after_cpu]:-}" =~ ^[0-9]+$ ]]; then
+        details+=$(printf 'user CPU: %.3fs' "$((telemetry[after_cpu] - telemetry[before_cpu]))e-6")
+    fi
+
+    if [[ "${telemetry[before_battery_status]:-}" == 'Discharging' &&
+          "${telemetry[after_battery_status]:-}" == 'Discharging' &&
+          "${telemetry[before_energy]:-}" =~ ^[0-9]+$ && "${telemetry[after_energy]:-}" =~ ^[0-9]+$ &&
+          "$elapsed_seconds" -gt 0 ]]; then
+        local readonly battery_stats=$(awk \
+            -v energy_uwh="$((telemetry[before_energy] - telemetry[after_energy]))" \
+            -v seconds="$elapsed_seconds" \
+            'BEGIN { printf "%.2fW (%.3fWh used)", (energy_uwh * 0.0036 / seconds), (energy_uwh / 1000000) }')
+        if [[ -n "$details" ]]; then
+            details+=', '
+        fi
+        details+="energy rate: ${battery_stats}"
+    fi
+
+    if [[ "${telemetry[before_nvidia_active]:-}" =~ ^[0-9]+$ && "${telemetry[after_nvidia_active]:-}" =~ ^[0-9]+$ &&
+          "${telemetry[before_nvidia_suspended]:-}" =~ ^[0-9]+$ && "${telemetry[after_nvidia_suspended]:-}" =~ ^[0-9]+$ ]]; then
+        local readonly active_diff=$((telemetry[after_nvidia_active] - telemetry[before_nvidia_active]))
+        local readonly suspended_diff=$((telemetry[after_nvidia_suspended] - telemetry[before_nvidia_suspended]))
+        local readonly total_diff=$((active_diff + suspended_diff))
+        if (( total_diff > 0 )); then
+            local readonly suspended_rate=$(awk \
+                -v active="$active_diff" \
+                -v suspended="$suspended_diff" \
+                'BEGIN { printf "%.1f", (suspended * 100) / (active + suspended) }')
+            if [[ -n "$details" ]]; then
+                details+=', '
+            fi
+            details+="NVIDIA suspended rate: ${suspended_rate}%"
+        fi
+    fi
+
+    if [[ -n "$details" ]]; then
+        summary+=" (${details})"
+    fi
+
+    echo "$summary"
+    printf '%s\n' "$summary" > "${LOG_DIR}/last-summary.txt"
+    notify-users "$summary"
 }
 
 wait-for-input() {
@@ -169,21 +276,59 @@ wait-for-input() {
 }
 
 main() {
-    parse-args "$@"
-    # The user D-Bus service is in the frozen slice, so thaw before restoring
-    # Mutter's display power mode.
-    trap 'thaw-userspace; resume-gnome-shell || true; sleep 1; set-display-power-mode "$POWER_SAVE_ON" || true; stop-telemetry' EXIT
+    local readonly run_id=$(date '+%Y%m%d-%H%M%S')
+    declare -A stats=()
+
+    INITIAL_EPP=$(get-cpu-epp)
+
+    trap 'thaw-userspace; resume-gnome-shell || true; sleep 1; set-display-power-mode "$POWER_SAVE_ON" || true; reset-screensaver || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; stop-telemetry' EXIT
     trap 'exit 0' INT TERM HUP
 
-    start-telemetry "$1"
+    start-telemetry "$run_id"
+
+    stats[before_epoch]=$(date +%s)
+    stats[before_cpu]=$(awk '$1 == "usage_usec" { print $2 }' /sys/fs/cgroup/user.slice/cpu.stat 2>/dev/null || true)
+    stats[before_energy]=$(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || true)
+    stats[before_battery_status]=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null || true)
+
+    if [[ -n "$NVIDIA_DEVICE" && -f "${NVIDIA_DEVICE}/power/runtime_active_time" ]]; then
+        stats[before_nvidia_active]=$(cat "${NVIDIA_DEVICE}/power/runtime_active_time" 2>/dev/null || true)
+        stats[before_nvidia_suspended]=$(cat "${NVIDIA_DEVICE}/power/runtime_suspended_time" 2>/dev/null || true)
+    fi
+
+    set-cpu-epp power
     set-display-power-mode "$POWER_SAVE_OFF"
     # Allow Mutter/GNOME Shell time to process the display power-off and disable active outputs
     sleep 2
     suspend-gnome-shell
     # Give GNOME Shell time to transition to stopped state and settle the GPU driver
     sleep 1
-    systemctl freeze "$USER_SLICE"
+    freeze-userspace
     wait-for-input
+
+    thaw-userspace
+    resume-gnome-shell
+    sleep 1
+    set-display-power-mode "$POWER_SAVE_ON"
+    reset-screensaver
+    if [[ -n "${INITIAL_EPP:-}" ]]; then
+        set-cpu-epp "$INITIAL_EPP"
+    fi
+    stop-telemetry
+
+    stats[after_epoch]=$(date +%s)
+    stats[after_cpu]=$(awk '$1 == "usage_usec" { print $2 }' /sys/fs/cgroup/user.slice/cpu.stat 2>/dev/null || true)
+    stats[after_energy]=$(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || true)
+    stats[after_battery_status]=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null || true)
+
+    if [[ -n "$NVIDIA_DEVICE" && -f "${NVIDIA_DEVICE}/power/runtime_active_time" ]]; then
+        stats[after_nvidia_active]=$(cat "${NVIDIA_DEVICE}/power/runtime_active_time" 2>/dev/null || true)
+        stats[after_nvidia_suspended]=$(cat "${NVIDIA_DEVICE}/power/runtime_suspended_time" 2>/dev/null || true)
+    fi
+
+    # Reset trap before normal exit to avoid running EXIT cleanup twice
+    trap - EXIT
+    print-and-save-summary stats
 }
 
 main "$@"

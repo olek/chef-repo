@@ -215,6 +215,15 @@ users.each do |user|
       not_if %Q(#{sudo} "gsettings get org.gnome.desktop.peripherals.trackball scroll-wheel-emulation-button | grep -q 8")
     end
 
+    if node[:hostname] == 'severus' && user == 'olek'
+      %w(sleep-inactive-ac-type sleep-inactive-battery-type).each do |setting|
+        execute "disable gnome idle suspend #{setting} for user #{user}" do
+          command %Q(#{sudo} "gsettings set org.gnome.settings-daemon.plugins.power #{setting} 'nothing'")
+          not_if %Q(#{sudo} "gsettings get org.gnome.settings-daemon.plugins.power #{setting} | grep -q 'nothing'")
+        end
+      end
+    end
+
     # Column Placer: local GNOME Shell extension that auto-places windows into a
     # 4-column grid on creation (keyed by WM_CLASS). Deployed as plain files --
     # no schema, rules are hardcoded in extension.js. Tactile stays for
@@ -406,6 +415,47 @@ users.each do |user|
 
     file "#{home_dir}/shed/catnap" do
       action :delete
+    end
+
+    if node[:hostname] == 'severus' && user == 'olek'
+      template "#{home_dir}/shed/catnap-idle-watcher" do
+        source 'home/shed/catnap-idle-watcher.erb'
+        mode '0700'
+        owner user
+        group user_group
+        notifies :run, "execute[restart catnap-idle for #{user}]", :delayed
+      end
+
+      directory "#{home_dir}/.config/systemd/user" do
+        owner user
+        group user_group
+        mode '0755'
+        recursive true
+      end
+
+      execute "reload systemd user daemon for catnap-idle #{user}" do
+        command "systemctl --user -M #{user}@ daemon-reload"
+        action :nothing
+      end
+
+      execute "restart catnap-idle for #{user}" do
+        command "systemctl --user -M #{user}@ restart catnap-idle.service"
+        action :nothing
+      end
+
+      template "#{home_dir}/.config/systemd/user/catnap-idle.service" do
+        source 'home/conf/catnap-idle.service.erb'
+        owner user
+        group user_group
+        mode '0644'
+        notifies :run, "execute[reload systemd user daemon for catnap-idle #{user}]", :immediately
+        notifies :run, "execute[restart catnap-idle for #{user}]", :delayed
+      end
+
+      execute "enable and start catnap-idle.service for #{user}" do
+        command "systemctl --user -M #{user}@ daemon-reload && systemctl --user -M #{user}@ enable --now catnap-idle.service"
+        not_if "systemctl --user -M #{user}@ is-active catnap-idle.service"
+      end
     end
 
     %w(asoundrc).each do |name|

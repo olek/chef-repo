@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly CHECK_INTERVAL_SECONDS=60
+readonly DEFAULT_AC_TIMEOUT_SECONDS=3600
+readonly DEFAULT_BATTERY_TIMEOUT_SECONDS=1800
+
+is-discharging() {
+    local status_file=''
+
+    for status_file in /sys/class/power_supply/BAT*/status; do
+        if [[ -f "$status_file" && "$(< "$status_file")" == 'Discharging' ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+get-configured-timeout-seconds() {
+    local setting_key='sleep-inactive-ac-timeout'
+    local default_timeout="$DEFAULT_AC_TIMEOUT_SECONDS"
+    local timeout=0
+
+    if is-discharging; then
+        setting_key='sleep-inactive-battery-timeout'
+        default_timeout="$DEFAULT_BATTERY_TIMEOUT_SECONDS"
+    fi
+
+    timeout=$(gsettings get org.gnome.settings-daemon.plugins.power "$setting_key" 2>/dev/null || echo 0)
+
+    if [[ "$timeout" =~ ^[0-9]+$ ]] && (( timeout > 0 )); then
+        echo "$timeout"
+
+        return 0
+    fi
+
+    echo "$default_timeout"
+}
+
+get-idle-time-ms() {
+    local type=''
+    local ms=0
+
+    read -r type ms < <(busctl --user call org.gnome.Mutter.IdleMonitor /org/gnome/Mutter/IdleMonitor/Core org.gnome.Mutter.IdleMonitor GetIdletime 2>/dev/null || echo 't 0')
+
+    if [[ "$type" == 't' && "$ms" =~ ^[0-9]+$ ]]; then
+        echo "$ms"
+
+        return 0
+    fi
+
+    echo 0
+}
+
+is-session-inhibited() {
+    local type=''
+    local val=''
+
+    # Query bitmask 12 (4: Inhibit Suspend | 8: Inhibit Idle) from GNOME SessionManager
+    read -r type val < <(busctl --user call org.gnome.SessionManager /org/gnome/SessionManager org.gnome.SessionManager IsInhibited u 12 2>/dev/null || echo 'b false')
+
+    if [[ "$type" == 'b' && "$val" == 'true' ]]; then
+        return 0
+    fi
+
+    # Check for active idle or sleep block inhibitors in logind / systemd
+    if systemd-inhibit --list --mode=block 2>/dev/null | awk '$5 ~ /idle|sleep/ { found=1 } END { exit !found }'; then
+        return 0
+    fi
+
+    return 1
+}
+
+is-audio-playing() {
+    if command -v pw-dump >/dev/null 2>&1; then
+        if pw-dump 2>/dev/null | jq -e '.[] | select((.info.props."media.class" == "Stream/Output/Audio" or .info.props."media.class" == "Audio/Sink") and .info.state == "running")' >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+main() {
+    local timeout_seconds=0
+    local timeout_ms=0
+    local idle_ms=0
+
+    while true; do
+        sleep "$CHECK_INTERVAL_SECONDS"
+
+        if is-session-inhibited || is-audio-playing; then
+            continue
+        fi
+
+        timeout_seconds=$(get-configured-timeout-seconds)
+        timeout_ms=$((timeout_seconds * 1000))
+        idle_ms=$(get-idle-time-ms)
+
+        if (( idle_ms >= timeout_ms )); then
+            /usr/local/bin/catnap || true
+            sleep 5
+        fi
+    done
+}
+
+main "$@"

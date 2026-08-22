@@ -110,17 +110,11 @@ print-summary() {
         summary+=" (${details})"
     fi
 
-    # Deliver the summary three ways, because at wake the terminal that launched
-    # catnap may be buried and the notification daemon has just thawed from an
-    # all-night freeze and can silently drop a normal-urgency banner:
+    # Deliver the summary two ways:
     #   1. echo, for a run watched live in its terminal;
     #   2. a durable file, the always-reliable record to cat at any time;
-    #   3. a critical notification, which GNOME keeps on screen until dismissed
-    #      rather than auto-expiring while the shell is still settling.
     echo "$summary"
     printf '%s\n' "$summary" > "${TELEMETRY_DIR}/last-summary.txt"
-    notify-send --app-name=catnap --icon=weather-clear-night --urgency=critical \
-        'Catnap finished' "$summary"
 }
 
 # The summary is the point of a run; best-effort telemetry must never abort it.

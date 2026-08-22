@@ -11,6 +11,14 @@ chef_guid_path     "/var/cache/chef/chef_guid"
 
 Mixlib::Log::Formatter.show_time = true
 ohai.optional_plugins = [:Passwd]
+# Disable cloud plugins to speed up boot.
+# Also disable Filesystem: stale network/NFS mounts (like /mnt/nimbus2k/home)
+# cause ~35-second hangs during Ohai filesystem collection, and no recipes use it.
+ohai.disabled_plugins = [
+  :Azure, :Cloud, :Cloudstack, :CloudV2, :DigitalOcean, :EC2,
+  :Eucalyptus, :GCE, :Joyent, :Linode, :Openstack, :Rackspace, :Softlayer,
+  :Filesystem
+]
 verbose_logging false
 
 chefrepo_dir current_dir

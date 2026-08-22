@@ -60,6 +60,7 @@ thaw-userspace() {
 }
 
 suspend-gnome-shell() {
+    killall -9 gvfsd-trash 2>/dev/null || true
     killall -STOP gnome-shell
 }
 

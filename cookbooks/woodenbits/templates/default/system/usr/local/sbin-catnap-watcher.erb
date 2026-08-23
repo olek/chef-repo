@@ -97,9 +97,41 @@ set-display-power-mode() {
             runuser --user "$username" -- env \
                 "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
                 busctl --user set-property "$MUTTER_DESTINATION" "$MUTTER_PATH" \
-                "$MUTTER_INTERFACE" PowerSaveMode i "$mode" 2>/dev/null || true
+                "$MUTTER_INTERFACE" PowerSaveMode i "$mode" || true
         fi
     done
+}
+
+wait-for-nvidia-quiescence() {
+    if [[ -z "$NVIDIA_DEVICE" || ! -f "${NVIDIA_DEVICE}/power/runtime_status" ]]; then
+        echo "No NVIDIA GPU found; skipping GPU quiescence wait."
+
+        return 0
+    fi
+
+    local readonly max_attempts=30
+    local attempt=0
+    local status=''
+    local usage=''
+
+    echo "Waiting for NVIDIA GPU to enter suspended state (up to ${max_attempts}s)..."
+    while (( attempt < max_attempts )); do
+        status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
+        usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
+
+        if [[ "$status" == 'suspended' || "$usage" == '0' ]]; then
+            echo "NVIDIA GPU quiesced after ${attempt}s (status: ${status}, usage: ${usage})."
+
+            return 0
+        fi
+
+        sleep 1
+        (( attempt++ )) || true
+    done
+
+    status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
+    usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
+    echo "WARNING: Timed out after ${max_attempts}s waiting for NVIDIA GPU to quiesce (status: ${status}, usage: ${usage})."
 }
 
 reset-screensaver() {
@@ -298,8 +330,7 @@ main() {
 
     set-cpu-epp power
     set-display-power-mode "$POWER_SAVE_OFF"
-    # Allow Mutter/GNOME Shell time to process the display power-off and disable active outputs
-    sleep 2
+    wait-for-nvidia-quiescence
     suspend-gnome-shell
     # Give GNOME Shell time to transition to stopped state and settle the GPU driver
     sleep 1

@@ -203,8 +203,9 @@ users.each do |user|
   if user == sudo_username
     home_dir = "/home/#{user}"
     user_group = `id --group --name #{user}`.chomp
+    user_uid = `id --user #{user}`.chomp
 
-    sudo = "sudo -H -u #{user} /bin/bash -c"
+    sudo = "sudo -H -u #{user} env XDG_RUNTIME_DIR=/run/user/#{user_uid} DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/#{user_uid}/bus /bin/bash -c"
     execute "disable auto-mount pop-up for user #{user}" do
       command %Q(#{sudo} "gsettings set org.gnome.desktop.media-handling automount-open false")
       not_if %Q(#{sudo} "gsettings get org.gnome.desktop.media-handling automount-open | grep -q false")
@@ -221,6 +222,13 @@ users.each do |user|
           command %Q(#{sudo} "gsettings set org.gnome.settings-daemon.plugins.power #{setting} 'nothing'")
           not_if %Q(#{sudo} "gsettings get org.gnome.settings-daemon.plugins.power #{setting} | grep -q 'nothing'")
         end
+      end
+    end
+
+    if node[:hostname] == 'severus'
+      execute "disable default power button action for user #{user}" do
+        command %Q(#{sudo} "gsettings set org.gnome.settings-daemon.plugins.power power-button-action 'nothing'")
+        not_if %Q(#{sudo} "gsettings get org.gnome.settings-daemon.plugins.power power-button-action | grep -q 'nothing'")
       end
     end
 

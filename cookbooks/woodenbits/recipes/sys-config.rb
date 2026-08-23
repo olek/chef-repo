@@ -310,3 +310,45 @@ template '/etc/systemd/system/catnap.service' do
   mode '0644'
   notifies :run, 'execute[reload systemd for catnap]', :immediately
 end
+
+if node[:hostname] == 'severus'
+  package 'acpid'
+
+  directory '/etc/systemd/logind.conf.d' do
+    owner 'root'
+    group 'root'
+    mode '0755'
+  end
+
+  execute 'reload logind for catnap' do
+    command 'systemctl kill -s HUP systemd-logind'
+    action :nothing
+  end
+
+  template '/etc/systemd/logind.conf.d/01-catnap.conf' do
+    source 'system/etc/systemd/logind.conf.d-01-catnap.conf.erb'
+    owner 'root'
+    group 'root'
+    mode '0644'
+    notifies :run, 'execute[reload logind for catnap]', :immediately
+  end
+
+  directory '/etc/acpi/events' do
+    owner 'root'
+    group 'root'
+    mode '0755'
+    recursive true
+  end
+
+  template '/etc/acpi/events/catnap-powerbtn' do
+    source 'system/etc/acpi-events-catnap-powerbtn.erb'
+    owner 'root'
+    group 'root'
+    mode '0644'
+    notifies :restart, 'service[acpid]', :delayed
+  end
+
+  service 'acpid' do
+    action [:enable, :start]
+  end
+end

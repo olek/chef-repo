@@ -2,8 +2,14 @@
 set -euo pipefail
 
 # Turns off all monitors until the mouse is moved or a key is pressed.
+#
+# While the display is off this script blocks under systemd-inhibit (mirroring catnap)
+# to suppress the normal idle behaviours - automatic suspend, sleep and screen lock -
+# then prints and notifies a catnap-style summary once the display is turned back on:
+# how long the display stayed off and the ratio of that time the NVIDIA GPU was suspended.
 
 DRY_RUN=false
+POLL_INTERVAL_SECONDS=2
 
 parse-args() {
     if [[ "${1:-}" == "--dry-run" ]]; then
@@ -12,11 +18,27 @@ parse-args() {
     fi
 }
 
+detect-nvidia-gpu() {
+    local dev=''
+
+    for dev in /sys/bus/pci/devices/*; do
+        if [[ -f "$dev/vendor" && "$(cat "$dev/vendor")" == '0x10de' &&
+              -f "$dev/class" && "$(cat "$dev/class")" =~ ^0x03 ]]; then
+            echo "$dev"
+
+            return 0
+        fi
+    done
+
+    # Return 0 even if not found to prevent 'set -e' from aborting on non-NVIDIA systems
+    return 0
+}
+
 turn-off-screen-in-wayland() {
     # Note on Wayland screen blanking vs. hardware DPMS PowerSaveMode 3:
     # Directly forcing Mutter's hardware DPMS OFF (PowerSaveMode = 3) via D-Bus:
     #   busctl --user set-property org.gnome.Mutter.DisplayConfig /org/gnome/Mutter/DisplayConfig org.gnome.Mutter.DisplayConfig PowerSaveMode i 3
-    # was evaluated. However, manually forcing PowerSaveMode 3 in a script requires building and maintaining an 
+    # was evaluated. However, manually forcing PowerSaveMode 3 in a script requires building and maintaining an
     # in-script input listener to detect keyboard/mouse activity and restore PowerSaveMode to 0 (ON), which is unnecessarily complex.
     #
     # Instead, this script calls org.gnome.ScreenSaver SetActive b true for clean software blanking.
@@ -42,14 +64,137 @@ turn-off-screen-in-x11() {
     fi
 }
 
-main() {
-    parse-args "$@"
+is-screen-off-in-wayland() {
+    local type=''
+    local val=''
 
-    if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
+    read -r type val < <(busctl --user call org.gnome.ScreenSaver /org/gnome/ScreenSaver org.gnome.ScreenSaver GetActive 2>/dev/null || echo 'b false')
+
+    [[ "$type" == 'b' && "$val" == 'true' ]]
+}
+
+is-screen-off-in-x11() {
+    xset -q 2>/dev/null | grep -q 'Monitor is in Standby\|Monitor is in Suspend\|Monitor is Off'
+}
+
+wait-for-screen-on() {
+    local is_off='is-screen-off-in-x11'
+
+    if [[ "${XDG_SESSION_TYPE:-}" == "wayland" ]]; then
+        is_off='is-screen-off-in-wayland'
+    fi
+
+    if $DRY_RUN; then
+        echo "[dry-run] Would wait for the display to be turned back on."
+
+        return 0
+    fi
+
+    echo "Display off; waiting for user activity to turn it back on..."
+    # Confirm the screensaver actually engaged before watching for it to disengage:
+    # SetActive activation is asynchronous, so an immediate GetActive can still report
+    # 'false' and would otherwise make the wait exit instantly.
+    local waited=0
+    while ! "$is_off" && (( waited < 10 )); do
+        sleep 1
+        waited=$((waited + 1))
+    done
+
+    while "$is_off"; do
+        sleep "$POLL_INTERVAL_SECONDS"
+    done
+}
+
+turn-off-screen() {
+    if [[ "${XDG_SESSION_TYPE:-}" == "wayland" ]]; then
         turn-off-screen-in-wayland
     else
         turn-off-screen-in-x11
     fi
+}
+
+read-nvidia-counter() {
+    local readonly nvidia_device="$1"
+    local readonly counter="$2"
+
+    if [[ -n "$nvidia_device" && -f "${nvidia_device}/power/${counter}" ]]; then
+        cat "${nvidia_device}/power/${counter}" 2>/dev/null || true
+    fi
+}
+
+format-duration() {
+    local total_seconds="$1"
+
+    printf '%dh%02dm%02ds' \
+        $((total_seconds / 3600)) \
+        $((total_seconds % 3600 / 60)) \
+        $((total_seconds % 60))
+}
+
+notify-summary() {
+    local readonly summary="$1"
+
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send --app-name=display-off --icon=video-display --urgency=low \
+            'Display on' "$summary" 2>/dev/null || true
+    fi
+}
+
+print-summary() {
+    local readonly elapsed_seconds="$1"
+    local readonly before_active="$2"
+    local readonly after_active="$3"
+    local readonly before_suspended="$4"
+    local readonly after_suspended="$5"
+    local summary=''
+
+    summary="Display was off for $(format-duration "$elapsed_seconds")"
+
+    if [[ "$before_active" =~ ^[0-9]+$ && "$after_active" =~ ^[0-9]+$ &&
+          "$before_suspended" =~ ^[0-9]+$ && "$after_suspended" =~ ^[0-9]+$ ]]; then
+        local readonly active_diff=$((after_active - before_active))
+        local readonly suspended_diff=$((after_suspended - before_suspended))
+        local readonly total_diff=$((active_diff + suspended_diff))
+        if (( total_diff > 0 )); then
+            local readonly suspended_rate=$(awk \
+                -v suspended="$suspended_diff" \
+                -v total="$total_diff" \
+                'BEGIN { printf "%.1f", (suspended * 100) / total }')
+            summary+=" (NVIDIA suspended rate: ${suspended_rate}%)"
+        fi
+    fi
+
+    echo "$summary"
+    notify-summary "$summary"
+}
+
+main() {
+    parse-args "$@"
+
+    # Re-exec under systemd-inhibit so the normal idle behaviours - automatic suspend,
+    # sleep and screen lock - are suppressed while the display is off, mirroring catnap.
+    #   --mode=block: strictly block sleep/idle transitions (not just delay them)
+    #   --what=idle:sleep:handle-suspend-key: block system idle actions, kernel sleep and the suspend key
+    if [[ -z "${DISPLAY_OFF_INHIBITED:-}" ]] && ! $DRY_RUN; then
+        exec systemd-inhibit --mode=block --what=idle:sleep:handle-suspend-key \
+            --who=display-off --why="Display off via display-off" \
+            env DISPLAY_OFF_INHIBITED=1 "$0" "$@"
+    fi
+
+    local readonly nvidia_device=$(detect-nvidia-gpu)
+    local readonly before_epoch=$(date +%s)
+    local readonly before_active=$(read-nvidia-counter "$nvidia_device" runtime_active_time)
+    local readonly before_suspended=$(read-nvidia-counter "$nvidia_device" runtime_suspended_time)
+
+    turn-off-screen
+    wait-for-screen-on
+
+    local readonly after_epoch=$(date +%s)
+    local readonly after_active=$(read-nvidia-counter "$nvidia_device" runtime_active_time)
+    local readonly after_suspended=$(read-nvidia-counter "$nvidia_device" runtime_suspended_time)
+
+    print-summary "$((after_epoch - before_epoch))" \
+        "$before_active" "$after_active" "$before_suspended" "$after_suspended"
 }
 
 main "$@"

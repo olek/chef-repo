@@ -176,7 +176,7 @@ template "/etc/ncmpc/config" do
   mode 0644
 end
 
-%w(vims vimt manage-gnome-shell cpu-epp-set catnap).each do |script|
+%w(vims vimt manage-gnome-shell cpu-epp-set catnap catnap-engine).each do |script|
   template "/usr/local/bin/#{script}" do
     source "system/usr/local/bin/#{script}.erb"
     mode '0755'
@@ -314,11 +314,8 @@ execute 'reload systemd for catnap' do
   action :nothing
 end
 
-template '/usr/local/sbin/catnap-watcher' do
-  source 'system/usr/local/sbin-catnap-watcher.erb'
-  owner 'root'
-  group 'root'
-  mode '0755'
+file '/usr/local/sbin/catnap-watcher' do
+  action :delete
 end
 
 file '/etc/systemd/system/catnap@.service' do

@@ -426,8 +426,12 @@ users.each do |user|
     end
 
     if node[:hostname] == 'severus' && user == 'olek'
-      template "#{home_dir}/shed/catnap-idle-watcher" do
-        source 'home/shed/catnap-idle-watcher.erb'
+      file "#{home_dir}/shed/catnap-idle-watcher" do
+        action :delete
+      end
+
+      template "#{home_dir}/shed/catnap-idle-service" do
+        source 'home/shed/catnap-idle-service.erb'
         mode '0700'
         owner user
         group user_group

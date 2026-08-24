@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+#
+# User-facing CLI wrapper and invocation bridge for the catnap suite.
+#
+# Invoked by: Interactive shell commands, desktop keyboard shortcuts, acpid power
+# button events, and the automated 'catnap-idle-service'.
+# Invokes:    systemctl start --wait catnap.service (via sudo delegation)
+#
+# Exists to allow unprivileged user sessions to initiate root-level catnap suspension.
+# It blocks synchronously until the sleep cycle finishes and the system is thawed, allowing
+# callers and background scripts to coordinate cleanly around the sleep lifecycle.
+#
 set -euo pipefail
 
 sudo /usr/bin/systemctl start --wait catnap.service

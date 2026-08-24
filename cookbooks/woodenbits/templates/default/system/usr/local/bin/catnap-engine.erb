@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+#
+# Core root-level execution engine for the catnap low-power userspace sleep suite.
+#
+# Invoked by: systemd system service 'catnap.service' under systemd-inhibit.
+#
+# Exists to provide an instant-wake alternative to ACPI hardware suspend. It orchestrates
+# the full system quiescence lifecycle: blanking Mutter displays, setting CPU EPP to 'power',
+# ensuring discrete GPU runtime D3 suspend, stopping GNOME Shell, and freezing all active
+# user cgroup slices (user-*.slice). It monitors raw input events via libinput and thaws
+# the system back to full performance upon user activity.
+#
 set -euo pipefail
 
 detect-nvidia-gpu() {
@@ -19,6 +30,8 @@ detect-nvidia-gpu() {
 
 readonly SETTLE_SECONDS=1
 readonly SAMPLE_INTERVAL_SECONDS=60
+readonly QUIESCENCE_TIMEOUT_SECONDS=60
+readonly QUIESCENCE_INTERVAL_SECONDS=5
 readonly WAKE_EVENT_PATTERN='KEYBOARD_KEY|POINTER_BUTTON|TOUCH_DOWN'
 readonly NVIDIA_DEVICE=$(detect-nvidia-gpu)
 readonly MUTTER_DESTINATION='org.gnome.Mutter.DisplayConfig'
@@ -108,8 +121,7 @@ set-display-power-mode() {
 
 wait-for-nvidia-quiescence() {
     local readonly stage_name="${1:-quiesce}"
-    local readonly max_attempts="${2:-15}"
-    local attempt=0
+    local elapsed=0
     local status=''
     local usage=''
 
@@ -119,24 +131,26 @@ wait-for-nvidia-quiescence() {
         return 0
     fi
 
-    log "Waiting for NVIDIA GPU to enter suspended state at '${stage_name}' (up to ${max_attempts}s)..."
-    while (( attempt < max_attempts )); do
+    log "Waiting for NVIDIA GPU to enter suspended state at '${stage_name}' (up to ${QUIESCENCE_TIMEOUT_SECONDS}s)..."
+    while (( elapsed < QUIESCENCE_TIMEOUT_SECONDS )); do
         status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
         usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
 
         if [[ "$status" == 'suspended' || "$usage" == '0' ]]; then
-            log "NVIDIA GPU quiesced at stage '${stage_name}' after ${attempt}s (status: ${status}, usage: ${usage})."
+            log "NVIDIA GPU quiesced at stage '${stage_name}' after ${elapsed}s (status: ${status}, usage: ${usage})."
 
             return 0
         fi
 
-        sleep 1
-        (( attempt++ )) || true
+        sleep "$QUIESCENCE_INTERVAL_SECONDS"
+        elapsed=$((elapsed + QUIESCENCE_INTERVAL_SECONDS))
     done
 
     status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
     usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
-    log "WARNING: Timed out at stage '${stage_name}' after ${max_attempts}s (status: ${status}, usage: ${usage})."
+    log "ERROR: Timed out at stage '${stage_name}' after ${QUIESCENCE_TIMEOUT_SECONDS}s (status: ${status}, usage: ${usage})."
+
+    return 1
 }
 
 reset-screensaver() {
@@ -335,9 +349,9 @@ main() {
 
     set-cpu-epp power
     set-display-power-mode "$POWER_SAVE_OFF"
-    wait-for-nvidia-quiescence "pre-gnome-shell" 15
+    wait-for-nvidia-quiescence "pre-gnome-shell" || true
     suspend-gnome-shell
-    wait-for-nvidia-quiescence "post-gnome-shell" 15
+    wait-for-nvidia-quiescence "post-gnome-shell"
     freeze-userspace
     wait-for-input
 

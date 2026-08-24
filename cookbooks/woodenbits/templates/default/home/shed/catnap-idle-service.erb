@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+#
+# User-session idle trigger and media-aware watchdog for the catnap suite.
+#
+# Invoked by: systemd user service 'catnap-idle.service' in the graphical user session.
+# Invokes:    /usr/local/bin/catnap
+#
+# Exists to automatically transition unattended sessions into catnap sleep instead of
+# disruptive ACPI suspend. It monitors GNOME idle timers against configured power timeouts,
+# acting as a gatekeeper that suppresses sleep whenever active audio streams (PipeWire)
+# or session inhibitors (video playback, system locks) are detected.
+#
 set -euo pipefail
 
 readonly CHECK_INTERVAL_SECONDS=60

@@ -9,7 +9,7 @@ Type=exec
 #   --what=idle:sleep:handle-suspend-key: Blocks system idle state, kernel sleep, and suspend key triggers
 #   --who=catnap: Identifier of the inhibitor owner displayed in 'systemd-inhibit --list'
 #   --why=...: Human-readable rationale recorded in systemd inhibitor logs
-ExecStart=/usr/bin/systemd-inhibit --mode=block --what=idle:sleep:handle-suspend-key --who=catnap --why="Freeze userspace cgroup under catnap" /usr/local/sbin/catnap-watcher
+ExecStart=/usr/bin/systemd-inhibit --mode=block --what=idle:sleep:handle-suspend-key --who=catnap --why="Freeze userspace cgroup under catnap" /usr/local/bin/catnap-engine
 TimeoutStopSec=5s
 KillSignal=SIGTERM
 Slice=system.slice

@@ -119,6 +119,58 @@ set-display-power-mode() {
     done
 }
 
+log-nvidia-quiescence-diagnostics() {
+    local readonly stage_name="$1"
+    local connector=''
+    local power_file=''
+    local node=''
+    local line=''
+    local dev_nodes=(/dev/nvidia*)
+
+    log "--- [DIAGNOSTICS] NVIDIA Quiescence Failure at stage '${stage_name}' ---"
+
+    if [[ -n "$NVIDIA_DEVICE" && -d "$NVIDIA_DEVICE" ]]; then
+        log "PCI Power PM: status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status"), usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage"), control=$(read-file "${NVIDIA_DEVICE}/power/control"), active_kids=$(read-file "${NVIDIA_DEVICE}/power/runtime_active_kids")"
+        for node in "${NVIDIA_DEVICE}/drm"/*; do
+            if [[ -e "/dev/dri/$(basename "$node")" ]]; then
+                dev_nodes+=("/dev/dri/$(basename "$node")")
+            fi
+        done
+    fi
+
+    for power_file in /proc/driver/nvidia/gpus/*/power; do
+        if [[ -f "$power_file" ]]; then
+            log "Driver Power Info ($(basename "$(dirname "$power_file")")):"
+            while IFS= read -r line; do
+                [[ -n "$line" ]] && log "  $line"
+            done < "$power_file"
+        fi
+    done
+
+    log "DRM Connectors:"
+    for connector in /sys/class/drm/card[0-9]-*; do
+        if [[ -d "$connector" ]]; then
+            log "  $(basename "$connector"): status=$(read-file "$connector/status"), enabled=$(read-file "$connector/enabled"), dpms=$(read-file "$connector/dpms")"
+        fi
+    done
+
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        log "nvidia-smi summary:"
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && log "  $line"
+        done < <(nvidia-smi --query-gpu=name,display_active,pstate,power.draw,utilization.gpu --format=csv 2>/dev/null || true)
+    fi
+
+    if command -v fuser >/dev/null 2>&1; then
+        log "Open GPU device handles (fuser):"
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && log "  $line"
+        done < <(fuser -v "${dev_nodes[@]}" 2>&1 || true)
+    fi
+
+    log "--- [END DIAGNOSTICS] ---"
+}
+
 wait-for-nvidia-quiescence() {
     local readonly stage_name="${1:-quiesce}"
     local elapsed=0
@@ -149,6 +201,7 @@ wait-for-nvidia-quiescence() {
     status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
     usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
     log "ERROR: Timed out at stage '${stage_name}' after ${QUIESCENCE_TIMEOUT_SECONDS}s (status: ${status}, usage: ${usage})."
+    log-nvidia-quiescence-diagnostics "$stage_name"
 
     return 1
 }

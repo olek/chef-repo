@@ -70,8 +70,8 @@ end
 file '/etc/logrotate.d/ydotool' do
   content <<~EOF
     /var/log/ydotool.log {
-        daily
-        rotate 7
+        weekly
+        rotate 4
         compress
         missingok
         notifempty

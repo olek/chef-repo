@@ -145,8 +145,8 @@ create_log_files() {
 create_logrotate() {
   local content
   content="${YDOTOOL_LOG} {
-    daily
-    rotate 7
+    weekly
+    rotate 4
     compress
     missingok
     notifempty

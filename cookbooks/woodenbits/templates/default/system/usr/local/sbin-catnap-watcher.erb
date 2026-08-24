@@ -32,6 +32,10 @@ INITIAL_EPP=''
 TELEMETRY_FILE=''
 TELEMETRY_PID=''
 
+log() {
+    printf '%s %s\n' "$(date --iso-8601=seconds)" "$*"
+}
+
 get-cpu-epp() {
     local readonly first_policy='/sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference'
 
@@ -103,24 +107,25 @@ set-display-power-mode() {
 }
 
 wait-for-nvidia-quiescence() {
-    if [[ -z "$NVIDIA_DEVICE" || ! -f "${NVIDIA_DEVICE}/power/runtime_status" ]]; then
-        echo "No NVIDIA GPU found; skipping GPU quiescence wait."
-
-        return 0
-    fi
-
-    local readonly max_attempts=30
+    local readonly stage_name="${1:-quiesce}"
+    local readonly max_attempts="${2:-15}"
     local attempt=0
     local status=''
     local usage=''
 
-    echo "Waiting for NVIDIA GPU to enter suspended state (up to ${max_attempts}s)..."
+    if [[ -z "$NVIDIA_DEVICE" || ! -f "${NVIDIA_DEVICE}/power/runtime_status" ]]; then
+        log "No NVIDIA GPU found; skipping GPU quiescence wait (${stage_name})."
+
+        return 0
+    fi
+
+    log "Waiting for NVIDIA GPU to enter suspended state at '${stage_name}' (up to ${max_attempts}s)..."
     while (( attempt < max_attempts )); do
         status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
         usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
 
         if [[ "$status" == 'suspended' || "$usage" == '0' ]]; then
-            echo "NVIDIA GPU quiesced after ${attempt}s (status: ${status}, usage: ${usage})."
+            log "NVIDIA GPU quiesced at stage '${stage_name}' after ${attempt}s (status: ${status}, usage: ${usage})."
 
             return 0
         fi
@@ -131,7 +136,7 @@ wait-for-nvidia-quiescence() {
 
     status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
     usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
-    echo "WARNING: Timed out after ${max_attempts}s waiting for NVIDIA GPU to quiesce (status: ${status}, usage: ${usage})."
+    log "WARNING: Timed out at stage '${stage_name}' after ${max_attempts}s (status: ${status}, usage: ${usage})."
 }
 
 reset-screensaver() {
@@ -226,7 +231,7 @@ start-telemetry() {
 
     install --directory --owner=root --group=root --mode=0755 "$LOG_DIR"
     TELEMETRY_FILE="${LOG_DIR}/${run_id}-samples.csv"
-    echo "Writing passive telemetry: $TELEMETRY_FILE"
+    log "Writing passive telemetry: $TELEMETRY_FILE"
     collect-telemetry &
     TELEMETRY_PID="$!"
 }
@@ -236,7 +241,7 @@ stop-telemetry() {
         kill "$TELEMETRY_PID" 2>/dev/null || true
         wait "$TELEMETRY_PID" 2>/dev/null || true
         sample-telemetry
-        echo "Wrote passive telemetry: $TELEMETRY_FILE"
+        log "Wrote passive telemetry: $TELEMETRY_FILE"
         TELEMETRY_PID=''
     fi
 }
@@ -287,7 +292,7 @@ print-and-save-summary() {
         summary+=" (${details})"
     fi
 
-    echo "$summary"
+    log "$summary"
     printf '%s\n' "$summary" > "${LOG_DIR}/last-summary.txt"
     notify-users "$summary"
 }
@@ -302,7 +307,7 @@ wait-for-input() {
         fi
     done < <(stdbuf --output=L libinput debug-events)
 
-    echo "ERROR: libinput stopped before detecting wake input." >&2
+    log "ERROR: libinput stopped before detecting wake input." >&2
 
     return 1
 }
@@ -330,10 +335,9 @@ main() {
 
     set-cpu-epp power
     set-display-power-mode "$POWER_SAVE_OFF"
-    wait-for-nvidia-quiescence
+    wait-for-nvidia-quiescence "pre-gnome-shell" 15
     suspend-gnome-shell
-    # Give GNOME Shell time to transition to stopped state and settle the GPU driver
-    sleep 1
+    wait-for-nvidia-quiescence "post-gnome-shell" 15
     freeze-userspace
     wait-for-input
 

@@ -279,6 +279,29 @@ directory '/var/log/catnap' do
   mode '0755'
 end
 
+file '/var/log/catnap/catnap.log' do
+  owner 'root'
+  group 'root'
+  mode '0644'
+  action :create
+end
+
+file '/etc/logrotate.d/catnap' do
+  content <<~EOF
+    /var/log/catnap/catnap.log {
+      weekly
+      rotate 4
+      compress
+      missingok
+      notifempty
+      copytruncate
+    }
+  EOF
+  owner 'root'
+  group 'root'
+  mode '0644'
+end
+
 template '/etc/sudoers.d/catnap' do
   source 'system/etc/sudoers.d/catnap.erb'
   owner 'root'

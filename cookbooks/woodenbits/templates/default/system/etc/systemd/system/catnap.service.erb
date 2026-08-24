@@ -13,5 +13,5 @@ ExecStart=/usr/bin/systemd-inhibit --mode=block --what=idle:sleep:handle-suspend
 TimeoutStopSec=5s
 KillSignal=SIGTERM
 Slice=system.slice
-StandardOutput=journal
-StandardError=journal
+StandardOutput=append:/var/log/catnap/catnap.log
+StandardError=append:/var/log/catnap/catnap.log

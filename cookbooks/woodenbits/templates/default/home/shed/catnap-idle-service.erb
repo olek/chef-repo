@@ -13,6 +13,7 @@
 set -euo pipefail
 
 readonly CHECK_INTERVAL_SECONDS=60
+readonly FAILURE_COOLDOWN_SECONDS=900
 readonly DEFAULT_AC_TIMEOUT_SECONDS=3600
 readonly DEFAULT_BATTERY_TIMEOUT_SECONDS=1800
 
@@ -97,9 +98,14 @@ main() {
     local timeout_seconds=0
     local timeout_ms=0
     local idle_ms=0
+    local next_allowed_epoch=0
 
     while true; do
         sleep "$CHECK_INTERVAL_SECONDS"
+
+        if (( SECONDS < next_allowed_epoch )); then
+            continue
+        fi
 
         if is-session-inhibited || is-audio-playing; then
             continue
@@ -110,7 +116,10 @@ main() {
         idle_ms=$(get-idle-time-ms)
 
         if (( idle_ms >= timeout_ms )); then
-            /usr/local/bin/catnap || true
+            if ! /usr/local/bin/catnap; then
+                # Catnap failed or aborted (e.g. GPU quiescence timeout); back off to avoid desktop thrashing
+                next_allowed_epoch=$((SECONDS + FAILURE_COOLDOWN_SECONDS))
+            fi
         fi
     done
 }

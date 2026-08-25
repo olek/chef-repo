@@ -10,6 +10,10 @@
 # It blocks synchronously until the sleep cycle finishes and the system is thawed, allowing
 # callers and background scripts to coordinate cleanly around the sleep lifecycle.
 #
+# Invoke real sudo by absolute path: on Centrify-joined hosts a 'sudo' shim on PATH
+# resolves to dzdo, which ignores /etc/sudoers.d and would prompt for a password despite
+# the passwordless catnap rule.
+#
 set -euo pipefail
 
-sudo /usr/bin/systemctl start --wait catnap.service
+/usr/bin/sudo /usr/bin/systemctl start --wait catnap.service

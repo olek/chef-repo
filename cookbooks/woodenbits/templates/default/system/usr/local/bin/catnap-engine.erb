@@ -40,6 +40,11 @@ readonly MUTTER_INTERFACE='org.gnome.Mutter.DisplayConfig'
 readonly POWER_SAVE_ON=0
 readonly POWER_SAVE_OFF=3
 readonly LOG_DIR='/var/log/catnap'
+# Built-in analog output (laptop speakers). Addressed by ALSA card *name* so it survives
+# card renumbering, and driven directly via aplay to bypass PipeWire - which routes to the
+# USB DAC by default and is frozen alongside userspace during catnap.
+readonly SPEAKER_DEVICE='plughw:CARD=sofhdadsp,DEV=0'
+readonly SPEAKER_SAMPLE_RATE=44100
 
 INITIAL_EPP=''
 TELEMETRY_FILE=''
@@ -225,6 +230,47 @@ reset-screensaver() {
     done
 }
 
+play-tone() {
+    local readonly frequency_hz="$1"
+    local readonly duration_ms="$2"
+
+    # Synthesize a short raw PCM sine (with 5ms fades to avoid clicks) and feed it straight
+    # to the laptop speakers. Best-effort: capped by 'timeout' and never fails the caller so
+    # the suspend lifecycle is unaffected if the device is busy or absent.
+    LC_ALL=C awk \
+        -v frequency="$frequency_hz" \
+        -v duration_ms="$duration_ms" \
+        -v rate="$SPEAKER_SAMPLE_RATE" \
+        'BEGIN {
+            samples = int(rate * duration_ms / 1000)
+            fade = int(rate * 0.005)
+            for (i = 0; i < samples; i++) {
+                envelope = 1
+                if (i < fade) { envelope = i / fade }
+                if (i > samples - fade) { envelope = (samples - i) / fade }
+                sample = int(envelope * 9000 * sin(2 * 3.14159265 * frequency * i / rate))
+                low = sample % 256; if (low < 0) { low += 256 }
+                high = int(sample / 256) % 256; if (high < 0) { high += 256 }
+                printf "%c%c", low, high
+            }
+        }' \
+        | timeout 10 aplay -q -D "$SPEAKER_DEVICE" -f S16_LE -r "$SPEAKER_SAMPLE_RATE" -c 1 2>/dev/null || true
+}
+
+# Rising major arpeggio: catnap reached full quiescence and is entering the frozen sleep.
+play-catnap-entered() {
+    play-tone 523 120
+    play-tone 659 120
+    play-tone 784 200
+}
+
+# Descending low tones: catnap aborted because the NVIDIA GPU refused to suspend.
+play-catnap-aborted() {
+    play-tone 440 200
+    play-tone 311 200
+    play-tone 208 350
+}
+
 notify-users() {
     local readonly summary="$1"
     local user_dir=''
@@ -404,8 +450,12 @@ main() {
     set-display-power-mode "$POWER_SAVE_OFF"
     wait-for-nvidia-quiescence "pre-gnome-shell" || true
     suspend-gnome-shell
-    wait-for-nvidia-quiescence "post-gnome-shell"
+    if ! wait-for-nvidia-quiescence "post-gnome-shell"; then
+        play-catnap-aborted
+        exit 1
+    fi
     freeze-userspace
+    play-catnap-entered
     wait-for-input
 
     thaw-userspace

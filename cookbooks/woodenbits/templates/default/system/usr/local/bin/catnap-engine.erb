@@ -295,14 +295,15 @@ play-tone() {
         -v rate="$SPEAKER_SAMPLE_RATE" \
         'BEGIN {
             samples = int(rate * duration_ms / 1000)
-            fade = int(rate * 0.005)
+            fade = int(rate * 0.008)
             for (i = 0; i < samples; i++) {
                 envelope = 1
                 if (i < fade) { envelope = i / fade }
                 if (i > samples - fade) { envelope = (samples - i) / fade }
-                sample = int(envelope * 9000 * sin(2 * 3.14159265 * frequency * i / rate))
-                low = sample % 256; if (low < 0) { low += 256 }
-                high = int(sample / 256) % 256; if (high < 0) { high += 256 }
+                sample = int(envelope * 16000 * sin(2 * 3.14159265 * frequency * i / rate))
+                if (sample < 0) { sample += 65536 }
+                low = sample % 256
+                high = int(sample / 256) % 256
                 printf "%c%c", low, high
             }
         }' \
@@ -316,11 +317,25 @@ play-catnap-entered() {
     play-tone 784 200
 }
 
-# Descending low tones: catnap aborted because the NVIDIA GPU refused to suspend.
+# Descending major arpeggio: waking up from frozen catnap sleep.
+play-catnap-resumed() {
+    play-tone 784 120
+    play-tone 659 120
+    play-tone 523 200
+}
+
+# Single staccato warning beep: NVIDIA GPU failed to quiesce during pre-GNOME-shell stage.
+play-catnap-quiescence-delayed() {
+    play-tone 587 110
+}
+
+# Triple staccato warning beep: catnap aborted because the NVIDIA GPU refused to suspend.
 play-catnap-aborted() {
-    play-tone 440 200
-    play-tone 311 200
-    play-tone 208 350
+    play-tone 587 90
+    sleep 0.05
+    play-tone 587 90
+    sleep 0.05
+    play-tone 587 180
 }
 
 notify-users() {
@@ -529,7 +544,13 @@ main() {
 
     set-cpu-epp power
     set-display-power-mode "$POWER_SAVE_OFF"
-    wait-for-nvidia-quiescence "pre-gnome-shell" || true
+    if ! wait-for-nvidia-quiescence "pre-gnome-shell"; then
+        if ! is-wake-requested; then
+            play-catnap-quiescence-delayed
+        fi
+    fi
+
+    local slept_in_catnap=false
 
     if ! is-wake-requested; then
         suspend-gnome-shell
@@ -542,12 +563,16 @@ main() {
         if ! is-wake-requested; then
             freeze-userspace
             play-catnap-entered
+            slept_in_catnap=true
             wait-for-input
         fi
     fi
 
     thaw-userspace
     resume-gnome-shell
+    if [[ "$slept_in_catnap" == true ]]; then
+        play-catnap-resumed
+    fi
     sleep 1
     set-display-power-mode "$POWER_SAVE_ON"
     reset-screensaver

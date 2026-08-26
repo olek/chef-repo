@@ -28,6 +28,40 @@ detect-nvidia-gpu() {
     return 0
 }
 
+detect-speaker-device() {
+    local line=''
+    local card_num=''
+    local card_id=''
+    local device_num=''
+    local device_desc=''
+
+    # Pick the built-in analog output for the catnap chime: the first playback device that is
+    # neither on a USB card (external DAC, webcam, audio interface) nor a digital output
+    # (HDMI/SPDIF). Addresses the speaker by ALSA card *name* so it survives card renumbering.
+    while IFS= read -r line; do
+        [[ "$line" =~ ^card\ ([0-9]+):\ ([^\ ]+)\ \[.*\],\ device\ ([0-9]+):\ (.*)$ ]] || continue
+        card_num="${BASH_REMATCH[1]}"
+        card_id="${BASH_REMATCH[2]}"
+        device_num="${BASH_REMATCH[3]}"
+        device_desc="${BASH_REMATCH[4],,}"
+
+        if [[ -e "/proc/asound/card${card_num}/usbid" ]]; then
+            continue
+        fi
+        if [[ "$device_desc" == *hdmi* || "$device_desc" == *digital* ||
+              "$device_desc" == *s/pdif* || "$device_desc" == *iec958* ]]; then
+            continue
+        fi
+
+        printf 'plughw:CARD=%s,DEV=%s\n' "$card_id" "$device_num"
+
+        return 0
+    done < <(aplay -l 2>/dev/null)
+
+    # Return 0 even if not found so 'set -e' does not abort; play-tone skips on empty device.
+    return 0
+}
+
 readonly SETTLE_SECONDS=1
 readonly SAMPLE_INTERVAL_SECONDS=60
 readonly QUIESCENCE_TIMEOUT_SECONDS=60
@@ -40,10 +74,10 @@ readonly MUTTER_INTERFACE='org.gnome.Mutter.DisplayConfig'
 readonly POWER_SAVE_ON=0
 readonly POWER_SAVE_OFF=3
 readonly LOG_DIR='/var/log/catnap'
-# Built-in analog output (laptop speakers). Addressed by ALSA card *name* so it survives
-# card renumbering, and driven directly via aplay to bypass PipeWire - which routes to the
-# USB DAC by default and is frozen alongside userspace during catnap.
-readonly SPEAKER_DEVICE='plughw:CARD=sofhdadsp,DEV=0'
+# Built-in analog output (laptop speakers), auto-detected by ALSA card name. Driven directly
+# via aplay to bypass PipeWire - which routes to the USB DAC by default and is frozen alongside
+# userspace during catnap. Empty on hosts with no built-in analog card; play-tone then no-ops.
+readonly SPEAKER_DEVICE=$(detect-speaker-device)
 readonly SPEAKER_SAMPLE_RATE=44100
 
 INITIAL_EPP=''
@@ -233,6 +267,10 @@ reset-screensaver() {
 play-tone() {
     local readonly frequency_hz="$1"
     local readonly duration_ms="$2"
+
+    if [[ -z "$SPEAKER_DEVICE" ]]; then
+        return 0
+    fi
 
     # Synthesize a short raw PCM sine (with 5ms fades to avoid clicks) and feed it straight
     # to the laptop speakers. Best-effort: capped by 'timeout' and never fails the caller so

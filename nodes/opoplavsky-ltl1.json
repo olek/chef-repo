@@ -1,0 +1,7 @@
+{
+  "run_list": [
+    "role[workstation]",
+    "recipe[woodenbits::catnap-idle]",
+    "recipe[woodenbits::catnap-powerbtn]"
+  ]
+}

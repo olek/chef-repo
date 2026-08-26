@@ -22,6 +22,7 @@ ohai.disabled_plugins = [
 verbose_logging false
 
 chefrepo_dir current_dir
+node_path     "#{file_cache_path}/nodes"
 role_path     "#{chefrepo_dir}/roles"
 data_bag_path "#{chefrepo_dir}/data_bags"
 cookbook_path ["#{chefrepo_dir}/cookbooks", "#{chefrepo_dir}/site-cookbooks"]

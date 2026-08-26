@@ -176,7 +176,7 @@ template "/etc/ncmpc/config" do
   mode 0644
 end
 
-%w(vims vimt manage-gnome-shell cpu-epp-set catnap catnap-engine).each do |script|
+%w(vims vimt manage-gnome-shell cpu-epp-set).each do |script|
   template "/usr/local/bin/#{script}" do
     source "system/usr/local/bin/#{script}.erb"
     mode '0755'
@@ -269,106 +269,7 @@ if %w(opoplavsky-ltl1 severus).include?(node[:hostname])
   end
 end
 
-file '/etc/polkit-1/rules.d/50-catnap.rules' do
-  action :delete
-end
-
-directory '/var/log/catnap' do
-  owner 'root'
-  group 'root'
-  mode '0755'
-end
-
-file '/var/log/catnap/catnap.log' do
-  owner 'root'
-  group 'root'
-  mode '0644'
-  action :create
-end
-
-file '/etc/logrotate.d/catnap' do
-  content <<~EOF
-    /var/log/catnap/catnap.log {
-      weekly
-      rotate 4
-      compress
-      missingok
-      notifempty
-      copytruncate
-    }
-  EOF
-  owner 'root'
-  group 'root'
-  mode '0644'
-end
-
-template '/etc/sudoers.d/catnap' do
-  source 'system/etc/sudoers.d/catnap.erb'
-  owner 'root'
-  group 'root'
-  mode '0440'
-end
-
-execute 'reload systemd for catnap' do
-  command 'systemctl daemon-reload'
-  action :nothing
-end
-
-file '/usr/local/sbin/catnap-watcher' do
-  action :delete
-end
-
-file '/etc/systemd/system/catnap@.service' do
-  action :delete
-  notifies :run, 'execute[reload systemd for catnap]', :immediately
-end
-
-template '/etc/systemd/system/catnap.service' do
-  source 'system/etc/systemd/system/catnap.service.erb'
-  owner 'root'
-  group 'root'
-  mode '0644'
-  notifies :run, 'execute[reload systemd for catnap]', :immediately
-end
-
-if node[:hostname] == 'severus'
-  package 'acpid'
-
-  directory '/etc/systemd/logind.conf.d' do
-    owner 'root'
-    group 'root'
-    mode '0755'
-  end
-
-  execute 'reload logind for catnap' do
-    command 'systemctl kill -s HUP systemd-logind'
-    action :nothing
-  end
-
-  template '/etc/systemd/logind.conf.d/01-catnap.conf' do
-    source 'system/etc/systemd/logind.conf.d-01-catnap.conf.erb'
-    owner 'root'
-    group 'root'
-    mode '0644'
-    notifies :run, 'execute[reload logind for catnap]', :immediately
-  end
-
-  directory '/etc/acpi/events' do
-    owner 'root'
-    group 'root'
-    mode '0755'
-    recursive true
-  end
-
-  template '/etc/acpi/events/catnap-powerbtn' do
-    source 'system/etc/acpi-events-catnap-powerbtn.erb'
-    owner 'root'
-    group 'root'
-    mode '0644'
-    notifies :restart, 'service[acpid]', :delayed
-  end
-
-  service 'acpid' do
-    action [:enable, :start]
-  end
-end
+# catnap (userspace low-power suspend suite) moved to its own recipes:
+#   woodenbits::catnap       - system layer (engine, service, sudoers, logs)
+#   woodenbits::catnap-idle  - automatic idle trigger (includes ::catnap)
+# Add whichever a node wants to its run_list.

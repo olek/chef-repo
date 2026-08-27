@@ -5,7 +5,7 @@
   "woodenbits": {
     "profile": "work",
     "catnap": {
-      "idle": true,
+      "idle": false,
       "powerbtn": true
     },
     "tlp": {

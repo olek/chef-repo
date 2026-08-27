@@ -1,7 +1,7 @@
 # Cookbook Name:: woodenbits
 # Recipe:: dev-salesforce
 
-if node[:hostname].start_with?('opoplavsky-')
+if node['woodenbits']['profile'] == 'work'
   # required for generating jwt tokens for admin-api
   package 'libcrypt-jwt-perl'
 

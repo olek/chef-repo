@@ -22,7 +22,7 @@ package 'ruby-dev'
 
 #package 'radiotray'
 
-unless node[:hostname].start_with?('opoplavsky-')
+if node['woodenbits']['profile'] == 'personal'
   # music tagger and library organizer
   package 'beets'
   package 'beets-doc'

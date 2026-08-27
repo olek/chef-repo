@@ -70,7 +70,7 @@ execute "enable signal-desktop repo" do
   not_if { apt_repo_exists?(repo_name) }
 end
 
-if node[:hostname].start_with?('opoplavsky-')
+if node['woodenbits']['profile'] == 'work'
   execute "enable docker repo" do
     repo_name = "#{codename}-docker"
     filename = "#{src_dir}/#{repo_name}.list"

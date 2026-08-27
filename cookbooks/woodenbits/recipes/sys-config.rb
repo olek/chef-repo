@@ -1,10 +1,6 @@
 # Cookbook Name:: woodenbits
 # Recipe:: sys-config
 
-#Chef::Log.info "fqdn = #{node[:fqdn]}, hostname = #{node[:hostname]}"
-
-hostname = node[:hostname]
-
 directory '/vaults' do
   mode '0755'
   action :create
@@ -16,7 +12,7 @@ end
 #end
 
 
-if hostname == 'tenebrus'
+if node['woodenbits']['hardware']['expresscard_sata']
   template "/etc/network/if-up.d/wifi-powerman-off" do
     source "system/etc/network-if-up.d-wifi-powerman-off.erb"
     mode 0755
@@ -95,24 +91,10 @@ template "/etc/udev/rules.d/59-vial.rules" do
 end
 
 
-if node[:etc][:passwd].key?('olek')
-  # template "/etc/udev/rules.d/99-nvidia-pm-on.rules" do
-  #   source "system/etc/udev/rules.d/99-nvidia-pm-on.rules.erb"
-  #   mode 0644
-  #   owner 'root'
-  #   group 'root'
-  #
-  #   notifies :run, 'execute[reload udev]', :delayed
-  # end
-
-  file "/etc/udev/rules.d/99-nvidia-pm-on.rules" do
-    action :delete
-    notifies :run, 'execute[reload udev]', :delayed
-  end
-end
 
 
-unless node[:hostname].start_with?('opoplavsky-')
+
+if node['woodenbits']['profile'] == 'personal'
   directory '/etc/pgl' do
     mode '0755'
     action :create
@@ -247,29 +229,4 @@ file "/home/#{sudo_username}/bin/cpu-epp-set" do
   action :delete
 end
 
-# TLP power-management tuning, laptop-specific (SK-hynix NVMe, i915 iGPU,
-# Raptor Lake HX). Only reloaded when the config changes; the tlp package
-# auto-enables its service on install.
-if %w(opoplavsky-ltl1 severus).include?(node[:hostname])
-  execute 'reload tlp' do
-    command 'tlp start'
-    action :nothing
-  end
 
-  template '/etc/tlp.d/01-woodenbits.conf' do
-    source 'system/etc/tlp.d-01-woodenbits.conf.erb'
-    owner 'root'
-    group 'root'
-    # 0644 matches upstream /etc/tlp.conf; contents are power policy, no secrets
-    mode '0644'
-    variables(
-      hostname: node[:hostname]
-    )
-    notifies :run, 'execute[reload tlp]', :delayed
-  end
-end
-
-# catnap (userspace low-power suspend suite) moved to its own recipes:
-#   woodenbits::catnap       - system layer (engine, service, sudoers, logs)
-#   woodenbits::catnap-idle  - automatic idle trigger (includes ::catnap)
-# Add whichever a node wants to its run_list.

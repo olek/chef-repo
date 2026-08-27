@@ -3,9 +3,18 @@
     "role[workstation]"
   ],
   "woodenbits": {
+    "profile": "personal",
     "catnap": {
       "idle": true,
       "powerbtn": true
+    },
+    "tlp": {
+      "enabled": true,
+      "mem_sleep_bat": "deep",
+      "battery_charge_thresholds": {
+        "start": 70,
+        "stop": 80
+      }
     }
   }
 }

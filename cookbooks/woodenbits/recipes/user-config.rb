@@ -74,7 +74,7 @@ git_configs = {
 }
 
 users =
-  if node[:etc][:passwd].key?('opoplavsky')
+  if node['woodenbits']['profile'] == 'work'
     ['opoplavsky']
   else
     `awk -F'[/:]' '{if ($3 >= 1000 && $3 <= 1010) print $1}' /etc/passwd`.split

@@ -5,6 +5,12 @@ voxtype_version = '0.7.5'
 voxtype_deb_filename = "voxtype_#{voxtype_version}-1_amd64.deb"
 voxtype_deb_path = "#{Chef::Config[:file_cache_path]}/#{voxtype_deb_filename}"
 
+sudo_username = ENV.fetch('SUDO_USER') { raise 'SUDO_USER environment variable is required to determine the interactive desktop user' }
+
+unless node[:etc][:passwd].key?(sudo_username)
+  raise "SUDO_USER '#{sudo_username}' not found in /etc/passwd"
+end
+
 # Install packages
 package 'ydotool'
 package 'ydotoold'
@@ -12,7 +18,7 @@ package 'libnotify-bin'
 
 # Ensure ydotool group exists and has members
 group 'ydotool' do
-  members ['olek', 'opoplavsky'].select { |u| node[:etc][:passwd].key?(u) }
+  members [sudo_username]
   append true
   action :create
 end
@@ -26,20 +32,15 @@ user 'ydotool' do
 end
 
 # Ensure uinput group exists and has members.
-# Only the ydotool daemon opens /dev/uinput directly, so it is the sole hard
-# dependency here. 'olek' is kept because some minor side functionality on the
-# personal machine reportedly needs direct uinput access (exact use forgotten);
-# 'opoplavsky' is deliberately NOT added - it never needed it (was an artifact
-# of that LDAP account, and the work machine talks to ydotoold via the socket).
 group 'uinput' do
-  members (['ydotool'] + ['olek'].select { |u| node[:etc][:passwd].key?(u) })
+  members ['ydotool', sudo_username]
   append true
   action :create
 end
 
-# Ensure workstation users are in input group
+# Ensure workstation user is in input group
 group 'input' do
-  members ['olek', 'opoplavsky'].select { |u| node[:etc][:passwd].key?(u) }
+  members [sudo_username]
   append true
   action :modify
 end
@@ -159,10 +160,7 @@ dpkg_package 'voxtype' do
   action :install
 end
 
-# Find existing users on this machine
-target_users = ['olek', 'opoplavsky'].select { |u| node[:etc][:passwd].key?(u) }
-
-target_users.each do |user|
+[sudo_username].each do |user|
   home_dir = "/home/#{user}"
   user_group = `id --group --name #{user}`.chomp
 

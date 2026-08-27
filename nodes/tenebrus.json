@@ -1,0 +1,11 @@
+{
+  "run_list": [
+    "role[workstation]"
+  ],
+  "woodenbits": {
+    "profile": "personal",
+    "hardware": {
+      "expresscard_sata": true
+    }
+  }
+}

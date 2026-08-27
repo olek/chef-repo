@@ -4,7 +4,7 @@
 
 passwd = node[:etc][:passwd]
 
-if passwd.key?('alpha') && !passwd.key?('opoplavsky') && node[:hostname] != 'opoplavsky-wsl'
+if passwd.key?('alpha') && node['woodenbits']['profile'] == 'personal'
   Chef::Log.info "Creating my 4 default users with corrent UIDs"
 
   users = {

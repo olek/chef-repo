@@ -7,9 +7,7 @@
 
 package 'aptitude'
 
-unless node[:hostname] == 'opoplavsky-wsl'
-  package 'ubuntu-restricted-extras'
-end
+package 'ubuntu-restricted-extras'
 
 package 'build-essential'
 
@@ -94,16 +92,6 @@ package 'inxi'
 # ========== power management
 
 package 'powertop'
-
-if %w(opoplavsky-ltl1 severus).include?(node[:hostname])
-  package 'tlp'
-
-  # power-profiles-daemon fights TLP over EPP / runtime PM; purged 2026-02-09,
-  # keep it gone so a GNOME meta-package can't silently pull it back in.
-  package 'power-profiles-daemon' do
-    action :purge
-  end
-end
 #package 'powertop-1.13'
 package 'fatrace'
 package 'smartmontools'
@@ -125,7 +113,7 @@ package 'argyll'
 #package 'dispcalgui'
 package 'gnome-color-manager'
 
-unless node[:hostname].start_with?('opoplavsky-')
+if node['woodenbits']['profile'] == 'personal'
   #package 'udftools'
   #package 'hfsprogs'
   package 'sshfs'
@@ -133,8 +121,4 @@ unless node[:hostname].start_with?('opoplavsky-')
   package 'exfat-fuse'
   package 'autofs'
   package 'smbclient' # otherwise automount cifs does not work
-
-  package 'argyll'
-  #package 'dispcalgui'
-  package 'gnome-color-manager'
 end

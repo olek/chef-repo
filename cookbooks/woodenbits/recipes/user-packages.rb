@@ -16,7 +16,7 @@ package 'guvcview'
 # webcam adjustments loader
 package 'uvcdynctrl'
 
-unless node[:hostname].start_with?('opoplavsky-')
+if node['woodenbits']['profile'] == 'personal'
   include_recipe 'woodenbits::photo-packages'
 
   package 'calibre'

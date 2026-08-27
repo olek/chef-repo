@@ -229,4 +229,3 @@ file "/home/#{sudo_username}/bin/cpu-epp-set" do
   action :delete
 end
 
-

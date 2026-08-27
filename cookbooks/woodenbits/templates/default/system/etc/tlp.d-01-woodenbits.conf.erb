@@ -147,7 +147,7 @@ RUNTIME_PM_DENYLIST=""
 # deep on battery for deeper savings -- re-evaluate per machine.
 #MEM_SLEEP_ON_AC=s2idle
 #MEM_SLEEP_ON_BAT=deep
-MEM_SLEEP_ON_AC=s2idle
+MEM_SLEEP_ON_AC=<%= @mem_sleep_ac %>
 MEM_SLEEP_ON_BAT=<%= @mem_sleep_bat %>
 
 # Radio devices to disable on startup: bluetooth, wifi, wwan.

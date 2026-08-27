@@ -7,6 +7,7 @@ default['woodenbits']['catnap']['powerbtn'] = false
 
 # TLP power management
 default['woodenbits']['tlp']['enabled'] = false
+default['woodenbits']['tlp']['mem_sleep_ac'] = 's2idle'
 default['woodenbits']['tlp']['mem_sleep_bat'] = 'deep'
 default['woodenbits']['tlp']['battery_charge_thresholds'] = nil
 

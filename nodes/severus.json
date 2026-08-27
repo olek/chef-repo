@@ -10,6 +10,7 @@
     },
     "tlp": {
       "enabled": true,
+      "mem_sleep_ac": "deep",
       "mem_sleep_bat": "deep",
       "battery_charge_thresholds": {
         "start": 70,

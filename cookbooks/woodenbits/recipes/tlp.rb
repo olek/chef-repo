@@ -4,6 +4,7 @@
 # Manages TLP power-management tuning for laptops.
 # Controlled via:
 #   node['woodenbits']['tlp']['enabled']                   (default: false)
+#   node['woodenbits']['tlp']['mem_sleep_ac']               (default: 's2idle')
 #   node['woodenbits']['tlp']['mem_sleep_bat']              (default: 'deep')
 #   node['woodenbits']['tlp']['battery_charge_thresholds']  (e.g. { 'start' => 70, 'stop' => 80 })
 
@@ -27,6 +28,7 @@ if node['woodenbits']['tlp']['enabled']
     group 'root'
     mode '0644'
     variables(
+      mem_sleep_ac: node['woodenbits']['tlp']['mem_sleep_ac'],
       mem_sleep_bat: node['woodenbits']['tlp']['mem_sleep_bat'],
       charge_thresholds: node['woodenbits']['tlp']['battery_charge_thresholds']
     )

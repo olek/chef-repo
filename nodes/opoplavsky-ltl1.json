@@ -10,6 +10,7 @@
     },
     "tlp": {
       "enabled": true,
+      "mem_sleep_ac": "s2idle",
       "mem_sleep_bat": "s2idle"
     }
   }

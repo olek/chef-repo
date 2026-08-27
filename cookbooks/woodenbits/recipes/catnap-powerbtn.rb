@@ -1,65 +1,81 @@
 # Cookbook Name:: woodenbits
 # Recipe:: catnap-powerbtn
 #
-# Physical power-button -> catnap wiring: acpid catches the power button and
-# triggers a catnap, logind is told not to act on it, and GNOME's own
-# power-button action is disabled so the desktop does not also react.
-#
-# Laptop hardware integration, opted into per node via run_list. Extends the
-# basic system layer (woodenbits::catnap).
-
-include_recipe 'woodenbits::catnap'
-
-package 'acpid'
-
-directory '/etc/systemd/logind.conf.d' do
-  owner 'root'
-  group 'root'
-  mode '0755'
-end
+# Manages physical power button -> catnap integration.
+# When enabled (node['woodenbits']['catnap']['powerbtn'] == true):
+#   - Installs acpid and catnap-powerbtn event handler.
+#   - Configures logind drop-in to ignore power button.
+#   - Disables GNOME's power-button-action so desktop does not act on it.
+# When disabled (node['woodenbits']['catnap']['powerbtn'] == false):
+#   - Removes logind and acpid drop-in configurations.
+#   - Leaves GNOME's power button action untouched for the user to manage.
 
 execute 'reload logind for catnap' do
   command 'systemctl kill -s HUP systemd-logind'
   action :nothing
 end
 
-template '/etc/systemd/logind.conf.d/01-catnap.conf' do
-  source 'system/etc/systemd/logind.conf.d-01-catnap.conf.erb'
-  owner 'root'
-  group 'root'
-  mode '0644'
-  notifies :run, 'execute[reload logind for catnap]', :immediately
-end
+if node['woodenbits']['catnap']['powerbtn']
+  # --- ENABLED STATE ---
 
-directory '/etc/acpi/events' do
-  owner 'root'
-  group 'root'
-  mode '0755'
-  recursive true
-end
+  sudo_username = ENV.fetch('SUDO_USER') { raise 'SUDO_USER environment variable is required to determine the interactive desktop user' }
 
-template '/etc/acpi/events/catnap-powerbtn' do
-  source 'system/etc/acpi-events-catnap-powerbtn.erb'
-  owner 'root'
-  group 'root'
-  mode '0644'
-  notifies :restart, 'service[acpid]', :delayed
-end
+  unless node[:etc][:passwd].key?(sudo_username)
+    raise "SUDO_USER '#{sudo_username}' not found in /etc/passwd"
+  end
 
-service 'acpid' do
-  action [:enable, :start]
-end
+  package 'acpid'
 
-# Stop GNOME from acting on the power button itself, so acpid's catnap handler
-# is the only thing that responds to it. Per-user, for the invoking desktop user.
-sudo_username = ENV.fetch('SUDO_USER')
+  directory '/etc/systemd/logind.conf.d' do
+    owner 'root'
+    group 'root'
+    mode '0755'
+  end
 
-if node[:etc][:passwd].key?(sudo_username)
+  template '/etc/systemd/logind.conf.d/01-catnap.conf' do
+    source 'system/etc/systemd/logind.conf.d-01-catnap.conf.erb'
+    owner 'root'
+    group 'root'
+    mode '0644'
+    notifies :run, 'execute[reload logind for catnap]', :immediately
+  end
+
+  directory '/etc/acpi/events' do
+    owner 'root'
+    group 'root'
+    mode '0755'
+    recursive true
+  end
+
+  template '/etc/acpi/events/catnap-powerbtn' do
+    source 'system/etc/acpi-events-catnap-powerbtn.erb'
+    owner 'root'
+    group 'root'
+    mode '0644'
+    notifies :restart, 'service[acpid]', :delayed
+  end
+
+  service 'acpid' do
+    action [:enable, :start]
+  end
+
   user_uid = `id --user #{sudo_username}`.chomp
   sudo = "sudo -H -u #{sudo_username} env XDG_RUNTIME_DIR=/run/user/#{user_uid} DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/#{user_uid}/bus /bin/bash -c"
 
   execute "disable default power button action for user #{sudo_username}" do
     command %Q(#{sudo} "gsettings set org.gnome.settings-daemon.plugins.power power-button-action 'nothing'")
     not_if %Q(#{sudo} "gsettings get org.gnome.settings-daemon.plugins.power power-button-action | grep -q 'nothing'")
+  end
+else
+  # --- DISABLED STATE (Clean up drop-ins, leave GNOME settings alone) ---
+
+  file '/etc/systemd/logind.conf.d/01-catnap.conf' do
+    action :delete
+    notifies :run, 'execute[reload logind for catnap]', :immediately
+  end
+
+  file '/etc/acpi/events/catnap-powerbtn' do
+    action :delete
+    notifies :restart, 'service[acpid]', :delayed
   end
 end

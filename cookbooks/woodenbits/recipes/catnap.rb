@@ -79,5 +79,5 @@ template '/etc/systemd/system/catnap.service' do
   notifies :run, 'execute[reload systemd for catnap]', :immediately
 end
 
-# Physical power-button -> catnap wiring (acpid, logind, GNOME) lives in the
-# woodenbits::catnap-powerbtn recipe, which a node opts into via its run_list.
+include_recipe 'woodenbits::catnap-idle'
+include_recipe 'woodenbits::catnap-powerbtn'

@@ -1,4 +1,4 @@
 name 'barebones'
 description 'Basic setup of comfortable system.'
 
-recipes %w(sys-repos sys-config sys-packages user-init user-config catnap).map { |name| "woodenbits::#{name}" }
+recipes %w(sys-repos sys-config sys-packages user-init user-config).map { |name| "woodenbits::#{name}" }

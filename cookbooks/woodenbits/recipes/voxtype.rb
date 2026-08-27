@@ -31,14 +31,30 @@ user 'ydotool' do
   action :create
 end
 
-# Ensure uinput group exists and has members.
+# Only ydotoold (running as the 'ydotool' system user) opens /dev/uinput
+# directly. Interactive users reach it through the ydotoold socket via the
+# 'ydotool' group, so no human account needs direct uinput membership -
+# granting it would hand a login session the ability to synthesize arbitrary
+# input events. Actively evict the interactive user if a past run or a manual
+# edit ever left it here. Removal uses 'gpasswd -d', which is a plain
+# member-list edit and does not validate the account (unlike 'gpasswd -a'),
+# so it works even for an LDAP-managed user that gpasswd cannot resolve.
 group 'uinput' do
-  members ['ydotool', sudo_username]
+  members ['ydotool']
+  excluded_members [sudo_username]
   append true
   action :create
 end
 
-# Ensure workstation user is in input group
+# voxtype's push-to-talk uses its built-in evdev hotkey, which reads
+# /dev/input/event* directly (device nodes are group 'input') to watch the
+# record key. We deliberately do NOT use voxtype's "recommended" compositor-
+# keybinding method: our compositor only fires on key press, so it degrades to
+# a two-press toggle (press to start, press again to stop). evdev sees the raw
+# key release too, giving true hold-to-talk - hold the key while speaking,
+# release to stop - which is the only mode we want. Unlike /dev/uinput, this is
+# read-only input monitoring, not the ability to synthesize events, so the
+# login session legitimately holds it.
 group 'input' do
   members [sudo_username]
   append true

@@ -64,7 +64,7 @@ const RULES = [
   { match: 'gvim',                  cols: [1, 3] }, // ts -- right three-quarters
   { match: 'google-chrome',         cols: [1, 3] }, // ts -- right three-quarters
   { match: 'firefox_firefox',       cols: [1, 3] }, // ts -- right three-quarters (snap Firefox reports this)
-  { match: 'brave-browser',         cols: [1, 3] }, // ts -- right three-quarters (snap Firefox reports this)
+  { match: 'brave-browser',         cols: [1, 3] }, // ts -- right three-quarters
   { match: 'slack',                 cols: [1, 3] }, // ts -- right three-quarters
   { match: 'signal*',               cols: [2, 3] }, // ns -- Signal messenger
   { match: 'chrome-*',              cols: [2, 3] }, // ns -- Chrome app/PWA windows
@@ -161,6 +161,15 @@ export default class ColumnPlacerExtension extends Extension {
     } catch (e) {
       return;
     }
+
+    // Only tile real top-levels; skip dialogs and modal popups. A dialog is
+    // transient-for its main window, whereas the main window is parentless.
+    // JetBrains IDEs in particular report their dialogs as WindowType.NORMAL
+    // under Wayland, so the type check above misses them and they'd otherwise
+    // be stretched full-width by the 'jetbrains-idea' rule -- the transient
+    // parent is what tells the dialog apart from the IDE's main window.
+    if (window.get_transient_for() !== null)
+      return;
 
     const rule = matchRule(window.get_wm_class());
     if (shouldLog)

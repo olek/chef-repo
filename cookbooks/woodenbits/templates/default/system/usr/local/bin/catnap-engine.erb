@@ -74,12 +74,18 @@ readonly MUTTER_INTERFACE='org.gnome.Mutter.DisplayConfig'
 readonly POWER_SAVE_ON=0
 readonly POWER_SAVE_OFF=3
 readonly LOG_DIR='/var/log/catnap'
+# Append-only, cross-run record of every GPU quiescence wait - successes as well as
+# timeouts - so the two populations can later be diffed to learn what actually blocks
+# runtime-D3 suspend. One row per wait (two per catnap); grows ~200 bytes per run.
+readonly QUIESCENCE_LOG="${LOG_DIR}/quiescence-history.csv"
+readonly QUIESCENCE_LOG_HEADER='timestamp,run_id,stage,outcome,elapsed_s,entry_runtime_status,entry_runtime_usage,entry_active_kids,entry_video_memory,entry_dgpu_connected_outputs,entry_dgpu_clients'
 # Built-in analog output (laptop speakers), auto-detected by ALSA card name. Driven directly
 # via aplay to bypass PipeWire - which routes to the USB DAC by default and is frozen alongside
 # userspace during catnap. Empty on hosts with no built-in analog card; play-tone then no-ops.
 readonly SPEAKER_DEVICE=$(detect-speaker-device)
 readonly SPEAKER_SAMPLE_RATE=44100
 
+RUN_ID=''
 INITIAL_EPP=''
 TELEMETRY_FILE=''
 TELEMETRY_PID=''
@@ -107,6 +113,22 @@ set-cpu-epp() {
             echo "$epp_mode" > "$policy_file" || true
         fi
     done
+}
+
+# Persistence mode keeps the NVIDIA driver initialized (and video memory resident)
+# even with no clients attached, which pins the GPU out of runtime-D3. Catnap turns
+# it off around the sleep so the card can actually suspend, then restores it on resume.
+# Best-effort and root-only (via nvidia-smi); a no-op on non-NVIDIA hosts.
+# Caveats: (1) with nvidia-persistenced running the daemon may re-assert persistence,
+# so watch entry_video_memory / entry_dgpu_clients in the quiescence log to confirm this
+# lever bites; (2) application clock locks applied at boot by nvidia-minmax-clocks.service
+# are dropped if the GPU fully powers off while persistence is off, until that unit reruns.
+set-gpu-persistence-mode() {
+    local readonly mode="$1"
+
+    if [[ -n "$NVIDIA_DEVICE" ]] && command -v nvidia-smi >/dev/null 2>&1; then
+        nvidia-smi --persistence-mode="$mode" >/dev/null 2>&1 || true
+    fi
 }
 
 freeze-userspace() {
@@ -212,6 +234,86 @@ log-nvidia-quiescence-diagnostics() {
     log "--- [END DIAGNOSTICS] ---"
 }
 
+list-dgpu-clients() {
+    # ';'-joined set of processes holding an open handle to a discrete-GPU device
+    # node, each tagged ':m' when it also has an NVIDIA node mmap'd - i.e. holding
+    # live video memory, the reference that most often blocks runtime-D3 suspend.
+    # Pure procfs: never opens the GPU, so it is safe even against a suspended one.
+    local -A dgpu_nodes=([/dev/nvidia0]=1 [/dev/nvidiactl]=1 [/dev/nvidia-modeset]=1 [/dev/nvidia-uvm]=1)
+    local -A seen=()
+    local drm_node='' fd='' target='' pid='' comm='' result=''
+
+    for drm_node in "${NVIDIA_DEVICE}"/drm/*; do
+        if [[ -e "/dev/dri/$(basename "$drm_node")" ]]; then
+            dgpu_nodes["/dev/dri/$(basename "$drm_node")"]=1
+        fi
+    done
+
+    for fd in /proc/[0-9]*/fd/*; do
+        target=$(readlink "$fd" 2>/dev/null) || continue
+        [[ -n "${dgpu_nodes[$target]:-}" ]] || continue
+        pid=${fd#/proc/}
+        pid=${pid%%/*}
+        [[ -n "${seen[$pid]:-}" ]] && continue
+        seen[$pid]=1
+        comm=$(read-file "/proc/$pid/comm" '?')
+        comm=${comm//[ ,;]/_}
+        if grep -qE '/dev/nvidia[0-9]|/dev/nvidiactl|/dev/nvidia-modeset|/dev/nvidia-uvm' "/proc/$pid/maps" 2>/dev/null; then
+            comm+=':m'
+        fi
+        result+="${comm};"
+    done
+
+    printf '%s' "${result%;}"
+}
+
+snapshot-nvidia-state() {
+    # Six CSV fields describing why the GPU might still be up, sampled while it is
+    # still active at the start of a wait - the apples-to-apples point for comparing
+    # a run that goes on to suspend against one that times out.
+    local status='' usage='' active_kids='' video_memory='n/a' connected='n/a' drm_card='' conn=''
+
+    status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
+    usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
+    active_kids=$(read-file "${NVIDIA_DEVICE}/power/runtime_active_kids")
+
+    # Reading the driver power node and DRM connector status can force an
+    # RTD3-suspended GPU back to D0, so only probe them while it is still up.
+    if [[ "$status" != 'suspended' ]]; then
+        video_memory=$(awk -F: '/Video Memory:/ { gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit }' /proc/driver/nvidia/gpus/*/power 2>/dev/null || true)
+        [[ -n "$video_memory" ]] || video_memory='unavailable'
+
+        connected=''
+        for drm_card in "${NVIDIA_DEVICE}"/drm/card[0-9]*; do
+            [[ -d "$drm_card" ]] || continue
+            for conn in /sys/class/drm/"$(basename "$drm_card")"-*; do
+                if [[ -d "$conn" && "$(read-file "$conn/status")" == 'connected' ]]; then
+                    connected+="${conn##*/card[0-9]-};"
+                fi
+            done
+        done
+        [[ -n "$connected" ]] && connected="${connected%;}" || connected='none'
+    fi
+
+    printf '%s,%s,%s,%s,%s,%s' \
+        "$status" "$usage" "$active_kids" "$video_memory" "$connected" "$(list-dgpu-clients)"
+}
+
+record-quiescence-outcome() {
+    local readonly stage_name="$1"
+    local readonly outcome="$2"
+    local readonly elapsed="$3"
+    local readonly entry_state="$4"
+
+    [[ -n "$NVIDIA_DEVICE" ]] || return 0
+    if [[ ! -f "$QUIESCENCE_LOG" ]]; then
+        printf '%s\n' "$QUIESCENCE_LOG_HEADER" >> "$QUIESCENCE_LOG" 2>/dev/null || return 0
+    fi
+    printf '%s,%s,%s,%s,%s,%s\n' \
+        "$(date --iso-8601=seconds)" "$RUN_ID" "$stage_name" "$outcome" "$elapsed" "$entry_state" \
+        >> "$QUIESCENCE_LOG" 2>/dev/null || true
+}
+
 wait-for-nvidia-quiescence() {
     local readonly stage_name="${1:-quiesce}"
     local elapsed=0
@@ -225,9 +327,11 @@ wait-for-nvidia-quiescence() {
     fi
 
     log "Waiting for NVIDIA GPU to enter suspended state at '${stage_name}' (up to ${QUIESCENCE_TIMEOUT_SECONDS}s)..."
+    local readonly entry_state=$(snapshot-nvidia-state)
     while (( elapsed < QUIESCENCE_TIMEOUT_SECONDS )); do
         if is-wake-requested; then
             log "Wake input detected during quiescence at '${stage_name}'. Resuming desktop."
+            record-quiescence-outcome "$stage_name" woke "$elapsed" "$entry_state"
 
             return 0
         fi
@@ -237,6 +341,7 @@ wait-for-nvidia-quiescence() {
 
         if [[ "$status" == 'suspended' || "$usage" == '0' ]]; then
             log "NVIDIA GPU quiesced at stage '${stage_name}' after ${elapsed}s (status: ${status}, usage: ${usage})."
+            record-quiescence-outcome "$stage_name" quiesced "$elapsed" "$entry_state"
 
             return 0
         fi
@@ -247,6 +352,7 @@ wait-for-nvidia-quiescence() {
 
     if is-wake-requested; then
         log "Wake input detected during quiescence at '${stage_name}'. Resuming desktop."
+        record-quiescence-outcome "$stage_name" woke "$elapsed" "$entry_state"
 
         return 0
     fi
@@ -254,6 +360,7 @@ wait-for-nvidia-quiescence() {
     status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
     usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
     log "ERROR: Timed out at stage '${stage_name}' after ${QUIESCENCE_TIMEOUT_SECONDS}s (status: ${status}, usage: ${usage})."
+    record-quiescence-outcome "$stage_name" timed_out "$elapsed" "$entry_state"
     log-nvidia-quiescence-diagnostics "$stage_name"
 
     return 1
@@ -522,11 +629,12 @@ wait-for-input() {
 
 main() {
     local readonly run_id=$(date '+%Y%m%d-%H%M%S')
+    RUN_ID="$run_id"
     declare -A stats=()
 
     INITIAL_EPP=$(get-cpu-epp)
 
-    trap 'thaw-userspace; resume-gnome-shell || true; sleep 1; set-display-power-mode "$POWER_SAVE_ON" || true; reset-screensaver || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; stop-input-listener; stop-telemetry' EXIT
+    trap 'thaw-userspace; resume-gnome-shell || true; sleep 1; set-display-power-mode "$POWER_SAVE_ON" || true; reset-screensaver || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; set-gpu-persistence-mode 1 || true; stop-input-listener; stop-telemetry' EXIT
     trap 'exit 0' INT TERM HUP
 
     start-telemetry "$run_id"
@@ -543,6 +651,7 @@ main() {
     fi
 
     set-cpu-epp power
+    set-gpu-persistence-mode 0
     set-display-power-mode "$POWER_SAVE_OFF"
     if ! wait-for-nvidia-quiescence "pre-gnome-shell"; then
         if ! is-wake-requested; then
@@ -579,6 +688,7 @@ main() {
     if [[ -n "${INITIAL_EPP:-}" ]]; then
         set-cpu-epp "$INITIAL_EPP"
     fi
+    set-gpu-persistence-mode 1
     stop-input-listener
     stop-telemetry
 

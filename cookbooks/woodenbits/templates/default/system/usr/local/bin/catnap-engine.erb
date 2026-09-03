@@ -86,7 +86,7 @@ readonly GPU_WAKE_SUPPRESS_FILE='/tmp/catnap-nvidia-quiesce-active'
 # timeouts - so the two populations can later be diffed to learn what actually blocks
 # runtime-D3 suspend. One row per wait (two per catnap); grows ~200 bytes per run.
 readonly QUIESCENCE_LOG="${LOG_DIR}/quiescence-history.csv"
-readonly QUIESCENCE_LOG_HEADER='timestamp,run_id,stage,outcome,elapsed_s,entry_runtime_status,entry_runtime_usage,entry_active_kids,entry_video_memory,entry_dgpu_connected_outputs,entry_dgpu_clients'
+readonly QUIESCENCE_LOG_HEADER='timestamp,run_id,stage,outcome,elapsed_s,entry_runtime_status,entry_runtime_usage,entry_active_kids,entry_dgpu_clients,exit_runtime_status,exit_runtime_usage,exit_active_kids,exit_video_memory,exit_dgpu_connected_outputs,exit_dgpu_clients'
 # Built-in analog output (laptop speakers), auto-detected by ALSA card name. Driven directly
 # via aplay to bypass PipeWire - which routes to the USB DAC by default and is frozen alongside
 # userspace during catnap. Empty on hosts with no built-in analog card; play-tone then no-ops.
@@ -260,32 +260,46 @@ list-dgpu-clients() {
 }
 
 snapshot-nvidia-state() {
-    # Six CSV fields describing why the GPU might still be up, sampled while it is
-    # still active at the start of a wait - the apples-to-apples point for comparing
-    # a run that goes on to suspend against one that times out.
-    local status='' usage='' active_kids='' video_memory='n/a' connected='n/a' drm_card='' conn=''
+    # Four CSV fields describing the GPU at the start of a wait. Kept deliberately
+    # lean: every read here is either sysfs power/* (passive PM counters) or pure
+    # procfs (list-dgpu-clients scans /proc/*/fd and /proc/*/maps). Earlier versions
+    # also probed /proc/driver/nvidia/gpus/*/power and /sys/class/drm/*/status here,
+    # but both of those touch the NVIDIA driver / DRM subsystem and can reset the
+    # runtime-PM idle countdown on an already-active GPU - the exact hazard we are
+    # trying NOT to introduce when the whole point is to let it go idle. Those
+    # richer fields are captured on timeout only, in snapshot-nvidia-state-on-timeout.
+    printf '%s,%s,%s,%s' \
+        "$(read-file "${NVIDIA_DEVICE}/power/runtime_status")" \
+        "$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")" \
+        "$(read-file "${NVIDIA_DEVICE}/power/runtime_active_kids")" \
+        "$(list-dgpu-clients)"
+}
+
+snapshot-nvidia-state-on-timeout() {
+    # Six CSV fields captured ONLY after we have already timed out - at that point
+    # the GPU is definitionally not going to suspend on its own, so the richer
+    # (and GPU-poking) probes are free to run without spoiling anything. Mirrors
+    # the shape of snapshot-nvidia-state plus video_memory and connected outputs
+    # so a row can be diffed entry-vs-exit to see what changed across the wait.
+    local status='' usage='' active_kids='' video_memory='' connected='' drm_card='' conn=''
 
     status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
     usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
     active_kids=$(read-file "${NVIDIA_DEVICE}/power/runtime_active_kids")
 
-    # Reading the driver power node and DRM connector status can force an
-    # RTD3-suspended GPU back to D0, so only probe them while it is still up.
-    if [[ "$status" != 'suspended' ]]; then
-        video_memory=$(awk -F: '/Video Memory:/ { gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit }' /proc/driver/nvidia/gpus/*/power 2>/dev/null || true)
-        [[ -n "$video_memory" ]] || video_memory='unavailable'
+    video_memory=$(awk -F: '/Video Memory:/ { gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit }' /proc/driver/nvidia/gpus/*/power 2>/dev/null || true)
+    [[ -n "$video_memory" ]] || video_memory='unavailable'
 
-        connected=''
-        for drm_card in "${NVIDIA_DEVICE}"/drm/card[0-9]*; do
-            [[ -d "$drm_card" ]] || continue
-            for conn in /sys/class/drm/"$(basename "$drm_card")"-*; do
-                if [[ -d "$conn" && "$(read-file "$conn/status")" == 'connected' ]]; then
-                    connected+="${conn##*/card[0-9]-};"
-                fi
-            done
+    connected=''
+    for drm_card in "${NVIDIA_DEVICE}"/drm/card[0-9]*; do
+        [[ -d "$drm_card" ]] || continue
+        for conn in /sys/class/drm/"$(basename "$drm_card")"-*; do
+            if [[ -d "$conn" && "$(read-file "$conn/status")" == 'connected' ]]; then
+                connected+="${conn##*/card[0-9]-};"
+            fi
         done
-        [[ -n "$connected" ]] && connected="${connected%;}" || connected='none'
-    fi
+    done
+    [[ -n "$connected" ]] && connected="${connected%;}" || connected='none'
 
     printf '%s,%s,%s,%s,%s,%s' \
         "$status" "$usage" "$active_kids" "$video_memory" "$connected" "$(list-dgpu-clients)"
@@ -296,13 +310,17 @@ record-quiescence-outcome() {
     local readonly outcome="$2"
     local readonly elapsed="$3"
     local readonly entry_state="$4"
+    # 6-field CSV fragment matching snapshot-nvidia-state-on-timeout, populated
+    # only when outcome=timed_out (empty ',,,,,,' otherwise) so entry vs. exit is
+    # directly diff-able within one row.
+    local readonly exit_state="${5:-,,,,,}"
 
     [[ -n "$NVIDIA_DEVICE" ]] || return 0
     if [[ ! -f "$QUIESCENCE_LOG" ]]; then
         printf '%s\n' "$QUIESCENCE_LOG_HEADER" >> "$QUIESCENCE_LOG" 2>/dev/null || return 0
     fi
-    printf '%s,%s,%s,%s,%s,%s\n' \
-        "$(date --iso-8601=seconds)" "$RUN_ID" "$stage_name" "$outcome" "$elapsed" "$entry_state" \
+    printf '%s,%s,%s,%s,%s,%s,%s\n' \
+        "$(date --iso-8601=seconds)" "$RUN_ID" "$stage_name" "$outcome" "$elapsed" "$entry_state" "$exit_state" \
         >> "$QUIESCENCE_LOG" 2>/dev/null || true
 }
 
@@ -353,7 +371,8 @@ wait-for-nvidia-quiescence() {
     status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
     usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
     log "ERROR: Timed out at stage '${stage_name}' after ${QUIESCENCE_TIMEOUT_SECONDS}s (status: ${status}, usage: ${usage})."
-    record-quiescence-outcome "$stage_name" timed_out "$elapsed" "$entry_state"
+    local readonly exit_state=$(snapshot-nvidia-state-on-timeout)
+    record-quiescence-outcome "$stage_name" timed_out "$elapsed" "$entry_state" "$exit_state"
     log-nvidia-quiescence-diagnostics "$stage_name"
 
     return 1

@@ -644,6 +644,7 @@ main() {
     fi
 
     set-cpu-epp power
+    killall Xwayland 2>/dev/null || true
     set-display-power-mode "$POWER_SAVE_OFF"
     if ! wait-for-nvidia-quiescence "pre-gnome-shell"; then
         if ! is-wake-requested; then

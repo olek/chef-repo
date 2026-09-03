@@ -74,6 +74,14 @@ readonly MUTTER_INTERFACE='org.gnome.Mutter.DisplayConfig'
 readonly POWER_SAVE_ON=0
 readonly POWER_SAVE_OFF=3
 readonly LOG_DIR='/var/log/catnap'
+# Touched at the start of every GPU quiescence wait so perf-watch-cmd (running
+# unprivileged, e.g. under the tmux 'watch' loop) can detect a wait in progress via
+# this file's mtime and skip its own nvidia-smi/lspci calls, which would otherwise
+# force-resume the GPU out of RTD3 and race catnap's own suspend attempt. Removed
+# in the EXIT trap once catnap resolves; the TTL in perf-watch-cmd.erb is just a
+# fallback in case this process dies before that trap runs. World-readable by
+# default /tmp permissions. Keep this path in sync with perf-watch-cmd.erb.
+readonly GPU_WAKE_SUPPRESS_FILE='/tmp/catnap-nvidia-quiesce-active'
 # Append-only, cross-run record of every GPU quiescence wait - successes as well as
 # timeouts - so the two populations can later be diffed to learn what actually blocks
 # runtime-D3 suspend. One row per wait (two per catnap); grows ~200 bytes per run.
@@ -113,22 +121,6 @@ set-cpu-epp() {
             echo "$epp_mode" > "$policy_file" || true
         fi
     done
-}
-
-# Persistence mode keeps the NVIDIA driver initialized (and video memory resident)
-# even with no clients attached, which pins the GPU out of runtime-D3. Catnap turns
-# it off around the sleep so the card can actually suspend, then restores it on resume.
-# Best-effort and root-only (via nvidia-smi); a no-op on non-NVIDIA hosts.
-# Caveats: (1) with nvidia-persistenced running the daemon may re-assert persistence,
-# so watch entry_video_memory / entry_dgpu_clients in the quiescence log to confirm this
-# lever bites; (2) application clock locks applied at boot by nvidia-minmax-clocks.service
-# are dropped if the GPU fully powers off while persistence is off, until that unit reruns.
-set-gpu-persistence-mode() {
-    local readonly mode="$1"
-
-    if [[ -n "$NVIDIA_DEVICE" ]] && command -v nvidia-smi >/dev/null 2>&1; then
-        nvidia-smi --persistence-mode="$mode" >/dev/null 2>&1 || true
-    fi
 }
 
 freeze-userspace() {
@@ -327,6 +319,7 @@ wait-for-nvidia-quiescence() {
     fi
 
     log "Waiting for NVIDIA GPU to enter suspended state at '${stage_name}' (up to ${QUIESCENCE_TIMEOUT_SECONDS}s)..."
+    touch "$GPU_WAKE_SUPPRESS_FILE" 2>/dev/null || true
     local readonly entry_state=$(snapshot-nvidia-state)
     while (( elapsed < QUIESCENCE_TIMEOUT_SECONDS )); do
         if is-wake-requested; then
@@ -634,7 +627,7 @@ main() {
 
     INITIAL_EPP=$(get-cpu-epp)
 
-    trap 'thaw-userspace; resume-gnome-shell || true; sleep 1; set-display-power-mode "$POWER_SAVE_ON" || true; reset-screensaver || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; set-gpu-persistence-mode 1 || true; stop-input-listener; stop-telemetry' EXIT
+    trap 'thaw-userspace; resume-gnome-shell || true; sleep 1; set-display-power-mode "$POWER_SAVE_ON" || true; reset-screensaver || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; rm -f "$GPU_WAKE_SUPPRESS_FILE" || true; stop-input-listener; stop-telemetry' EXIT
     trap 'exit 0' INT TERM HUP
 
     start-telemetry "$run_id"
@@ -651,7 +644,6 @@ main() {
     fi
 
     set-cpu-epp power
-    set-gpu-persistence-mode 0
     set-display-power-mode "$POWER_SAVE_OFF"
     if ! wait-for-nvidia-quiescence "pre-gnome-shell"; then
         if ! is-wake-requested; then
@@ -688,7 +680,6 @@ main() {
     if [[ -n "${INITIAL_EPP:-}" ]]; then
         set-cpu-epp "$INITIAL_EPP"
     fi
-    set-gpu-persistence-mode 1
     stop-input-listener
     stop-telemetry
 

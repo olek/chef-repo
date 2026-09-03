@@ -76,9 +76,27 @@ readonly PLATFORM_FILE="${CACHE_DIR}/platform.txt"
 readonly NVIDIA_CLOCK_RANGE_FILE="${CACHE_DIR}/nvidia-clock-range.txt"
 readonly LAST_RUN_CPU_STATS_FILE="${CACHE_DIR}/last-run-cpu-stats.txt"
 
-# When true (set by --no-gpu-wake), suppress every GPU-waking operation
-# (nvidia-smi, lspci); passive sysfs/procfs reads still run. See usage header.
+# When true (set by --no-gpu-wake or a fresh catnap quiescence sentinel below),
+# suppress every GPU-waking operation (nvidia-smi, lspci); passive sysfs/procfs
+# reads still run. See usage header.
 no_gpu_wake=false
+
+# Path catnap-engine (root) touches at the start of every GPU quiescence wait and
+# removes once catnap resolves; kept in sync with catnap-engine.erb. Checked by
+# mtime rather than existence/content, purely as a fallback so a crashed catnap
+# run (trap never runs) can't wedge us into --no-gpu-wake forever.
+readonly GPU_WAKE_SUPPRESS_FILE='/tmp/catnap-nvidia-quiesce-active'
+readonly GPU_WAKE_SUPPRESS_TTL_SECONDS=180
+
+# True if catnap-engine is (or very recently was) mid-quiescence-wait, i.e. actively
+# trying to suspend the GPU. Our own nvidia-smi/lspci calls would force-resume it out
+# of RTD3 and race that attempt, so we suppress them for the sentinel's TTL.
+catnap-quiescing() {
+  local mtime=''
+  mtime=$(stat -c %Y "$GPU_WAKE_SUPPRESS_FILE" 2>/dev/null)
+  [[ -n "$mtime" ]] || return 1
+  (( $(date +%s) - mtime < GPU_WAKE_SUPPRESS_TTL_SECONDS ))
+}
 # In no-wake mode the GPU-name/driver line is held here instead of the on-disk
 # cache (the "?" model placeholder must never poison the cache for later normal
 # runs). Empty otherwise; print_nvidia_header prefers it over the cache file.
@@ -771,6 +789,8 @@ parse_args() {
 
 main() {
   parse_args "$@"
+
+  catnap-quiescing && no_gpu_wake=true
 
   mkdir -p "$CACHE_DIR"
 

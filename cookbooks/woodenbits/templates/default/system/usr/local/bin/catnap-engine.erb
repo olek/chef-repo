@@ -65,6 +65,10 @@ detect-speaker-device() {
 readonly SETTLE_SECONDS=1
 readonly SAMPLE_INTERVAL_SECONDS=60
 readonly QUIESCENCE_TIMEOUT_SECONDS=60
+# The pre-GNOME-shell quiescence wait runs in three equal thirds of this length: idle
+# wait, wait after Xwayland teardown, wait after a polite Chrome quit. Together they
+# span roughly the same window as a single post-GNOME-shell wait.
+readonly PRE_QUIESCENCE_STAGE_SECONDS=20
 readonly QUIESCENCE_INTERVAL_SECONDS=5
 readonly WAKE_EVENT_PATTERN='KEYBOARD_KEY|POINTER_BUTTON|TOUCH_DOWN'
 readonly NVIDIA_DEVICE=$(detect-nvidia-gpu)
@@ -82,11 +86,14 @@ readonly LOG_DIR='/var/log/catnap'
 # fallback in case this process dies before that trap runs. World-readable by
 # default /tmp permissions. Keep this path in sync with perf-watch-cmd.erb.
 readonly GPU_WAKE_SUPPRESS_FILE='/tmp/catnap-nvidia-quiesce-active'
-# Append-only, cross-run record of every GPU quiescence wait - successes as well as
-# timeouts - so the two populations can later be diffed to learn what actually blocks
-# runtime-D3 suspend. One row per wait (two per catnap); grows ~200 bytes per run.
+# Append-only, cross-run record of every GPU quiescence wait plus the two run-level
+# state boundaries (one row per wait outcome + one row at run-start + optionally one
+# on run-abort). Per-wait rows carry only outcome + elapsed; the richer state fields
+# are populated only on the two boundary rows, because probing the NVIDIA driver /
+# DRM subsystem between the pre- and post- stages could itself reset the runtime-PM
+# idle countdown and mask the very quiescence we are trying to observe.
 readonly QUIESCENCE_LOG="${LOG_DIR}/quiescence-history.csv"
-readonly QUIESCENCE_LOG_HEADER='timestamp,run_id,stage,outcome,elapsed_s,entry_runtime_status,entry_runtime_usage,entry_active_kids,entry_dgpu_clients,exit_runtime_status,exit_runtime_usage,exit_active_kids,exit_video_memory,exit_dgpu_connected_outputs,exit_dgpu_clients'
+readonly QUIESCENCE_LOG_HEADER='timestamp,run_id,stage,outcome,elapsed_s,state_runtime_status,state_runtime_usage,state_active_kids,state_video_memory,state_dgpu_connected_outputs,state_dgpu_clients'
 # Built-in analog output (laptop speakers), auto-detected by ALSA card name. Driven directly
 # via aplay to bypass PipeWire - which routes to the USB DAC by default and is frozen alongside
 # userspace during catnap. Empty on hosts with no built-in analog card; play-tone then no-ops.
@@ -154,6 +161,30 @@ suspend-gnome-shell() {
 
 resume-gnome-shell() {
     killall -CONT gnome-shell 2>/dev/null || true
+}
+
+quit-chrome-politely() {
+    # Send SIGTERM to Chrome's *browser* process only - the one whose cmdline has no
+    # '--type=' argument. Child processes (--type=renderer|gpu-process|utility|zygote)
+    # die on their own once the parent exits. TERM is Chrome's clean-shutdown signal:
+    # it flushes session state and sets the 'exited cleanly' flags so the next launch
+    # does NOT show the "Chrome didn't shut down correctly" restore bubble. Chrome
+    # shows up repeatedly in list-dgpu-clients as a VRAM/GPU-scheduler pinner under
+    # Wayland even though it cannot use NVIDIA there, so this is a last-resort lever
+    # before we give up and abort catnap.
+    local pid='' cmdline=''
+
+    for pid in /proc/[0-9]*; do
+        [[ -r "$pid/comm" ]] || continue
+        case "$(read-file "$pid/comm")" in
+            chrome|chromium) ;;
+            *) continue ;;
+        esac
+        cmdline=$(tr '\0' ' ' < "$pid/cmdline" 2>/dev/null) || continue
+        # Browser process has no --type= arg; every child does.
+        [[ "$cmdline" == *' --type='* ]] && continue
+        kill -TERM "${pid##*/}" 2>/dev/null || true
+    done
 }
 
 set-display-power-mode() {
@@ -260,27 +291,11 @@ list-dgpu-clients() {
 }
 
 snapshot-nvidia-state() {
-    # Four CSV fields describing the GPU at the start of a wait. Kept deliberately
-    # lean: every read here is either sysfs power/* (passive PM counters) or pure
-    # procfs (list-dgpu-clients scans /proc/*/fd and /proc/*/maps). Earlier versions
-    # also probed /proc/driver/nvidia/gpus/*/power and /sys/class/drm/*/status here,
-    # but both of those touch the NVIDIA driver / DRM subsystem and can reset the
-    # runtime-PM idle countdown on an already-active GPU - the exact hazard we are
-    # trying NOT to introduce when the whole point is to let it go idle. Those
-    # richer fields are captured on timeout only, in snapshot-nvidia-state-on-timeout.
-    printf '%s,%s,%s,%s' \
-        "$(read-file "${NVIDIA_DEVICE}/power/runtime_status")" \
-        "$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")" \
-        "$(read-file "${NVIDIA_DEVICE}/power/runtime_active_kids")" \
-        "$(list-dgpu-clients)"
-}
-
-snapshot-nvidia-state-on-timeout() {
-    # Six CSV fields captured ONLY after we have already timed out - at that point
-    # the GPU is definitionally not going to suspend on its own, so the richer
-    # (and GPU-poking) probes are free to run without spoiling anything. Mirrors
-    # the shape of snapshot-nvidia-state plus video_memory and connected outputs
-    # so a row can be diffed entry-vs-exit to see what changed across the wait.
+    # Six CSV fields describing the GPU's state right now. Some of these reads touch
+    # the NVIDIA driver / DRM subsystem and can reset the runtime-PM idle countdown
+    # on an active GPU (that is why this is NOT called during a quiescence wait);
+    # only at run-start (before any wait) and on run-abort (after we have given up)
+    # where the reset doesn't matter.
     local status='' usage='' active_kids='' video_memory='' connected='' drm_card='' conn=''
 
     status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
@@ -309,23 +324,23 @@ record-quiescence-outcome() {
     local readonly stage_name="$1"
     local readonly outcome="$2"
     local readonly elapsed="$3"
-    local readonly entry_state="$4"
-    # 6-field CSV fragment matching snapshot-nvidia-state-on-timeout, populated
-    # only when outcome=timed_out (empty ',,,,,,' otherwise) so entry vs. exit is
-    # directly diff-able within one row.
-    local readonly exit_state="${5:-,,,,,}"
+    # 6-field CSV fragment from snapshot-nvidia-state. Populated only on the two
+    # boundary rows (run-start, run-abort); empty (',,,,,,') on per-stage wait rows,
+    # so those never trigger a driver / DRM probe mid-catnap.
+    local readonly state="${4:-,,,,,}"
 
     [[ -n "$NVIDIA_DEVICE" ]] || return 0
     if [[ ! -f "$QUIESCENCE_LOG" ]]; then
         printf '%s\n' "$QUIESCENCE_LOG_HEADER" >> "$QUIESCENCE_LOG" 2>/dev/null || return 0
     fi
-    printf '%s,%s,%s,%s,%s,%s,%s\n' \
-        "$(date --iso-8601=seconds)" "$RUN_ID" "$stage_name" "$outcome" "$elapsed" "$entry_state" "$exit_state" \
+    printf '%s,%s,%s,%s,%s,%s\n' \
+        "$(date --iso-8601=seconds)" "$RUN_ID" "$stage_name" "$outcome" "$elapsed" "$state" \
         >> "$QUIESCENCE_LOG" 2>/dev/null || true
 }
 
 wait-for-nvidia-quiescence() {
     local readonly stage_name="${1:-quiesce}"
+    local readonly timeout_seconds="${2:-$QUIESCENCE_TIMEOUT_SECONDS}"
     local elapsed=0
     local status=''
     local usage=''
@@ -336,13 +351,12 @@ wait-for-nvidia-quiescence() {
         return 0
     fi
 
-    log "Waiting for NVIDIA GPU to enter suspended state at '${stage_name}' (up to ${QUIESCENCE_TIMEOUT_SECONDS}s)..."
+    log "Waiting for NVIDIA GPU to enter suspended state at '${stage_name}' (up to ${timeout_seconds}s)..."
     touch "$GPU_WAKE_SUPPRESS_FILE" 2>/dev/null || true
-    local readonly entry_state=$(snapshot-nvidia-state)
-    while (( elapsed < QUIESCENCE_TIMEOUT_SECONDS )); do
+    while (( elapsed < timeout_seconds )); do
         if is-wake-requested; then
             log "Wake input detected during quiescence at '${stage_name}'. Resuming desktop."
-            record-quiescence-outcome "$stage_name" woke "$elapsed" "$entry_state"
+            record-quiescence-outcome "$stage_name" woke "$elapsed"
 
             return 0
         fi
@@ -352,7 +366,7 @@ wait-for-nvidia-quiescence() {
 
         if [[ "$status" == 'suspended' || "$usage" == '0' ]]; then
             log "NVIDIA GPU quiesced at stage '${stage_name}' after ${elapsed}s (status: ${status}, usage: ${usage})."
-            record-quiescence-outcome "$stage_name" quiesced "$elapsed" "$entry_state"
+            record-quiescence-outcome "$stage_name" quiesced "$elapsed"
 
             return 0
         fi
@@ -363,17 +377,15 @@ wait-for-nvidia-quiescence() {
 
     if is-wake-requested; then
         log "Wake input detected during quiescence at '${stage_name}'. Resuming desktop."
-        record-quiescence-outcome "$stage_name" woke "$elapsed" "$entry_state"
+        record-quiescence-outcome "$stage_name" woke "$elapsed"
 
         return 0
     fi
 
     status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
     usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
-    log "ERROR: Timed out at stage '${stage_name}' after ${QUIESCENCE_TIMEOUT_SECONDS}s (status: ${status}, usage: ${usage})."
-    local readonly exit_state=$(snapshot-nvidia-state-on-timeout)
-    record-quiescence-outcome "$stage_name" timed_out "$elapsed" "$entry_state" "$exit_state"
-    log-nvidia-quiescence-diagnostics "$stage_name"
+    log "ERROR: Timed out at stage '${stage_name}' after ${timeout_seconds}s (status: ${status}, usage: ${usage})."
+    record-quiescence-outcome "$stage_name" timed_out "$elapsed"
 
     return 1
 }
@@ -662,12 +674,40 @@ main() {
         stats[before_nvidia_suspended]=$(cat "${NVIDIA_DEVICE}/power/runtime_suspended_time" 2>/dev/null || true)
     fi
 
-    set-cpu-epp power
-    killall Xwayland 2>/dev/null || true
+    # Blank the displays first so the screen goes dark the instant the user triggers
+    # catnap - the most important piece of "it's working" feedback. Everything below
+    # (the heavyweight run-start snapshot, EPP change, Xwayland teardown) then happens
+    # behind an already-dark screen instead of stalling the visible transition.
     set-display-power-mode "$POWER_SAVE_OFF"
-    if ! wait-for-nvidia-quiescence "pre-gnome-shell"; then
+    set-cpu-epp power
+
+    # Boundary snapshot #1: run-start. Safe here - we haven't started trying to
+    # quiesce the GPU yet, so poking the driver / DRM cannot spoil anything.
+    if [[ -n "$NVIDIA_DEVICE" ]]; then
+        record-quiescence-outcome "run-start" snapshot 0 "$(snapshot-nvidia-state)"
+    fi
+
+    # Pre-GNOME-shell quiescence in three stages, ordered by escalating disruption. Each
+    # stage waits PRE_QUIESCENCE_STAGE_SECONDS; between stages we apply one more lever:
+    #   1. Just wait - many runs quiesce on their own.
+    #   2. Tear down Xwayland - a frequent RTD3 blocker via X11 clients.
+    #   3. Politely SIGTERM the Chrome browser process - Chrome routinely holds GPU
+    #      state under Wayland even though it cannot use NVIDIA there. TERM is clean:
+    #      Chrome flushes session state so the next launch has no crash bubble.
+    # One short "delayed" beep fires only if all three stages fail.
+    if ! wait-for-nvidia-quiescence "pre-gnome-shell-1" "$PRE_QUIESCENCE_STAGE_SECONDS"; then
         if ! is-wake-requested; then
-            play-catnap-quiescence-delayed
+            killall Xwayland 2>/dev/null || true
+            if ! wait-for-nvidia-quiescence "pre-gnome-shell-2" "$PRE_QUIESCENCE_STAGE_SECONDS"; then
+                if ! is-wake-requested; then
+                    quit-chrome-politely
+                    if ! wait-for-nvidia-quiescence "pre-gnome-shell-3" "$PRE_QUIESCENCE_STAGE_SECONDS"; then
+                        if ! is-wake-requested; then
+                            play-catnap-quiescence-delayed
+                        fi
+                    fi
+                fi
+            fi
         fi
     fi
 
@@ -677,6 +717,13 @@ main() {
         suspend-gnome-shell
         if ! wait-for-nvidia-quiescence "post-gnome-shell"; then
             if ! is-wake-requested; then
+                # Boundary snapshot #2: run-abort. We've given up trying to suspend,
+                # so probing the driver / DRM now is harmless. Also emit the full
+                # diagnostics dump (nvidia-smi + fuser) for offline post-mortem.
+                if [[ -n "$NVIDIA_DEVICE" ]]; then
+                    record-quiescence-outcome "run-abort" snapshot 0 "$(snapshot-nvidia-state)"
+                fi
+                log-nvidia-quiescence-diagnostics "run-abort"
                 play-catnap-aborted
                 exit 1
             fi
@@ -689,14 +736,25 @@ main() {
         fi
     fi
 
-    thaw-userspace
-    resume-gnome-shell
+    # Sound the wake chime first thing - it goes straight to the speaker via aplay,
+    # independent of gnome-shell/PipeWire, so it's the earliest feedback we can give
+    # that the machine heard the wake input.
     if [[ "$slept_in_catnap" == true ]]; then
         play-catnap-resumed
     fi
+    thaw-userspace
+    resume-gnome-shell
     sleep 1
     set-display-power-mode "$POWER_SAVE_ON"
     reset-screensaver
+
+    # Boundary snapshot #3: run-wake. Deferred to here, after the screen is already
+    # back on, so the heavyweight snapshot never stalls the visible wake. Only
+    # meaningful after a real sleep (thaw+resume have brought userspace back, so the
+    # GPU is on its way up regardless); skip immediate-wake paths where we never froze.
+    if [[ "$slept_in_catnap" == true && -n "$NVIDIA_DEVICE" ]]; then
+        record-quiescence-outcome "run-wake" snapshot 0 "$(snapshot-nvidia-state)"
+    fi
     if [[ -n "${INITIAL_EPP:-}" ]]; then
         set-cpu-epp "$INITIAL_EPP"
     fi

@@ -12,56 +12,6 @@
 #
 set -euo pipefail
 
-detect-nvidia-gpu() {
-    local dev=''
-
-    for dev in /sys/bus/pci/devices/*; do
-        if [[ -f "$dev/vendor" && "$(cat "$dev/vendor")" == '0x10de' &&
-              -f "$dev/class" && "$(cat "$dev/class")" =~ ^0x03 ]]; then
-            echo "$dev"
-
-            return 0
-        fi
-    done
-
-    # Return 0 even if not found to prevent 'set -e' from aborting on non-NVIDIA systems
-    return 0
-}
-
-detect-speaker-device() {
-    local line=''
-    local card_num=''
-    local card_id=''
-    local device_num=''
-    local device_desc=''
-
-    # Pick the built-in analog output for the catnap chime: the first playback device that is
-    # neither on a USB card (external DAC, webcam, audio interface) nor a digital output
-    # (HDMI/SPDIF). Addresses the speaker by ALSA card *name* so it survives card renumbering.
-    while IFS= read -r line; do
-        [[ "$line" =~ ^card\ ([0-9]+):\ ([^\ ]+)\ \[.*\],\ device\ ([0-9]+):\ (.*)$ ]] || continue
-        card_num="${BASH_REMATCH[1]}"
-        card_id="${BASH_REMATCH[2]}"
-        device_num="${BASH_REMATCH[3]}"
-        device_desc="${BASH_REMATCH[4],,}"
-
-        if [[ -e "/proc/asound/card${card_num}/usbid" ]]; then
-            continue
-        fi
-        if [[ "$device_desc" == *hdmi* || "$device_desc" == *digital* ||
-              "$device_desc" == *s/pdif* || "$device_desc" == *iec958* ]]; then
-            continue
-        fi
-
-        printf 'plughw:CARD=%s,DEV=%s\n' "$card_id" "$device_num"
-
-        return 0
-    done < <(aplay -l 2>/dev/null)
-
-    # Return 0 even if not found so 'set -e' does not abort; play-tone skips on empty device.
-    return 0
-}
-
 readonly SETTLE_SECONDS=1
 readonly SAMPLE_INTERVAL_SECONDS=60
 readonly QUIESCENCE_TIMEOUT_SECONDS=60
@@ -71,7 +21,7 @@ readonly QUIESCENCE_TIMEOUT_SECONDS=60
 readonly PRE_QUIESCENCE_STAGE_SECONDS=20
 readonly QUIESCENCE_INTERVAL_SECONDS=5
 readonly WAKE_EVENT_PATTERN='KEYBOARD_KEY|POINTER_BUTTON|TOUCH_DOWN'
-readonly NVIDIA_DEVICE=$(detect-nvidia-gpu)
+NVIDIA_DEVICE=''  # Populated by main() after the display blank; empty on non-NVIDIA hosts.
 readonly MUTTER_DESTINATION='org.gnome.Mutter.DisplayConfig'
 readonly MUTTER_PATH='/org/gnome/Mutter/DisplayConfig'
 readonly MUTTER_INTERFACE='org.gnome.Mutter.DisplayConfig'
@@ -94,11 +44,34 @@ readonly GPU_WAKE_SUPPRESS_FILE='/tmp/catnap-nvidia-quiesce-active'
 # idle countdown and mask the very quiescence we are trying to observe.
 readonly QUIESCENCE_LOG="${LOG_DIR}/quiescence-history.csv"
 readonly QUIESCENCE_LOG_HEADER='timestamp,run_id,stage,outcome,elapsed_s,state_runtime_status,state_runtime_usage,state_active_kids,state_video_memory,state_dgpu_connected_outputs,state_dgpu_clients'
-# Built-in analog output (laptop speakers), auto-detected by ALSA card name. Driven directly
-# via aplay to bypass PipeWire - which routes to the USB DAC by default and is frozen alongside
-# userspace during catnap. Empty on hosts with no built-in analog card; play-tone then no-ops.
-readonly SPEAKER_DEVICE=$(detect-speaker-device)
+# Per-run passive telemetry file: one CSV per catnap run, name filled in from $RUN_ID
+# by start-telemetry. Time-series of whole-system energy/CPU/thermal/NVIDIA state,
+# sampled every SAMPLE_INTERVAL_SECONDS during the run, consumed by print-and-save-summary
+# for the wake-up toast (duration, discharge rate, NVIDIA suspended fraction).
+readonly TELEMETRY_FILE_PATTERN="${LOG_DIR}/%s-samples.csv"
+# Built-in analog output (laptop speakers), auto-detected on first play-tone call via
+# detect-speaker-device (which shells out to 'aplay -l'). Detection is deferred out of
+# script-load and past the initial display blank, because aplay -l enumerates every
+# ALSA card synchronously and can add hundreds of ms before the screen goes dark. Driven
+# directly via aplay to bypass PipeWire - which routes to the USB DAC by default and is
+# frozen alongside userspace during catnap. Empty on hosts with no built-in analog card;
+# play-tone then no-ops.
+SPEAKER_DEVICE=''
 readonly SPEAKER_SAMPLE_RATE=44100
+
+# Ordered ladder of escalating levers we pull to coax the dGPU into RTD3 suspend before
+# the actual catnap freeze. Each entry is a pipe-separated tuple: 'stage_name|timeout_s|
+# pre_action|pre_action_log'. Stages run in order; between stages we play a short beep,
+# log the escalation reason, and invoke pre_action (empty means "just wait longer"). As
+# soon as any stage quiesces the GPU the ladder returns success and later stages are
+# skipped. The final rung uses the longer QUIESCENCE_TIMEOUT_SECONDS because suspending
+# gnome-shell often takes noticeably longer to bite than the earlier levers.
+readonly QUIESCENCE_LADDER=(
+    "pre-gnome-shell-1|$PRE_QUIESCENCE_STAGE_SECONDS||"
+    "pre-gnome-shell-2|$PRE_QUIESCENCE_STAGE_SECONDS|kill-xwayland|Stage 1 timed out; killing Xwayland to release its dGPU hold."
+    "pre-gnome-shell-3|$PRE_QUIESCENCE_STAGE_SECONDS|quit-chrome-politely|Stage 2 timed out; sending SIGTERM to Chrome browser to release its dGPU hold."
+    "post-gnome-shell|$QUIESCENCE_TIMEOUT_SECONDS|suspend-gnome-shell|Stage 3 timed out; suspending gnome-shell and waiting again."
+)
 
 RUN_ID=''
 INITIAL_EPP=''
@@ -109,6 +82,29 @@ INPUT_PID=''
 
 log() {
     printf '%s %s\n' "$(date --iso-8601=seconds)" "$*"
+}
+
+read-file() {
+    local readonly path="$1"
+    local readonly fallback="${2:-unavailable}"
+
+    cat "$path" 2>/dev/null || printf '%s\n' "$fallback"
+}
+
+read-hwmon-temperature() {
+    local readonly device_name="$1"
+    local readonly temperature_file="$2"
+    local hwmon=''
+
+    for hwmon in /sys/class/hwmon/hwmon*; do
+        if [[ "$(read-file "$hwmon/name")" == "$device_name" ]]; then
+            read-file "$hwmon/$temperature_file"
+
+            return
+        fi
+    done
+
+    printf 'unavailable\n'
 }
 
 get-cpu-epp() {
@@ -163,6 +159,10 @@ resume-gnome-shell() {
     killall -CONT gnome-shell 2>/dev/null || true
 }
 
+kill-xwayland() {
+    killall Xwayland 2>/dev/null || true
+}
+
 quit-chrome-politely() {
     # Send SIGTERM to Chrome's *browser* process only - the one whose cmdline has no
     # '--type=' argument. Child processes (--type=renderer|gpu-process|utility|zygote)
@@ -203,6 +203,20 @@ set-display-power-mode() {
                 "$MUTTER_INTERFACE" PowerSaveMode i "$mode" || true
         fi
     done
+}
+
+blank-displays() {
+    # Blank the displays FIRST, before anything else in main - it's the "it's working"
+    # feedback the user is waiting for. Everything else (traps, telemetry, input listener,
+    # stats reads, EPP change, snapshots) then happens behind an already-dark screen. Log
+    # both the pre-blank latency (from main entry) and the blank RPC duration itself so
+    # we can see where any lingering delay comes from.
+    local readonly main_started_ms="$1"
+    local readonly blank_start_ms=$(date '+%s%3N')
+
+    log "main() entered ${main_started_ms}ms epoch; blanking displays"
+    set-display-power-mode "$POWER_SAVE_OFF"
+    log "Display blank returned after $(( $(date '+%s%3N') - blank_start_ms ))ms"
 }
 
 log-nvidia-quiescence-diagnostics() {
@@ -409,11 +423,67 @@ reset-screensaver() {
     done
 }
 
+detect-nvidia-gpu() {
+    local dev=''
+
+    for dev in /sys/bus/pci/devices/*; do
+        if [[ -f "$dev/vendor" && "$(cat "$dev/vendor")" == '0x10de' &&
+              -f "$dev/class" && "$(cat "$dev/class")" =~ ^0x03 ]]; then
+            echo "$dev"
+
+            return 0
+        fi
+    done
+
+    # Return 0 even if not found to prevent 'set -e' from aborting on non-NVIDIA systems
+    return 0
+}
+
+detect-speaker-device() {
+    local line=''
+    local card_num=''
+    local card_id=''
+    local device_num=''
+    local device_desc=''
+
+    # Pick the built-in analog output for the catnap chime: the first playback device that is
+    # neither on a USB card (external DAC, webcam, audio interface) nor a digital output
+    # (HDMI/SPDIF). Addresses the speaker by ALSA card *name* so it survives card renumbering.
+    while IFS= read -r line; do
+        [[ "$line" =~ ^card\ ([0-9]+):\ ([^\ ]+)\ \[.*\],\ device\ ([0-9]+):\ (.*)$ ]] || continue
+        card_num="${BASH_REMATCH[1]}"
+        card_id="${BASH_REMATCH[2]}"
+        device_num="${BASH_REMATCH[3]}"
+        device_desc="${BASH_REMATCH[4],,}"
+
+        if [[ -e "/proc/asound/card${card_num}/usbid" ]]; then
+            continue
+        fi
+        if [[ "$device_desc" == *hdmi* || "$device_desc" == *digital* ||
+              "$device_desc" == *s/pdif* || "$device_desc" == *iec958* ]]; then
+            continue
+        fi
+
+        printf 'plughw:CARD=%s,DEV=%s\n' "$card_id" "$device_num"
+
+        return 0
+    done < <(aplay -l 2>/dev/null)
+
+    # Return 0 even if not found so 'set -e' does not abort; play-tone skips on empty device.
+    return 0
+}
+
 play-tone() {
     local readonly frequency_hz="$1"
     local readonly duration_ms="$2"
 
+    # Detect once on first tone (memoized in SPEAKER_DEVICE). The sentinel 'none' means
+    # detection ran and found no built-in analog card, so we don't re-probe on every tone.
     if [[ -z "$SPEAKER_DEVICE" ]]; then
+        SPEAKER_DEVICE=$(detect-speaker-device)
+        [[ -n "$SPEAKER_DEVICE" ]] || SPEAKER_DEVICE='none'
+    fi
+    if [[ "$SPEAKER_DEVICE" == 'none' ]]; then
         return 0
     fi
 
@@ -486,29 +556,6 @@ notify-users() {
     done
 }
 
-read-file() {
-    local readonly path="$1"
-    local readonly fallback="${2:-unavailable}"
-
-    cat "$path" 2>/dev/null || printf '%s\n' "$fallback"
-}
-
-read-hwmon-temperature() {
-    local readonly device_name="$1"
-    local readonly temperature_file="$2"
-    local hwmon=''
-
-    for hwmon in /sys/class/hwmon/hwmon*; do
-        if [[ "$(read-file "$hwmon/name")" == "$device_name" ]]; then
-            read-file "$hwmon/$temperature_file"
-
-            return
-        fi
-    done
-
-    printf 'unavailable\n'
-}
-
 sample-telemetry() {
     printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
         "$(date --iso-8601=seconds)" \
@@ -541,7 +588,7 @@ start-telemetry() {
     local readonly run_id="$1"
 
     install --directory --owner=root --group=root --mode=0755 "$LOG_DIR"
-    TELEMETRY_FILE="${LOG_DIR}/${run_id}-samples.csv"
+    TELEMETRY_FILE=$(printf "$TELEMETRY_FILE_PATTERN" "$run_id")
     log "Writing passive telemetry: $TELEMETRY_FILE"
     collect-telemetry &
     TELEMETRY_PID="$!"
@@ -651,34 +698,80 @@ wait-for-input() {
     return 0
 }
 
+# Walk QUIESCENCE_LADDER top-to-bottom. Returns 0 as soon as either the GPU quiesces
+# OR the user presses a wake key (caller distinguishes via is-wake-requested). Returns
+# 1 only if every stage's timeout elapsed with no quiescence and no wake - i.e. we've
+# exhausted our levers and catnap must abort. Between stages we beep, log the escalation
+# reason, and invoke the next stage's pre-action.
+run-quiescence-ladder() {
+    local stage_spec='' stage='' timeout='' action='' escalation_msg=''
+    local -i idx=0
+
+    for stage_spec in "${QUIESCENCE_LADDER[@]}"; do
+        IFS='|' read -r stage timeout action escalation_msg <<< "$stage_spec"
+        if (( idx > 0 )); then
+            play-catnap-quiescence-delayed
+            [[ -n "$escalation_msg" ]] && log "$escalation_msg"
+            [[ -n "$action" ]] && "$action"
+        fi
+        idx+=1
+        wait-for-nvidia-quiescence "$stage" "$timeout" && return 0
+        is-wake-requested && return 0
+    done
+
+    return 1
+}
+
+# GPU is quiesced and the user hasn't woken us; freeze userspace and block until input.
+# Captures the "before" baseline + starts passive telemetry only now, so aborted or
+# immediately-woken runs never create a samples file or record a spurious baseline.
+enter-catnap() {
+    local -n stats_ref="$1"
+    local readonly run_id="$2"
+
+    stats_ref[before_epoch]=$(date +%s)
+    stats_ref[before_cpu]=$(awk '$1 == "usage_usec" { print $2 }' /sys/fs/cgroup/user.slice/cpu.stat 2>/dev/null || true)
+    stats_ref[before_energy]=$(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || true)
+    stats_ref[before_battery_status]=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null || true)
+    if [[ -n "$NVIDIA_DEVICE" && -f "${NVIDIA_DEVICE}/power/runtime_active_time" ]]; then
+        stats_ref[before_nvidia_active]=$(cat "${NVIDIA_DEVICE}/power/runtime_active_time" 2>/dev/null || true)
+        stats_ref[before_nvidia_suspended]=$(cat "${NVIDIA_DEVICE}/power/runtime_suspended_time" 2>/dev/null || true)
+    fi
+    start-telemetry "$run_id"
+
+    freeze-userspace
+    play-catnap-entered
+    wait-for-input
+}
+
+# Full catnap ladder failed: snapshot the GPU state one last time, dump diagnostics,
+# beep the failure chime, and exit non-zero. Called only after run-quiescence-ladder
+# reported all stages exhausted with no wake input.
+abort-catnap() {
+    if [[ -n "$NVIDIA_DEVICE" ]]; then
+        record-quiescence-outcome "run-abort" snapshot 0 "$(snapshot-nvidia-state)"
+    fi
+    log-nvidia-quiescence-diagnostics "run-abort"
+    play-catnap-aborted
+    exit 1
+}
+
 main() {
+    local readonly main_started_ms=$(date '+%s%3N')
     local readonly run_id=$(date '+%Y%m%d-%H%M%S')
     RUN_ID="$run_id"
     declare -A stats=()
 
+    blank-displays "$main_started_ms"
+
+    NVIDIA_DEVICE=$(detect-nvidia-gpu)
     INITIAL_EPP=$(get-cpu-epp)
 
     trap 'thaw-userspace; resume-gnome-shell || true; sleep 1; set-display-power-mode "$POWER_SAVE_ON" || true; reset-screensaver || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; rm -f "$GPU_WAKE_SUPPRESS_FILE" || true; stop-input-listener; stop-telemetry' EXIT
     trap 'exit 0' INT TERM HUP
 
-    start-telemetry "$run_id"
     start-input-listener
 
-    stats[before_epoch]=$(date +%s)
-    stats[before_cpu]=$(awk '$1 == "usage_usec" { print $2 }' /sys/fs/cgroup/user.slice/cpu.stat 2>/dev/null || true)
-    stats[before_energy]=$(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || true)
-    stats[before_battery_status]=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null || true)
-
-    if [[ -n "$NVIDIA_DEVICE" && -f "${NVIDIA_DEVICE}/power/runtime_active_time" ]]; then
-        stats[before_nvidia_active]=$(cat "${NVIDIA_DEVICE}/power/runtime_active_time" 2>/dev/null || true)
-        stats[before_nvidia_suspended]=$(cat "${NVIDIA_DEVICE}/power/runtime_suspended_time" 2>/dev/null || true)
-    fi
-
-    # Blank the displays first so the screen goes dark the instant the user triggers
-    # catnap - the most important piece of "it's working" feedback. Everything below
-    # (the heavyweight run-start snapshot, EPP change, Xwayland teardown) then happens
-    # behind an already-dark screen instead of stalling the visible transition.
-    set-display-power-mode "$POWER_SAVE_OFF"
     set-cpu-epp power
 
     # Boundary snapshot #1: run-start. Safe here - we haven't started trying to
@@ -687,53 +780,15 @@ main() {
         record-quiescence-outcome "run-start" snapshot 0 "$(snapshot-nvidia-state)"
     fi
 
-    # Pre-GNOME-shell quiescence in three stages, ordered by escalating disruption. Each
-    # stage waits PRE_QUIESCENCE_STAGE_SECONDS; between stages we apply one more lever:
-    #   1. Just wait - many runs quiesce on their own.
-    #   2. Tear down Xwayland - a frequent RTD3 blocker via X11 clients.
-    #   3. Politely SIGTERM the Chrome browser process - Chrome routinely holds GPU
-    #      state under Wayland even though it cannot use NVIDIA there. TERM is clean:
-    #      Chrome flushes session state so the next launch has no crash bubble.
-    # One short "delayed" beep fires only if all three stages fail.
-    if ! wait-for-nvidia-quiescence "pre-gnome-shell-1" "$PRE_QUIESCENCE_STAGE_SECONDS"; then
-        if ! is-wake-requested; then
-            killall Xwayland 2>/dev/null || true
-            if ! wait-for-nvidia-quiescence "pre-gnome-shell-2" "$PRE_QUIESCENCE_STAGE_SECONDS"; then
-                if ! is-wake-requested; then
-                    quit-chrome-politely
-                    if ! wait-for-nvidia-quiescence "pre-gnome-shell-3" "$PRE_QUIESCENCE_STAGE_SECONDS"; then
-                        if ! is-wake-requested; then
-                            play-catnap-quiescence-delayed
-                        fi
-                    fi
-                fi
-            fi
-        fi
-    fi
-
     local slept_in_catnap=false
 
-    if ! is-wake-requested; then
-        suspend-gnome-shell
-        if ! wait-for-nvidia-quiescence "post-gnome-shell"; then
-            if ! is-wake-requested; then
-                # Boundary snapshot #2: run-abort. We've given up trying to suspend,
-                # so probing the driver / DRM now is harmless. Also emit the full
-                # diagnostics dump (nvidia-smi + fuser) for offline post-mortem.
-                if [[ -n "$NVIDIA_DEVICE" ]]; then
-                    record-quiescence-outcome "run-abort" snapshot 0 "$(snapshot-nvidia-state)"
-                fi
-                log-nvidia-quiescence-diagnostics "run-abort"
-                play-catnap-aborted
-                exit 1
-            fi
-        fi
+    if run-quiescence-ladder; then
         if ! is-wake-requested; then
-            freeze-userspace
-            play-catnap-entered
+            enter-catnap stats "$run_id"
             slept_in_catnap=true
-            wait-for-input
         fi
+    else
+        abort-catnap
     fi
 
     # Sound the wake chime first thing - it goes straight to the speaker via aplay,

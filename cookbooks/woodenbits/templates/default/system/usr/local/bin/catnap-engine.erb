@@ -553,12 +553,16 @@ detect-speaker-device() {
     return 0
 }
 
-play-tone() {
-    local readonly frequency_hz="$1"
-    local readonly duration_ms="$2"
-
-    # Detect once on first tone (memoized in SPEAKER_DEVICE). The sentinel 'none' means
-    # detection ran and found no built-in analog card, so we don't re-probe on every tone.
+# Play a chime as a SINGLE continuous PCM stream through the built-in speaker. Each argument
+# is a 'freq_hz:duration_ms' segment played back-to-back; a freq of 0 is a silent gap. One
+# aplay for the whole chime is deliberate: on SOF-DSP codecs (e.g. sof-hda-dsp) opening a PCM
+# stream costs ~80-120ms of firmware setup, so a separate aplay per note inserted audible gaps
+# that stretched the multi-note chimes on those machines while sounding crisp on plain HDA.
+# Synthesizing all segments into one stream makes the timing identical everywhere. 8ms linear
+# fades at each segment's edges keep note boundaries click-free. Detection is memoized in
+# SPEAKER_DEVICE ('none' sentinel = no built-in analog card, so we skip). Best-effort: capped
+# by 'timeout' and never fails the caller, so the suspend lifecycle is unaffected.
+play-tones() {
     if [[ -z "$SPEAKER_DEVICE" ]]; then
         SPEAKER_DEVICE=$(detect-speaker-device)
         [[ -n "$SPEAKER_DEVICE" ]] || SPEAKER_DEVICE='none'
@@ -567,25 +571,24 @@ play-tone() {
         return 0
     fi
 
-    # Synthesize a short raw PCM sine (with 5ms fades to avoid clicks) and feed it straight
-    # to the laptop speakers. Best-effort: capped by 'timeout' and never fails the caller so
-    # the suspend lifecycle is unaffected if the device is busy or absent.
     LC_ALL=C awk \
-        -v frequency="$frequency_hz" \
-        -v duration_ms="$duration_ms" \
         -v rate="$SPEAKER_SAMPLE_RATE" \
+        -v spec="$*" \
         'BEGIN {
-            samples = int(rate * duration_ms / 1000)
             fade = int(rate * 0.008)
-            for (i = 0; i < samples; i++) {
-                envelope = 1
-                if (i < fade) { envelope = i / fade }
-                if (i > samples - fade) { envelope = (samples - i) / fade }
-                sample = int(envelope * 16000 * sin(2 * 3.14159265 * frequency * i / rate))
-                if (sample < 0) { sample += 65536 }
-                low = sample % 256
-                high = int(sample / 256) % 256
-                printf "%c%c", low, high
+            segment_count = split(spec, segments, " ")
+            for (s = 1; s <= segment_count; s++) {
+                split(segments[s], part, ":")
+                frequency = part[1]
+                samples = int(rate * part[2] / 1000)
+                for (i = 0; i < samples; i++) {
+                    envelope = 1
+                    if (i < fade) { envelope = i / fade }
+                    if (i > samples - fade) { envelope = (samples - i) / fade }
+                    sample = int(envelope * 16000 * sin(2 * 3.14159265 * frequency * i / rate))
+                    if (sample < 0) { sample += 65536 }
+                    printf "%c%c", sample % 256, int(sample / 256) % 256
+                }
             }
         }' \
         | timeout 10 aplay -q -D "$SPEAKER_DEVICE" -f S16_LE -r "$SPEAKER_SAMPLE_RATE" -c 1 2>/dev/null || true
@@ -593,16 +596,12 @@ play-tone() {
 
 # Rising major arpeggio: catnap reached full quiescence and is entering the frozen sleep.
 play-catnap-entered() {
-    play-tone 523 120
-    play-tone 659 120
-    play-tone 784 200
+    play-tones 523:120 659:120 784:200
 }
 
 # Descending major arpeggio: waking up from frozen catnap sleep.
 play-catnap-resumed() {
-    play-tone 784 120
-    play-tone 659 120
-    play-tone 523 200
+    play-tones 784:120 659:120 523:200
 }
 
 # Single staccato beep. Two uses: the stage-escalation warning between quiescence-ladder
@@ -610,16 +609,13 @@ play-catnap-resumed() {
 # now that blank-displays no longer fires first, this beep is the instant feedback the
 # user is waiting for after pressing the power button.
 play-catnap-quiescence-delayed() {
-    play-tone 587 110
+    play-tones 587:110
 }
 
 # Triple staccato warning beep: catnap aborted because the NVIDIA GPU refused to suspend.
+# The 50ms silent (freq 0) segments give the staccato gaps within the one stream.
 play-catnap-aborted() {
-    play-tone 587 90
-    sleep 0.05
-    play-tone 587 90
-    sleep 0.05
-    play-tone 587 180
+    play-tones 587:90 0:50 587:90 0:50 587:180
 }
 
 notify-users() {
@@ -687,6 +683,60 @@ stop-telemetry() {
     fi
 }
 
+# Append a non-empty fragment to the comma-separated summary detail string (passed by name),
+# inserting the ', ' separator only when something is already there. No-op on an empty piece,
+# so callers can pass a stat formatter's output blindly without guarding it themselves.
+append-detail() {
+    local -n dest="$1"
+    local readonly piece="$2"
+
+    [[ -n "$piece" ]] || return 0
+    [[ -n "$dest" ]] && dest+=', '
+    dest+="$piece"
+}
+
+# 'user CPU: N.NNNs' from the frozen user cgroup's CPU-time delta, or nothing if either
+# sample is missing/non-numeric. Reads the stats array by name.
+format-cpu-detail() {
+    local -n stats_ref="$1"
+
+    [[ "${stats_ref[before_cpu]:-}" =~ ^[0-9]+$ && "${stats_ref[after_cpu]:-}" =~ ^[0-9]+$ ]] || return 0
+    printf 'user CPU: %.3fs' "$((stats_ref[after_cpu] - stats_ref[before_cpu]))e-6"
+}
+
+# 'energy rate: N.NNW (N.NNNWh used)' from the battery-energy drop over the sleep, or nothing
+# unless the machine was discharging at both ends with valid readings and a positive duration
+# (otherwise the rate is meaningless - on AC, or a zero-length run).
+format-energy-detail() {
+    local -n stats_ref="$1"
+    local readonly elapsed_seconds="$2"
+
+    [[ "${stats_ref[before_battery_status]:-}" == 'Discharging' &&
+       "${stats_ref[after_battery_status]:-}" == 'Discharging' &&
+       "${stats_ref[before_energy]:-}" =~ ^[0-9]+$ && "${stats_ref[after_energy]:-}" =~ ^[0-9]+$ &&
+       "$elapsed_seconds" -gt 0 ]] || return 0
+    awk \
+        -v energy_uwh="$((stats_ref[before_energy] - stats_ref[after_energy]))" \
+        -v seconds="$elapsed_seconds" \
+        'BEGIN { printf "energy rate: %.2fW (%.3fWh used)", (energy_uwh * 0.0036 / seconds), (energy_uwh / 1000000) }'
+}
+
+# 'NVIDIA suspended rate: N.N%' - the fraction of the sleep the dGPU spent runtime-suspended -
+# or nothing if the counters are missing (no dGPU) or never advanced (state never toggled).
+format-nvidia-detail() {
+    local -n stats_ref="$1"
+
+    [[ "${stats_ref[before_nvidia_active]:-}" =~ ^[0-9]+$ && "${stats_ref[after_nvidia_active]:-}" =~ ^[0-9]+$ &&
+       "${stats_ref[before_nvidia_suspended]:-}" =~ ^[0-9]+$ && "${stats_ref[after_nvidia_suspended]:-}" =~ ^[0-9]+$ ]] || return 0
+    local readonly active_diff=$((stats_ref[after_nvidia_active] - stats_ref[before_nvidia_active]))
+    local readonly suspended_diff=$((stats_ref[after_nvidia_suspended] - stats_ref[before_nvidia_suspended]))
+    (( active_diff + suspended_diff > 0 )) || return 0
+    awk \
+        -v active="$active_diff" \
+        -v suspended="$suspended_diff" \
+        'BEGIN { printf "NVIDIA suspended rate: %.1f%%", (suspended * 100) / (active + suspended) }'
+}
+
 print-and-save-summary() {
     local -n telemetry="$1"
     local readonly elapsed_seconds=$((telemetry[after_epoch] - telemetry[before_epoch]))
@@ -694,40 +744,9 @@ print-and-save-summary() {
     local summary="Finished ${elapsed_seconds}s catnap at ${timestamp}"
     local details=''
 
-    if [[ "${telemetry[before_cpu]:-}" =~ ^[0-9]+$ && "${telemetry[after_cpu]:-}" =~ ^[0-9]+$ ]]; then
-        details+=$(printf 'user CPU: %.3fs' "$((telemetry[after_cpu] - telemetry[before_cpu]))e-6")
-    fi
-
-    if [[ "${telemetry[before_battery_status]:-}" == 'Discharging' &&
-          "${telemetry[after_battery_status]:-}" == 'Discharging' &&
-          "${telemetry[before_energy]:-}" =~ ^[0-9]+$ && "${telemetry[after_energy]:-}" =~ ^[0-9]+$ &&
-          "$elapsed_seconds" -gt 0 ]]; then
-        local readonly battery_stats=$(awk \
-            -v energy_uwh="$((telemetry[before_energy] - telemetry[after_energy]))" \
-            -v seconds="$elapsed_seconds" \
-            'BEGIN { printf "%.2fW (%.3fWh used)", (energy_uwh * 0.0036 / seconds), (energy_uwh / 1000000) }')
-        if [[ -n "$details" ]]; then
-            details+=', '
-        fi
-        details+="energy rate: ${battery_stats}"
-    fi
-
-    if [[ "${telemetry[before_nvidia_active]:-}" =~ ^[0-9]+$ && "${telemetry[after_nvidia_active]:-}" =~ ^[0-9]+$ &&
-          "${telemetry[before_nvidia_suspended]:-}" =~ ^[0-9]+$ && "${telemetry[after_nvidia_suspended]:-}" =~ ^[0-9]+$ ]]; then
-        local readonly active_diff=$((telemetry[after_nvidia_active] - telemetry[before_nvidia_active]))
-        local readonly suspended_diff=$((telemetry[after_nvidia_suspended] - telemetry[before_nvidia_suspended]))
-        local readonly total_diff=$((active_diff + suspended_diff))
-        if (( total_diff > 0 )); then
-            local readonly suspended_rate=$(awk \
-                -v active="$active_diff" \
-                -v suspended="$suspended_diff" \
-                'BEGIN { printf "%.1f", (suspended * 100) / (active + suspended) }')
-            if [[ -n "$details" ]]; then
-                details+=', '
-            fi
-            details+="NVIDIA suspended rate: ${suspended_rate}%"
-        fi
-    fi
+    append-detail details "$(format-cpu-detail telemetry)"
+    append-detail details "$(format-energy-detail telemetry "$elapsed_seconds")"
+    append-detail details "$(format-nvidia-detail telemetry)"
 
     if [[ -n "$details" ]]; then
         summary+=" (${details})"
@@ -806,21 +825,33 @@ run-quiescence-ladder() {
     return 1
 }
 
+# Snapshot the whole-system power/CPU/GPU counters that print-and-save-summary later diffs
+# for the wake toast (sleep duration, discharge rate, dGPU-suspended fraction). Writes into
+# the named stats array under the given prefix - 'before' at freeze, 'after' on wake - so the
+# two symmetric captures share one definition. NVIDIA fields are recorded only when a dGPU is
+# present, matching print-and-save-summary's own guards.
+capture-power-stats() {
+    local -n stats_ref="$1"
+    local readonly prefix="$2"
+
+    stats_ref["${prefix}_epoch"]=$(date +%s)
+    stats_ref["${prefix}_cpu"]=$(awk '$1 == "usage_usec" { print $2 }' /sys/fs/cgroup/user.slice/cpu.stat 2>/dev/null || true)
+    stats_ref["${prefix}_energy"]=$(cat /sys/class/power_supply/BAT0/energy_now 2>/dev/null || true)
+    stats_ref["${prefix}_battery_status"]=$(cat /sys/class/power_supply/BAT0/status 2>/dev/null || true)
+    if [[ -n "$NVIDIA_DEVICE" && -f "${NVIDIA_DEVICE}/power/runtime_active_time" ]]; then
+        stats_ref["${prefix}_nvidia_active"]=$(cat "${NVIDIA_DEVICE}/power/runtime_active_time" 2>/dev/null || true)
+        stats_ref["${prefix}_nvidia_suspended"]=$(cat "${NVIDIA_DEVICE}/power/runtime_suspended_time" 2>/dev/null || true)
+    fi
+}
+
 # GPU is quiesced and the user hasn't woken us; freeze userspace and block until input.
 # Captures the "before" baseline + starts passive telemetry only now, so aborted or
 # immediately-woken runs never create a samples file or record a spurious baseline.
 enter-catnap() {
-    local -n stats_ref="$1"
+    local readonly stats_name="$1"
     local readonly run_id="$2"
 
-    stats_ref[before_epoch]=$(date +%s)
-    stats_ref[before_cpu]=$(awk '$1 == "usage_usec" { print $2 }' /sys/fs/cgroup/user.slice/cpu.stat 2>/dev/null || true)
-    stats_ref[before_energy]=$(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || true)
-    stats_ref[before_battery_status]=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null || true)
-    if [[ -n "$NVIDIA_DEVICE" && -f "${NVIDIA_DEVICE}/power/runtime_active_time" ]]; then
-        stats_ref[before_nvidia_active]=$(cat "${NVIDIA_DEVICE}/power/runtime_active_time" 2>/dev/null || true)
-        stats_ref[before_nvidia_suspended]=$(cat "${NVIDIA_DEVICE}/power/runtime_suspended_time" 2>/dev/null || true)
-    fi
+    capture-power-stats "$stats_name" before
     start-telemetry "$run_id"
 
     freeze-userspace
@@ -839,6 +870,31 @@ abort-catnap() {
     exit 1
 }
 
+# Best-effort teardown shared by the normal wake path and the EXIT trap (crash/abort), so both
+# restore the session identically and cannot drift out of sync. Ordering matters and matches
+# the constraints documented at each step's own function: thaw first (userspace must be live
+# before any --user D-Bus call), settle, reset the screensaver/idle timer BEFORE unblanking so
+# the idle logic that was counting down pre-catnap can't immediately re-sleep us, then unblank
+# (Mutter's DisplayConfig only answers once thawed), restore the external-monitor layout, put
+# EPP back, drop the GPU-wake suppress sentinel, and stop the helpers. Every step tolerates
+# not-yet-done state (thaw on unfrozen slices, unblank on a never-blanked panel, restore with
+# nothing captured), so it is equally safe on the abort path where we never actually froze.
+restore-system() {
+    thaw-userspace
+    sleep 1
+    reset-screensaver
+    set-display-power-mode "$POWER_SAVE_ON"
+    restore-display-layout
+    if [[ -n "${INITIAL_EPP:-}" ]]; then
+        set-cpu-epp "$INITIAL_EPP"
+    fi
+    rm -f "$GPU_WAKE_SUPPRESS_FILE" || true
+    stop-input-listener
+    stop-telemetry
+
+    return 0
+}
+
 main() {
     local readonly run_id=$(date '+%Y%m%d-%H%M%S')
     RUN_ID="$run_id"
@@ -852,9 +908,10 @@ main() {
     NVIDIA_DEVICE=$(detect-nvidia-gpu)
     INITIAL_EPP=$(get-cpu-epp)
 
-    # Matches main()'s wake-path order below - keeps the abort/crash path consistent with
-    # the happy path (see blank-displays and the comment on the wake-path unblank call).
-    trap 'thaw-userspace; sleep 1; reset-screensaver || true; set-display-power-mode "$POWER_SAVE_ON" || true; restore-display-layout || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; rm -f "$GPU_WAKE_SUPPRESS_FILE" || true; stop-input-listener; stop-telemetry' EXIT
+    # Crash/abort cleanup: run the same teardown the happy path uses (see restore-system).
+    # The happy path calls restore-system explicitly and then clears this trap, so on a normal
+    # run the teardown happens exactly once.
+    trap 'restore-system' EXIT
     trap 'exit 0' INT TERM HUP
 
     # Switch the active layout onto the internal panel up front - the decisive lever that
@@ -889,50 +946,16 @@ main() {
 
     # Sound the wake chime first - it goes straight to the speaker via aplay, independent
     # of gnome-shell/PipeWire, so it's safe to play while userspace is still frozen and is
-    # the earliest feedback we can give that the machine heard the wake input.
+    # the earliest feedback we can give that the machine heard the wake input. Must precede
+    # restore-system, which thaws userspace and would otherwise let PipeWire grab the device.
     if [[ "$slept_in_catnap" == true ]]; then
         play-catnap-resumed
     fi
-    thaw-userspace
-    sleep 1
 
-    # Reset the screensaver/idle timer first, before unblanking or restoring the display -
-    # otherwise the idle logic that was already counting down before catnap ever started
-    # could re-arm and put the machine straight back to sleep before we get a chance to
-    # tell it the user is back.
-    reset-screensaver
+    # Thaw and restore the session (same teardown the EXIT trap runs on a crash/abort).
+    restore-system
 
-    # Unblank as early as this CAN actually work: Mutter's DisplayConfig interface is
-    # itself a process inside the just-thawed user session, so the busctl call fails with
-    # "Transport endpoint is not connected" if issued before thaw-userspace (confirmed
-    # 2026-09-06 - see catnap-gpu-suspend-investigation memory). This is still ahead of
-    # restore-display-layout's external-monitor modeset, which is as much of the original
-    # "unblank before the modeset" experiment as is technically possible.
-    set-display-power-mode "$POWER_SAVE_ON"
-    restore-display-layout
-
-    # Boundary snapshot #3: run-wake. Deferred to here, after the screen is already
-    # back on, so the heavyweight snapshot never stalls the visible wake. Only
-    # meaningful after a real sleep (thaw+resume have brought userspace back, so the
-    # GPU is on its way up regardless); skip immediate-wake paths where we never froze.
-    # if [[ "$slept_in_catnap" == true && -n "$NVIDIA_DEVICE" ]]; then
-    #     record-quiescence-outcome "run-wake" snapshot 0 "$(snapshot-nvidia-state)"
-    # fi
-    if [[ -n "${INITIAL_EPP:-}" ]]; then
-        set-cpu-epp "$INITIAL_EPP"
-    fi
-    stop-input-listener
-    stop-telemetry
-
-    stats[after_epoch]=$(date +%s)
-    stats[after_cpu]=$(awk '$1 == "usage_usec" { print $2 }' /sys/fs/cgroup/user.slice/cpu.stat 2>/dev/null || true)
-    stats[after_energy]=$(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || true)
-    stats[after_battery_status]=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null || true)
-
-    if [[ -n "$NVIDIA_DEVICE" && -f "${NVIDIA_DEVICE}/power/runtime_active_time" ]]; then
-        stats[after_nvidia_active]=$(cat "${NVIDIA_DEVICE}/power/runtime_active_time" 2>/dev/null || true)
-        stats[after_nvidia_suspended]=$(cat "${NVIDIA_DEVICE}/power/runtime_suspended_time" 2>/dev/null || true)
-    fi
+    capture-power-stats stats after
 
     # Reset trap before normal exit to avoid running EXIT cleanup twice
     trap - EXIT

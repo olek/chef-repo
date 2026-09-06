@@ -17,11 +17,11 @@ readonly SAMPLE_INTERVAL_SECONDS=60
 readonly QUIESCENCE_TIMEOUT_SECONDS=60
 # main() switches the active layout to the internal panel up front (see the display-switch
 # lever below) - the decisive lever that quiesces the dGPU essentially instantly. The
-# quiescence ladder then runs a 30-second wait after that switch, then two side-effect-free
-# fallback rungs kept only for structure: a 30-second wait after restarting
-# xdg-desktop-portal-gnome, then a final 60-second wait after clearing the background GDM
-# gnome-shell mirror (2 minutes total). The display switch normally quiesces at the first
-# stage, so the fallbacks rarely run.
+# quiescence ladder now runs just the 30-second wait after that switch; the two
+# side-effect-free fallback rungs (restart xdg-desktop-portal-gnome, then clear the
+# background GDM gnome-shell mirror) are commented out in QUIESCENCE_LADDER below - the
+# display switch has proven robust enough on its own that they're no longer worth the
+# complexity, but the code is left in place in case a future host needs them again.
 readonly QUIESCENCE_STAGE_SECONDS=30
 readonly QUIESCENCE_INTERVAL_SECONDS=5
 readonly WAKE_EVENT_PATTERN='KEYBOARD_KEY|POINTER_BUTTON|TOUCH_DOWN'
@@ -77,8 +77,11 @@ readonly SPEAKER_SAMPLE_RATE=44100
 # stage quiesces the GPU the ladder returns success and later stages are skipped.
 readonly QUIESCENCE_LADDER=(
     "wait-post-display-switch|$QUIESCENCE_STAGE_SECONDS||"
-    "wait-post-portal|$QUIESCENCE_STAGE_SECONDS|restart-desktop-portal|restarting xdg-desktop-portal-gnome to release its dGPU hold."
-    "wait-post-gdm|$QUIESCENCE_TIMEOUT_SECONDS|kill-gdm-mirror|clearing the background GDM gnome-shell mirror to release its dGPU VRAM."
+    # The display switch has proven reliable enough on its own that these fallback rungs
+    # never fire in practice; commented out rather than removed in case a future host needs
+    # them again. restart-desktop-portal and kill-gdm-mirror are left in place, just unused.
+    # "wait-post-portal|$QUIESCENCE_STAGE_SECONDS|restart-desktop-portal|restarting xdg-desktop-portal-gnome to release its dGPU hold."
+    # "wait-post-gdm|$QUIESCENCE_TIMEOUT_SECONDS|kill-gdm-mirror|clearing the background GDM gnome-shell mirror to release its dGPU VRAM."
 )
 
 RUN_ID=''
@@ -209,8 +212,8 @@ restart-desktop-portal() {
 # Removing the dGPU connector forces Mutter to tear down the secondary-GPU render pipeline
 # and destroy all dGPU framebuffers, freeing it for RTD3. Because this is the lever that
 # actually works (the ladder's other rungs only release lesser holds), main() does it up
-# front - right after blanking, before the ladder - so the dGPU can quiesce at the very
-# first wait rather than after two minutes of weaker escalations. switch-display-to-internal
+# front - right after arming the EXIT trap, before the ladder - so the dGPU can quiesce at
+# the very first wait rather than after two minutes of weaker escalations. switch-display-to-internal
 # captures the prior layout; restore-display-layout replays it on both the wake path and the
 # EXIT trap - symmetric with set-display-power-mode. The GVariant read/build lives in the
 # python3-gi helper catnap-display-ctl (see that file); it no-ops when undocked or already
@@ -221,9 +224,10 @@ restart-desktop-portal() {
 # 1. (Partly done.) restore-display-layout re-tiles after switching back to the external
 #    monitor, via column-placer's RetileAll D-Bus method (retile-windows). The symmetric
 #    retile right after switching TO the internal panel is intentionally skipped: that layout
-#    is blanked and about to be frozen, so it is never seen in the normal docked flow. It
-#    only matters once item 2 lands and a wake-while-undocked leaves the session on the
-#    internal panel - add a retile on that path then.
+#    sits unblanked until blank-displays runs, just before the freeze, but is only visible
+#    with the lid open while docked - rare enough to not be worth retiling. It only matters
+#    once item 2 lands and a wake-while-undocked leaves the session on the internal panel -
+#    add a retile on that path then.
 #
 # 2. Prune the restore to still-connected monitors. catnap-display-ctl restore currently
 #    replays the whole saved layout and just swallows the error if a monitor vanished (e.g.
@@ -249,15 +253,16 @@ set-display-power-mode() {
 }
 
 blank-displays() {
-    # Blank the displays FIRST, before anything else in main - it's the "it's working"
-    # feedback the user is waiting for. Everything else (traps, telemetry, input listener,
-    # stats reads, EPP change, snapshots) then happens behind an already-dark screen. Log
-    # both the pre-blank latency (from main entry) and the blank RPC duration itself so
-    # we can see where any lingering delay comes from.
-    local readonly main_started_ms="$1"
+    # Called right before enter-catnap, immediately ahead of freeze-userspace - not at the
+    # top of main() as before. Experiment (2026-09-06): a wake once hard-froze the machine
+    # in the nvidia-modeset kthread (the known DIFR-prefetch race - see the
+    # catnap-gpu-suspend-investigation memory) shortly after restore-display-layout's
+    # ApplyMonitorsConfig modeset. Tightening the blank/unblank calls to bracket only the
+    # freeze itself, rather than the display-switch modesets too, tests whether proximity
+    # to blank/unblank state affects the race.
     local readonly blank_start_ms=$(date '+%s%3N')
 
-    log "main() entered ${main_started_ms}ms epoch; blanking displays"
+    log "Blanking displays before freezing userspace"
     set-display-power-mode "$POWER_SAVE_OFF"
     log "Display blank returned after $(( $(date '+%s%3N') - blank_start_ms ))ms"
 }
@@ -288,10 +293,9 @@ switch-display-to-internal() {
     # and can reach RTD3 while catnap's ladder waits on it. Captures
     # the prior layout into DISPLAY_RESTORE_STATE for restore on wake; the helper prints
     # nothing when there is nothing to switch away from (internal-only / undocked), leaving it
-    # empty. Re-blank afterward: ApplyMonitorsConfig re-powers the panel, and the screen must
-    # stay dark through catnap.
+    # empty. No re-blank here even though ApplyMonitorsConfig re-powers the panel - blanking
+    # is deferred to blank-displays, right before the freeze (see that function for why).
     DISPLAY_RESTORE_STATE=$(run-display-ctl to-internal)
-    [[ -n "$DISPLAY_RESTORE_STATE" ]] && set-display-power-mode "$POWER_SAVE_OFF"
 
     return 0
 }
@@ -446,7 +450,7 @@ wait-for-nvidia-quiescence() {
     while (( elapsed < timeout_seconds )); do
         if is-wake-requested; then
             log "Wake input detected during quiescence at '${stage_name}'. Resuming desktop."
-            record-quiescence-outcome "$stage_name" woke "$elapsed"
+            # record-quiescence-outcome "$stage_name" woke "$elapsed"
 
             return 0
         fi
@@ -456,7 +460,7 @@ wait-for-nvidia-quiescence() {
 
         if [[ "$status" == 'suspended' || "$usage" == '0' ]]; then
             log "NVIDIA GPU quiesced at stage '${stage_name}' after ${elapsed}s (status: ${status}, usage: ${usage})."
-            record-quiescence-outcome "$stage_name" quiesced "$elapsed"
+            # record-quiescence-outcome "$stage_name" quiesced "$elapsed"
 
             return 0
         fi
@@ -467,7 +471,7 @@ wait-for-nvidia-quiescence() {
 
     if is-wake-requested; then
         log "Wake input detected during quiescence at '${stage_name}'. Resuming desktop."
-        record-quiescence-outcome "$stage_name" woke "$elapsed"
+        # record-quiescence-outcome "$stage_name" woke "$elapsed"
 
         return 0
     fi
@@ -475,7 +479,7 @@ wait-for-nvidia-quiescence() {
     status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
     usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
     log "ERROR: Timed out at stage '${stage_name}' after ${timeout_seconds}s (status: ${status}, usage: ${usage})."
-    record-quiescence-outcome "$stage_name" timed_out "$elapsed"
+    # record-quiescence-outcome "$stage_name" timed_out "$elapsed"
 
     return 1
 }
@@ -601,7 +605,10 @@ play-catnap-resumed() {
     play-tone 523 200
 }
 
-# Single staccato warning beep: NVIDIA GPU failed to quiesce during pre-GNOME-shell stage.
+# Single staccato beep. Two uses: the stage-escalation warning between quiescence-ladder
+# rungs, and (called once, bare, at the very top of main()) the "catnap started" cue -
+# now that blank-displays no longer fires first, this beep is the instant feedback the
+# user is waiting for after pressing the power button.
 play-catnap-quiescence-delayed() {
     play-tone 587 110
 }
@@ -825,25 +832,29 @@ enter-catnap() {
 # beep the failure chime, and exit non-zero. Called only after run-quiescence-ladder
 # reported all stages exhausted with no wake input.
 abort-catnap() {
-    if [[ -n "$NVIDIA_DEVICE" ]]; then
-        record-quiescence-outcome "run-abort" snapshot 0 "$(snapshot-nvidia-state)"
-    fi
+    # if [[ -n "$NVIDIA_DEVICE" ]]; then
+    #     record-quiescence-outcome "run-abort" snapshot 0 "$(snapshot-nvidia-state)"
+    # fi
     play-catnap-aborted
     exit 1
 }
 
 main() {
-    local readonly main_started_ms=$(date '+%s%3N')
     local readonly run_id=$(date '+%Y%m%d-%H%M%S')
     RUN_ID="$run_id"
-    declare -A stats=()
+    log "Initiating catnap (run ${run_id})"
 
-    blank-displays "$main_started_ms"
+    # Immediate audible "catnap started" feedback - see play-catnap-quiescence-delayed.
+    play-catnap-quiescence-delayed
+
+    declare -A stats=()
 
     NVIDIA_DEVICE=$(detect-nvidia-gpu)
     INITIAL_EPP=$(get-cpu-epp)
 
-    trap 'thaw-userspace; sleep 1; restore-display-layout || true; set-display-power-mode "$POWER_SAVE_ON" || true; reset-screensaver || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; rm -f "$GPU_WAKE_SUPPRESS_FILE" || true; stop-input-listener; stop-telemetry' EXIT
+    # Matches main()'s wake-path order below - keeps the abort/crash path consistent with
+    # the happy path (see blank-displays and the comment on the wake-path unblank call).
+    trap 'thaw-userspace; sleep 1; reset-screensaver || true; set-display-power-mode "$POWER_SAVE_ON" || true; restore-display-layout || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; rm -f "$GPU_WAKE_SUPPRESS_FILE" || true; stop-input-listener; stop-telemetry' EXIT
     trap 'exit 0' INT TERM HUP
 
     # Switch the active layout onto the internal panel up front - the decisive lever that
@@ -857,14 +868,18 @@ main() {
 
     # Boundary snapshot #1: run-start. Safe here - we haven't started trying to
     # quiesce the GPU yet, so poking the driver / DRM cannot spoil anything.
-    if [[ -n "$NVIDIA_DEVICE" ]]; then
-        record-quiescence-outcome "run-start" snapshot 0 "$(snapshot-nvidia-state)"
-    fi
+    # Commented out along with the rest of the quiescence-history.csv troubleshooting
+    # data collection below - catnap's quiescence has proven robust enough that this
+    # level of detail isn't earning its keep right now.
+    # if [[ -n "$NVIDIA_DEVICE" ]]; then
+    #     record-quiescence-outcome "run-start" snapshot 0 "$(snapshot-nvidia-state)"
+    # fi
 
     local slept_in_catnap=false
 
     if run-quiescence-ladder; then
         if ! is-wake-requested; then
+            blank-displays
             enter-catnap stats "$run_id"
             slept_in_catnap=true
         fi
@@ -872,25 +887,37 @@ main() {
         abort-catnap
     fi
 
-    # Sound the wake chime first thing - it goes straight to the speaker via aplay,
-    # independent of gnome-shell/PipeWire, so it's the earliest feedback we can give
-    # that the machine heard the wake input.
+    # Sound the wake chime first - it goes straight to the speaker via aplay, independent
+    # of gnome-shell/PipeWire, so it's safe to play while userspace is still frozen and is
+    # the earliest feedback we can give that the machine heard the wake input.
     if [[ "$slept_in_catnap" == true ]]; then
         play-catnap-resumed
     fi
     thaw-userspace
     sleep 1
-    restore-display-layout
-    set-display-power-mode "$POWER_SAVE_ON"
+
+    # Reset the screensaver/idle timer first, before unblanking or restoring the display -
+    # otherwise the idle logic that was already counting down before catnap ever started
+    # could re-arm and put the machine straight back to sleep before we get a chance to
+    # tell it the user is back.
     reset-screensaver
+
+    # Unblank as early as this CAN actually work: Mutter's DisplayConfig interface is
+    # itself a process inside the just-thawed user session, so the busctl call fails with
+    # "Transport endpoint is not connected" if issued before thaw-userspace (confirmed
+    # 2026-09-06 - see catnap-gpu-suspend-investigation memory). This is still ahead of
+    # restore-display-layout's external-monitor modeset, which is as much of the original
+    # "unblank before the modeset" experiment as is technically possible.
+    set-display-power-mode "$POWER_SAVE_ON"
+    restore-display-layout
 
     # Boundary snapshot #3: run-wake. Deferred to here, after the screen is already
     # back on, so the heavyweight snapshot never stalls the visible wake. Only
     # meaningful after a real sleep (thaw+resume have brought userspace back, so the
     # GPU is on its way up regardless); skip immediate-wake paths where we never froze.
-    if [[ "$slept_in_catnap" == true && -n "$NVIDIA_DEVICE" ]]; then
-        record-quiescence-outcome "run-wake" snapshot 0 "$(snapshot-nvidia-state)"
-    fi
+    # if [[ "$slept_in_catnap" == true && -n "$NVIDIA_DEVICE" ]]; then
+    #     record-quiescence-outcome "run-wake" snapshot 0 "$(snapshot-nvidia-state)"
+    # fi
     if [[ -n "${INITIAL_EPP:-}" ]]; then
         set-cpu-epp "$INITIAL_EPP"
     fi

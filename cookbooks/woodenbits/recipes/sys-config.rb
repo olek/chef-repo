@@ -90,6 +90,18 @@ template "/etc/udev/rules.d/59-vial.rules" do
   notifies :run, 'execute[reload udev]', :delayed
 end
 
+# Force Mutter's primary compositor GPU to the iGPU so gnome-shell never pins the dGPU's
+# VRAM, letting the dGPU RTD3-suspend on its own (see catnap-engine). Takes effect for the
+# GNOME session started after this rule is in place (log out / reboot).
+template "/etc/udev/rules.d/61-mutter-primary-gpu.rules" do
+  source "system/etc/udev/rules.d/61-mutter-primary-gpu.rules.erb"
+  mode 0644
+  owner 'root'
+  group 'root'
+
+  notifies :run, 'execute[reload udev]', :delayed
+end
+
 
 
 

@@ -12,6 +12,493 @@
 #
 set -euo pipefail
 
+readonly SETTLE_SECONDS=1
+readonly SAMPLE_INTERVAL_SECONDS=60
+readonly QUIESCENCE_TIMEOUT_SECONDS=60
+# main() switches the active layout to the internal panel up front (see the display-switch
+# lever below) - the decisive lever that quiesces the dGPU essentially instantly. The
+# quiescence ladder then runs a 30-second wait after that switch, then two side-effect-free
+# fallback rungs kept only for structure: a 30-second wait after restarting
+# xdg-desktop-portal-gnome, then a final 60-second wait after clearing the background GDM
+# gnome-shell mirror (2 minutes total). The display switch normally quiesces at the first
+# stage, so the fallbacks rarely run.
+readonly QUIESCENCE_STAGE_SECONDS=30
+readonly QUIESCENCE_INTERVAL_SECONDS=5
+readonly WAKE_EVENT_PATTERN='KEYBOARD_KEY|POINTER_BUTTON|TOUCH_DOWN'
+NVIDIA_DEVICE=''  # Populated by main() after the display blank; empty on non-NVIDIA hosts.
+readonly MUTTER_DESTINATION='org.gnome.Mutter.DisplayConfig'
+readonly MUTTER_PATH='/org/gnome/Mutter/DisplayConfig'
+readonly MUTTER_INTERFACE='org.gnome.Mutter.DisplayConfig'
+readonly POWER_SAVE_ON=0
+readonly POWER_SAVE_OFF=3
+# Helper that switches the Mutter monitor layout to the internal panel and back (see the
+# display-switch lever below). Runs as the session user because DisplayConfig is on the
+# session bus. DISPLAY_RESTORE_STATE holds the prior layout JSON captured by
+# switch-display-to-internal; empty means the switch never ran, so there is nothing to restore.
+readonly DISPLAY_CTL='/usr/local/bin/catnap-display-ctl'
+DISPLAY_RESTORE_STATE=''
+readonly LOG_DIR='/var/log/catnap'
+# Touched at the start of every GPU quiescence wait so perf-watch-cmd (running
+# unprivileged, e.g. under the tmux 'watch' loop) can detect a wait in progress via
+# this file's mtime and skip its own nvidia-smi/lspci calls, which would otherwise
+# force-resume the GPU out of RTD3 and race catnap's own suspend attempt. Removed
+# in the EXIT trap once catnap resolves; the TTL in perf-watch-cmd.erb is just a
+# fallback in case this process dies before that trap runs. World-readable by
+# default /tmp permissions. Keep this path in sync with perf-watch-cmd.erb.
+readonly GPU_WAKE_SUPPRESS_FILE='/tmp/catnap-nvidia-quiesce-active'
+# Append-only, cross-run record of every GPU quiescence wait plus the two run-level
+# state boundaries (one row per wait outcome + one row at run-start + optionally one
+# on run-abort). Per-wait rows carry only outcome + elapsed; the richer state fields
+# are populated only on the two boundary rows, because probing the NVIDIA driver /
+# DRM subsystem between stages could itself reset the runtime-PM idle countdown and
+# mask the very quiescence we are trying to observe.
+readonly QUIESCENCE_LOG="${LOG_DIR}/quiescence-history.csv"
+readonly QUIESCENCE_LOG_HEADER='timestamp,run_id,stage,outcome,elapsed_s,state_runtime_status,state_runtime_usage,state_active_kids,state_video_memory,state_dgpu_connected_outputs,state_dgpu_clients'
+# Per-run passive telemetry file: one CSV per catnap run, name filled in from $RUN_ID
+# by start-telemetry. Time-series of whole-system energy/CPU/thermal/NVIDIA state,
+# sampled every SAMPLE_INTERVAL_SECONDS during the run, consumed by print-and-save-summary
+# for the wake-up toast (duration, discharge rate, NVIDIA suspended fraction).
+readonly TELEMETRY_FILE_PATTERN="${LOG_DIR}/%s-samples.csv"
+# Built-in analog output (laptop speakers), auto-detected on first play-tone call via
+# detect-speaker-device (which shells out to 'aplay -l'). Detection is deferred out of
+# script-load and past the initial display blank, because aplay -l enumerates every
+# ALSA card synchronously and can add hundreds of ms before the screen goes dark. Driven
+# directly via aplay to bypass PipeWire - which routes to the USB DAC by default and is
+# frozen alongside userspace during catnap. Empty on hosts with no built-in analog card;
+# play-tone then no-ops.
+SPEAKER_DEVICE=''
+readonly SPEAKER_SAMPLE_RATE=44100
+
+# Ordered ladder of escalating levers we pull to coax the dGPU into RTD3 suspend before
+# the actual catnap freeze. Each entry is a pipe-separated tuple: 'stage_name|timeout_s|
+# pre_action|action_reason'. Stages run in order; between stages we play a short beep,
+# log "Stage N timed out; <action_reason>" (the stage number is supplied by the loop, not
+# the string), and invoke pre_action (empty means "just wait longer"). As soon as any
+# stage quiesces the GPU the ladder returns success and later stages are skipped.
+readonly QUIESCENCE_LADDER=(
+    "wait-post-display-switch|$QUIESCENCE_STAGE_SECONDS||"
+    "wait-post-portal|$QUIESCENCE_STAGE_SECONDS|restart-desktop-portal|restarting xdg-desktop-portal-gnome to release its dGPU hold."
+    "wait-post-gdm|$QUIESCENCE_TIMEOUT_SECONDS|kill-gdm-mirror|clearing the background GDM gnome-shell mirror to release its dGPU VRAM."
+)
+
+RUN_ID=''
+INITIAL_EPP=''
+TELEMETRY_FILE=''
+TELEMETRY_PID=''
+WAKE_TRIGGERED_FILE=''
+INPUT_PID=''
+
+log() {
+    printf '%s %s\n' "$(date --iso-8601=seconds)" "$*"
+}
+
+read-file() {
+    local readonly path="$1"
+    local readonly fallback="${2:-unavailable}"
+
+    cat "$path" 2>/dev/null || printf '%s\n' "$fallback"
+}
+
+read-hwmon-temperature() {
+    local readonly device_name="$1"
+    local readonly temperature_file="$2"
+    local hwmon=''
+
+    for hwmon in /sys/class/hwmon/hwmon*; do
+        if [[ "$(read-file "$hwmon/name")" == "$device_name" ]]; then
+            read-file "$hwmon/$temperature_file"
+
+            return
+        fi
+    done
+
+    printf 'unavailable\n'
+}
+
+get-cpu-epp() {
+    local readonly first_policy='/sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference'
+
+    if [[ -f "$first_policy" ]]; then
+        cat "$first_policy"
+    fi
+}
+
+set-cpu-epp() {
+    local readonly epp_mode="$1"
+    local policy_file=''
+
+    for policy_file in /sys/devices/system/cpu/cpufreq/policy[0-9]*/energy_performance_preference; do
+        if [[ -f "$policy_file" ]]; then
+            echo "$epp_mode" > "$policy_file" || true
+        fi
+    done
+}
+
+freeze-userspace() {
+    local user_slice_dir=''
+    local slice_name=''
+
+    for user_slice_dir in /sys/fs/cgroup/user.slice/user-*.slice; do
+        if [[ -d "$user_slice_dir" ]]; then
+            slice_name=$(basename "$user_slice_dir")
+            systemctl freeze "$slice_name" || true
+        fi
+    done
+}
+
+thaw-userspace() {
+    local user_slice_dir=''
+    local slice_name=''
+
+    for user_slice_dir in /sys/fs/cgroup/user.slice/user-*.slice; do
+        if [[ -d "$user_slice_dir" ]]; then
+            slice_name=$(basename "$user_slice_dir")
+            systemctl thaw "$slice_name" || true
+        fi
+    done
+}
+
+kill-gdm-mirror() {
+    # GDM keeps a second gnome-shell running under the gdm user after login (the
+    # greeter/login-screen session), which mirrors VRAM allocations and can pin the
+    # dGPU out of RTD3. Killing the gdm user's processes drops that background shell;
+    # GDM's system service is unaffected and respawns the greeter on demand.
+    killall -u gdm 2>/dev/null || true
+}
+
+restart-desktop-portal() {
+    # Restart the GNOME xdg-desktop-portal backend, which can hold an open dGPU handle
+    # (screencast/thumbnail pipelines) that blocks RTD3. A restart drops those handles;
+    # the portal is socket-activated, so it comes back on demand after wake.
+    local user_dir='' uid='' username=''
+
+    for user_dir in /run/user/*; do
+        if [[ -d "$user_dir" ]]; then
+            uid=$(basename "$user_dir")
+            username=$(id -nu "$uid" 2>/dev/null || continue)
+            runuser --user "$username" -- env \
+                "XDG_RUNTIME_DIR=/run/user/${uid}" \
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
+                systemctl --user restart xdg-desktop-portal-gnome 2>/dev/null || true
+        fi
+    done
+}
+
+# The display section: blank (DPMS), and the display-switch lever that frees the dGPU.
+# Setting PowerSaveMode=3 (DPMS Off) powers down physical monitor sync signaling,
+# but Mutter retains the logical display pipeline, CRTC mapping, and EGL/GBM swapchain
+# buffers in NVIDIA VRAM for instant unblanking. On this host the dGPU-driven external
+# monitor (DP-5) is normally the ONLY active logical monitor while the internal eDP-1
+# (iGPU) panel is off, so the dGPU can never reach RTD3: it is driving the sole display.
+# Suspending gnome-shell was previously the only lever that released it, but that was
+# removed to avoid SIGSTOP deadlocks on Mutter's event loop.
+#
+# First line of defence (shipped): pin Mutter's primary GPU to the iGPU with a udev rule so
+# gnome-shell never makes the dGPU its primary compositor device. On hybrid laptops Mutter
+# often initializes the compositor on the dGPU and holds its VRAM permanently. The rule
+# /etc/udev/rules.d/61-mutter-primary-gpu.rules (woodenbits::sys-config) tags the Intel iGPU
+# as 'mutter-device-preferred-primary', matched by the card's DRM driver (DRIVERS=="i915")
+# rather than a /dev/dri/cardN number (card numbering is not boot-stable) or ATTRS{vendor}
+# (that climbs the tree and hits the dGPU's Intel PCIe root port). This lets the dGPU idle at
+# the desktop and RTD3-suspend on its own WHEN UNDOCKED. It is necessary but not sufficient
+# while docked: Mutter renders on the GPU that owns the active output, so with the sole
+# monitor (DP-5) wired to the dGPU, rendering, framebuffers, and scanout all stay on it.
+#
+# Decisive lever (the display switch below): switch the active layout to the internal panel
+# (iGPU) via 'org.gnome.Mutter.DisplayConfig.ApplyMonitorsConfig' and restore it on wake.
+# Removing the dGPU connector forces Mutter to tear down the secondary-GPU render pipeline
+# and destroy all dGPU framebuffers, freeing it for RTD3. Because this is the lever that
+# actually works (the ladder's other rungs only release lesser holds), main() does it up
+# front - right after blanking, before the ladder - so the dGPU can quiesce at the very
+# first wait rather than after two minutes of weaker escalations. switch-display-to-internal
+# captures the prior layout; restore-display-layout replays it on both the wake path and the
+# EXIT trap - symmetric with set-display-power-mode. The GVariant read/build lives in the
+# python3-gi helper catnap-display-ctl (see that file); it no-ops when undocked or already
+# internal-only, and its restore tolerates the external monitor being unplugged mid-catnap.
+#
+# Follow-on work:
+#
+# 1. (Partly done.) restore-display-layout re-tiles after switching back to the external
+#    monitor, via column-placer's RetileAll D-Bus method (retile-windows). The symmetric
+#    retile right after switching TO the internal panel is intentionally skipped: that layout
+#    is blanked and about to be frozen, so it is never seen in the normal docked flow. It
+#    only matters once item 2 lands and a wake-while-undocked leaves the session on the
+#    internal panel - add a retile on that path then.
+#
+# 2. Prune the restore to still-connected monitors. catnap-display-ctl restore currently
+#    replays the whole saved layout and just swallows the error if a monitor vanished (e.g.
+#    undocked while frozen), leaving the session on the internal panel. Better: on wake
+#    re-read GetCurrentState and re-apply only the saved monitors still present, so a
+#    partial undock (one of several externals removed) restores the survivors cleanly.
+set-display-power-mode() {
+    local readonly mode="$1"
+    local user_dir=''
+    local uid=''
+    local username=''
+
+    for user_dir in /run/user/*; do
+        if [[ -d "$user_dir" ]]; then
+            uid=$(basename "$user_dir")
+            username=$(id -nu "$uid" 2>/dev/null || continue)
+            runuser --user "$username" -- env \
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
+                busctl --user set-property "$MUTTER_DESTINATION" "$MUTTER_PATH" \
+                "$MUTTER_INTERFACE" PowerSaveMode i "$mode" || true
+        fi
+    done
+}
+
+blank-displays() {
+    # Blank the displays FIRST, before anything else in main - it's the "it's working"
+    # feedback the user is waiting for. Everything else (traps, telemetry, input listener,
+    # stats reads, EPP change, snapshots) then happens behind an already-dark screen. Log
+    # both the pre-blank latency (from main entry) and the blank RPC duration itself so
+    # we can see where any lingering delay comes from.
+    local readonly main_started_ms="$1"
+    local readonly blank_start_ms=$(date '+%s%3N')
+
+    log "main() entered ${main_started_ms}ms epoch; blanking displays"
+    set-display-power-mode "$POWER_SAVE_OFF"
+    log "Display blank returned after $(( $(date '+%s%3N') - blank_start_ms ))ms"
+}
+
+run-display-ctl() {
+    local readonly subcommand="$1"
+    local user_dir='' uid='' username=''
+
+    for user_dir in /run/user/*; do
+        [[ -d "$user_dir" ]] || continue
+        uid=$(basename "$user_dir")
+        # Human sessions only (uid >= 1000). The gdm greeter's session bus also exposes
+        # Mutter, but it is not the desktop we are putting to sleep.
+        (( uid >= 1000 )) || continue
+        username=$(id -nu "$uid" 2>/dev/null) || continue
+        runuser --user "$username" -- env \
+            "XDG_RUNTIME_DIR=/run/user/${uid}" \
+            "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
+            "$DISPLAY_CTL" "$subcommand" && return 0
+    done
+
+    return 0
+}
+
+switch-display-to-internal() {
+    # The decisive quiescence lever, pulled up front by main(): move the active layout onto
+    # the built-in panel (iGPU) so the dGPU driving the external monitor has no output left
+    # and can reach RTD3 while catnap's ladder waits on it. Captures
+    # the prior layout into DISPLAY_RESTORE_STATE for restore on wake; the helper prints
+    # nothing when there is nothing to switch away from (internal-only / undocked), leaving it
+    # empty. Re-blank afterward: ApplyMonitorsConfig re-powers the panel, and the screen must
+    # stay dark through catnap.
+    DISPLAY_RESTORE_STATE=$(run-display-ctl to-internal)
+    [[ -n "$DISPLAY_RESTORE_STATE" ]] && set-display-power-mode "$POWER_SAVE_OFF"
+
+    return 0
+}
+
+restore-display-layout() {
+    # Replay the layout switch-display-to-internal saved, re-enabling the external monitor on
+    # the dGPU. No-op when the switch never ran (nothing captured). Best-effort: the helper
+    # tolerates the monitor having been unplugged during catnap. Cleared after so the wake
+    # path and the EXIT trap don't both re-apply it. Re-tile afterward: the switch back to
+    # the external monitor changes the workarea geometry, leaving windows mis-placed until
+    # column-placer re-lays them out for the restored screen.
+    [[ -n "$DISPLAY_RESTORE_STATE" ]] || return 0
+    printf '%s' "$DISPLAY_RESTORE_STATE" | run-display-ctl restore
+    DISPLAY_RESTORE_STATE=''
+    retile-windows
+
+    return 0
+}
+
+retile-windows() {
+    # Ask the column-placer GNOME Shell extension to re-lay-out every open window for the
+    # current monitor geometry, via its RetileAll D-Bus method (not the <Super><Alt>t
+    # keybinding, which we cannot press headlessly). Runs as the session user because the
+    # extension lives on the user's session bus. Best-effort: no-ops if the extension is not
+    # loaded (e.g. before the session has been restarted to pick up the D-Bus method). The
+    # short settle lets Mutter finish recomputing the workarea after the layout change first.
+    local user_dir='' uid='' username=''
+
+    sleep 1
+    for user_dir in /run/user/*; do
+        [[ -d "$user_dir" ]] || continue
+        uid=$(basename "$user_dir")
+        (( uid >= 1000 )) || continue
+        username=$(id -nu "$uid" 2>/dev/null) || continue
+        runuser --user "$username" -- env \
+            "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
+            busctl --user call org.gnome.Shell.Extensions.ColumnPlacer \
+            /org/gnome/Shell/Extensions/ColumnPlacer \
+            org.gnome.Shell.Extensions.ColumnPlacer RetileAll >/dev/null 2>&1 || true
+    done
+
+    return 0
+}
+
+list-dgpu-clients() {
+    # ';'-joined set of processes holding an open handle to a discrete-GPU device
+    # node, each tagged ':m' when it also has a GPU node mmap'd - i.e. holding live
+    # video memory, the reference that most often blocks runtime-D3 suspend.
+    # Pure procfs: never opens the GPU, so it is safe even against a suspended one.
+    #
+    # Finds the client pids via fuser's stdout (bare pid list, one exec) rather than
+    # looping /proc/[0-9]*/fd/* with readlink - readlink is an external binary, and
+    # forking it once per open fd system-wide (thousands, even on an idle desktop)
+    # took ~20s; fuser does the same /proc walk in-process in ~0.2s. fuser also prints
+    # an 'm' access-letter per pid, but only to stderr, packed in with the device
+    # header and padding on the same line with no reliable pid<->letter association
+    # once stdout/stderr are captured separately (they're line-buffered independently,
+    # so a piped capture can reorder them) - not a parseable interface. So the mmap
+    # check still greps /proc/$pid/maps by hand, same as before, but now bounded to
+    # the handful of pids fuser found instead of every process on the system.
+    local -A dgpu_nodes=([/dev/nvidia0]=1 [/dev/nvidiactl]=1 [/dev/nvidia-modeset]=1 [/dev/nvidia-uvm]=1)
+    local drm_node='' device='' pid='' comm='' result=''
+    local -a devices=() pids=()
+
+    for drm_node in "${NVIDIA_DEVICE}"/drm/*; do
+        if [[ -e "/dev/dri/$(basename "$drm_node")" ]]; then
+            dgpu_nodes["/dev/dri/$(basename "$drm_node")"]=1
+        fi
+    done
+    for device in "${!dgpu_nodes[@]}"; do
+        [[ -e "$device" ]] && devices+=("$device")
+    done
+    [[ ${#devices[@]} -gt 0 ]] || return 0
+
+    mapfile -t pids < <(fuser "${devices[@]}" 2>/dev/null | tr -s ' \t' '\n' | grep -E '^[0-9]+$' | sort -un)
+
+    for pid in "${pids[@]}"; do
+        comm=$(read-file "/proc/$pid/comm" '?')
+        comm=${comm//[ ,;]/_}
+        if grep -qE '/dev/nvidia[0-9]|/dev/nvidiactl|/dev/nvidia-modeset|/dev/nvidia-uvm|/dev/dri/' "/proc/$pid/maps" 2>/dev/null; then
+            comm+=':m'
+        fi
+        result+="${comm};"
+    done
+
+    printf '%s' "${result%;}"
+}
+
+snapshot-nvidia-state() {
+    # Six CSV fields describing the GPU's state right now. Some of these reads touch
+    # the NVIDIA driver / DRM subsystem and can reset the runtime-PM idle countdown
+    # on an active GPU (that is why this is NOT called during a quiescence wait);
+    # only at run-start (before any wait) and on run-abort (after we have given up)
+    # where the reset doesn't matter.
+    local status='' usage='' active_kids='' video_memory='' connected='' drm_card='' conn=''
+
+    status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
+    usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
+    active_kids=$(read-file "${NVIDIA_DEVICE}/power/runtime_active_kids")
+
+    video_memory=$(awk -F: '/Video Memory:/ { gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit }' /proc/driver/nvidia/gpus/*/power 2>/dev/null || true)
+    [[ -n "$video_memory" ]] || video_memory='unavailable'
+
+    connected=''
+    for drm_card in "${NVIDIA_DEVICE}"/drm/card[0-9]*; do
+        [[ -d "$drm_card" ]] || continue
+        for conn in /sys/class/drm/"$(basename "$drm_card")"-*; do
+            if [[ -d "$conn" && "$(read-file "$conn/status")" == 'connected' ]]; then
+                connected+="${conn##*/card[0-9]-};"
+            fi
+        done
+    done
+    [[ -n "$connected" ]] && connected="${connected%;}" || connected='none'
+
+    printf '%s,%s,%s,%s,%s,%s' \
+        "$status" "$usage" "$active_kids" "$video_memory" "$connected" "$(list-dgpu-clients)"
+}
+
+record-quiescence-outcome() {
+    local readonly stage_name="$1"
+    local readonly outcome="$2"
+    local readonly elapsed="$3"
+    # 6-field CSV fragment from snapshot-nvidia-state. Populated only on the two
+    # boundary rows (run-start, run-abort); empty (',,,,,,') on per-stage wait rows,
+    # so those never trigger a driver / DRM probe mid-catnap.
+    local readonly state="${4:-,,,,,}"
+
+    [[ -n "$NVIDIA_DEVICE" ]] || return 0
+    if [[ ! -f "$QUIESCENCE_LOG" ]]; then
+        printf '%s\n' "$QUIESCENCE_LOG_HEADER" >> "$QUIESCENCE_LOG" 2>/dev/null || return 0
+    fi
+    printf '%s,%s,%s,%s,%s,%s\n' \
+        "$(date --iso-8601=seconds)" "$RUN_ID" "$stage_name" "$outcome" "$elapsed" "$state" \
+        >> "$QUIESCENCE_LOG" 2>/dev/null || true
+}
+
+wait-for-nvidia-quiescence() {
+    local readonly stage_name="${1:-quiesce}"
+    local readonly timeout_seconds="${2:-$QUIESCENCE_TIMEOUT_SECONDS}"
+    local elapsed=0
+    local status=''
+    local usage=''
+
+    if [[ -z "$NVIDIA_DEVICE" || ! -f "${NVIDIA_DEVICE}/power/runtime_status" ]]; then
+        log "No NVIDIA GPU found; skipping GPU quiescence wait (${stage_name})."
+
+        return 0
+    fi
+
+    log "Waiting for NVIDIA GPU to enter suspended state at '${stage_name}' (up to ${timeout_seconds}s)..."
+    touch "$GPU_WAKE_SUPPRESS_FILE" 2>/dev/null || true
+    while (( elapsed < timeout_seconds )); do
+        if is-wake-requested; then
+            log "Wake input detected during quiescence at '${stage_name}'. Resuming desktop."
+            record-quiescence-outcome "$stage_name" woke "$elapsed"
+
+            return 0
+        fi
+
+        status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
+        usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
+
+        if [[ "$status" == 'suspended' || "$usage" == '0' ]]; then
+            log "NVIDIA GPU quiesced at stage '${stage_name}' after ${elapsed}s (status: ${status}, usage: ${usage})."
+            record-quiescence-outcome "$stage_name" quiesced "$elapsed"
+
+            return 0
+        fi
+
+        sleep "$QUIESCENCE_INTERVAL_SECONDS"
+        elapsed=$((elapsed + QUIESCENCE_INTERVAL_SECONDS))
+    done
+
+    if is-wake-requested; then
+        log "Wake input detected during quiescence at '${stage_name}'. Resuming desktop."
+        record-quiescence-outcome "$stage_name" woke "$elapsed"
+
+        return 0
+    fi
+
+    status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
+    usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
+    log "ERROR: Timed out at stage '${stage_name}' after ${timeout_seconds}s (status: ${status}, usage: ${usage})."
+    record-quiescence-outcome "$stage_name" timed_out "$elapsed"
+
+    return 1
+}
+
+reset-screensaver() {
+    local user_dir=''
+    local uid=''
+    local username=''
+
+    for user_dir in /run/user/*; do
+        if [[ -d "$user_dir" ]]; then
+            uid=$(basename "$user_dir")
+            username=$(id -nu "$uid" 2>/dev/null || continue)
+            runuser --user "$username" -- env \
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
+                busctl --user call org.gnome.ScreenSaver /org/gnome/ScreenSaver org.gnome.ScreenSaver SetActive b false >/dev/null 2>&1 || true
+            runuser --user "$username" -- env \
+                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
+                busctl --user set-property org.gnome.SessionManager /org/gnome/SessionManager/Presence org.gnome.SessionManager.Presence status u 0 >/dev/null 2>&1 || true
+        fi
+    done
+}
+
 detect-nvidia-gpu() {
     local dev=''
 
@@ -62,334 +549,17 @@ detect-speaker-device() {
     return 0
 }
 
-readonly SETTLE_SECONDS=1
-readonly SAMPLE_INTERVAL_SECONDS=60
-readonly QUIESCENCE_TIMEOUT_SECONDS=60
-readonly QUIESCENCE_INTERVAL_SECONDS=5
-readonly WAKE_EVENT_PATTERN='KEYBOARD_KEY|POINTER_BUTTON|TOUCH_DOWN'
-readonly NVIDIA_DEVICE=$(detect-nvidia-gpu)
-readonly MUTTER_DESTINATION='org.gnome.Mutter.DisplayConfig'
-readonly MUTTER_PATH='/org/gnome/Mutter/DisplayConfig'
-readonly MUTTER_INTERFACE='org.gnome.Mutter.DisplayConfig'
-readonly POWER_SAVE_ON=0
-readonly POWER_SAVE_OFF=3
-readonly LOG_DIR='/var/log/catnap'
-# Append-only, cross-run record of every GPU quiescence wait - successes as well as
-# timeouts - so the two populations can later be diffed to learn what actually blocks
-# runtime-D3 suspend. One row per wait (two per catnap); grows ~200 bytes per run.
-readonly QUIESCENCE_LOG="${LOG_DIR}/quiescence-history.csv"
-readonly QUIESCENCE_LOG_HEADER='timestamp,run_id,stage,outcome,elapsed_s,entry_runtime_status,entry_runtime_usage,entry_active_kids,entry_video_memory,entry_dgpu_connected_outputs,entry_dgpu_clients'
-# Built-in analog output (laptop speakers), auto-detected by ALSA card name. Driven directly
-# via aplay to bypass PipeWire - which routes to the USB DAC by default and is frozen alongside
-# userspace during catnap. Empty on hosts with no built-in analog card; play-tone then no-ops.
-readonly SPEAKER_DEVICE=$(detect-speaker-device)
-readonly SPEAKER_SAMPLE_RATE=44100
-
-RUN_ID=''
-INITIAL_EPP=''
-TELEMETRY_FILE=''
-TELEMETRY_PID=''
-WAKE_TRIGGERED_FILE=''
-INPUT_PID=''
-
-log() {
-    printf '%s %s\n' "$(date --iso-8601=seconds)" "$*"
-}
-
-get-cpu-epp() {
-    local readonly first_policy='/sys/devices/system/cpu/cpufreq/policy0/energy_performance_preference'
-
-    if [[ -f "$first_policy" ]]; then
-        cat "$first_policy"
-    fi
-}
-
-set-cpu-epp() {
-    local readonly epp_mode="$1"
-    local policy_file=''
-
-    for policy_file in /sys/devices/system/cpu/cpufreq/policy[0-9]*/energy_performance_preference; do
-        if [[ -f "$policy_file" ]]; then
-            echo "$epp_mode" > "$policy_file" || true
-        fi
-    done
-}
-
-# Persistence mode keeps the NVIDIA driver initialized (and video memory resident)
-# even with no clients attached, which pins the GPU out of runtime-D3. Catnap turns
-# it off around the sleep so the card can actually suspend, then restores it on resume.
-# Best-effort and root-only (via nvidia-smi); a no-op on non-NVIDIA hosts.
-# Caveats: (1) with nvidia-persistenced running the daemon may re-assert persistence,
-# so watch entry_video_memory / entry_dgpu_clients in the quiescence log to confirm this
-# lever bites; (2) application clock locks applied at boot by nvidia-minmax-clocks.service
-# are dropped if the GPU fully powers off while persistence is off, until that unit reruns.
-set-gpu-persistence-mode() {
-    local readonly mode="$1"
-
-    if [[ -n "$NVIDIA_DEVICE" ]] && command -v nvidia-smi >/dev/null 2>&1; then
-        nvidia-smi --persistence-mode="$mode" >/dev/null 2>&1 || true
-    fi
-}
-
-freeze-userspace() {
-    local user_slice_dir=''
-    local slice_name=''
-
-    for user_slice_dir in /sys/fs/cgroup/user.slice/user-*.slice; do
-        if [[ -d "$user_slice_dir" ]]; then
-            slice_name=$(basename "$user_slice_dir")
-            systemctl freeze "$slice_name" || true
-        fi
-    done
-}
-
-thaw-userspace() {
-    local user_slice_dir=''
-    local slice_name=''
-
-    for user_slice_dir in /sys/fs/cgroup/user.slice/user-*.slice; do
-        if [[ -d "$user_slice_dir" ]]; then
-            slice_name=$(basename "$user_slice_dir")
-            systemctl thaw "$slice_name" || true
-        fi
-    done
-}
-
-suspend-gnome-shell() {
-    killall -9 gvfsd-trash 2>/dev/null || true
-    killall -STOP gnome-shell 2>/dev/null || true
-}
-
-resume-gnome-shell() {
-    killall -CONT gnome-shell 2>/dev/null || true
-}
-
-set-display-power-mode() {
-    local readonly mode="$1"
-    local user_dir=''
-    local uid=''
-    local username=''
-
-    for user_dir in /run/user/*; do
-        if [[ -d "$user_dir" ]]; then
-            uid=$(basename "$user_dir")
-            username=$(id -nu "$uid" 2>/dev/null || continue)
-            runuser --user "$username" -- env \
-                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
-                busctl --user set-property "$MUTTER_DESTINATION" "$MUTTER_PATH" \
-                "$MUTTER_INTERFACE" PowerSaveMode i "$mode" || true
-        fi
-    done
-}
-
-log-nvidia-quiescence-diagnostics() {
-    local readonly stage_name="$1"
-    local connector=''
-    local power_file=''
-    local node=''
-    local line=''
-    local dev_nodes=(/dev/nvidia*)
-
-    log "--- [DIAGNOSTICS] NVIDIA Quiescence Failure at stage '${stage_name}' ---"
-
-    if [[ -n "$NVIDIA_DEVICE" && -d "$NVIDIA_DEVICE" ]]; then
-        log "PCI Power PM: status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status"), usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage"), control=$(read-file "${NVIDIA_DEVICE}/power/control"), active_kids=$(read-file "${NVIDIA_DEVICE}/power/runtime_active_kids")"
-        for node in "${NVIDIA_DEVICE}/drm"/*; do
-            if [[ -e "/dev/dri/$(basename "$node")" ]]; then
-                dev_nodes+=("/dev/dri/$(basename "$node")")
-            fi
-        done
-    fi
-
-    for power_file in /proc/driver/nvidia/gpus/*/power; do
-        if [[ -f "$power_file" ]]; then
-            log "Driver Power Info ($(basename "$(dirname "$power_file")")):"
-            while IFS= read -r line; do
-                [[ -n "$line" ]] && log "  $line"
-            done < "$power_file"
-        fi
-    done
-
-    log "DRM Connectors:"
-    for connector in /sys/class/drm/card[0-9]-*; do
-        if [[ -d "$connector" ]]; then
-            log "  $(basename "$connector"): status=$(read-file "$connector/status"), enabled=$(read-file "$connector/enabled"), dpms=$(read-file "$connector/dpms")"
-        fi
-    done
-
-    if command -v nvidia-smi >/dev/null 2>&1; then
-        log "nvidia-smi summary:"
-        while IFS= read -r line; do
-            [[ -n "$line" ]] && log "  $line"
-        done < <(nvidia-smi --query-gpu=name,display_active,pstate,power.draw,utilization.gpu --format=csv 2>/dev/null || true)
-    fi
-
-    if command -v fuser >/dev/null 2>&1; then
-        log "Open GPU device handles (fuser):"
-        while IFS= read -r line; do
-            [[ -n "$line" ]] && log "  $line"
-        done < <(fuser -v "${dev_nodes[@]}" 2>&1 || true)
-    fi
-
-    log "--- [END DIAGNOSTICS] ---"
-}
-
-list-dgpu-clients() {
-    # ';'-joined set of processes holding an open handle to a discrete-GPU device
-    # node, each tagged ':m' when it also has an NVIDIA node mmap'd - i.e. holding
-    # live video memory, the reference that most often blocks runtime-D3 suspend.
-    # Pure procfs: never opens the GPU, so it is safe even against a suspended one.
-    local -A dgpu_nodes=([/dev/nvidia0]=1 [/dev/nvidiactl]=1 [/dev/nvidia-modeset]=1 [/dev/nvidia-uvm]=1)
-    local -A seen=()
-    local drm_node='' fd='' target='' pid='' comm='' result=''
-
-    for drm_node in "${NVIDIA_DEVICE}"/drm/*; do
-        if [[ -e "/dev/dri/$(basename "$drm_node")" ]]; then
-            dgpu_nodes["/dev/dri/$(basename "$drm_node")"]=1
-        fi
-    done
-
-    for fd in /proc/[0-9]*/fd/*; do
-        target=$(readlink "$fd" 2>/dev/null) || continue
-        [[ -n "${dgpu_nodes[$target]:-}" ]] || continue
-        pid=${fd#/proc/}
-        pid=${pid%%/*}
-        [[ -n "${seen[$pid]:-}" ]] && continue
-        seen[$pid]=1
-        comm=$(read-file "/proc/$pid/comm" '?')
-        comm=${comm//[ ,;]/_}
-        if grep -qE '/dev/nvidia[0-9]|/dev/nvidiactl|/dev/nvidia-modeset|/dev/nvidia-uvm' "/proc/$pid/maps" 2>/dev/null; then
-            comm+=':m'
-        fi
-        result+="${comm};"
-    done
-
-    printf '%s' "${result%;}"
-}
-
-snapshot-nvidia-state() {
-    # Six CSV fields describing why the GPU might still be up, sampled while it is
-    # still active at the start of a wait - the apples-to-apples point for comparing
-    # a run that goes on to suspend against one that times out.
-    local status='' usage='' active_kids='' video_memory='n/a' connected='n/a' drm_card='' conn=''
-
-    status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
-    usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
-    active_kids=$(read-file "${NVIDIA_DEVICE}/power/runtime_active_kids")
-
-    # Reading the driver power node and DRM connector status can force an
-    # RTD3-suspended GPU back to D0, so only probe them while it is still up.
-    if [[ "$status" != 'suspended' ]]; then
-        video_memory=$(awk -F: '/Video Memory:/ { gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit }' /proc/driver/nvidia/gpus/*/power 2>/dev/null || true)
-        [[ -n "$video_memory" ]] || video_memory='unavailable'
-
-        connected=''
-        for drm_card in "${NVIDIA_DEVICE}"/drm/card[0-9]*; do
-            [[ -d "$drm_card" ]] || continue
-            for conn in /sys/class/drm/"$(basename "$drm_card")"-*; do
-                if [[ -d "$conn" && "$(read-file "$conn/status")" == 'connected' ]]; then
-                    connected+="${conn##*/card[0-9]-};"
-                fi
-            done
-        done
-        [[ -n "$connected" ]] && connected="${connected%;}" || connected='none'
-    fi
-
-    printf '%s,%s,%s,%s,%s,%s' \
-        "$status" "$usage" "$active_kids" "$video_memory" "$connected" "$(list-dgpu-clients)"
-}
-
-record-quiescence-outcome() {
-    local readonly stage_name="$1"
-    local readonly outcome="$2"
-    local readonly elapsed="$3"
-    local readonly entry_state="$4"
-
-    [[ -n "$NVIDIA_DEVICE" ]] || return 0
-    if [[ ! -f "$QUIESCENCE_LOG" ]]; then
-        printf '%s\n' "$QUIESCENCE_LOG_HEADER" >> "$QUIESCENCE_LOG" 2>/dev/null || return 0
-    fi
-    printf '%s,%s,%s,%s,%s,%s\n' \
-        "$(date --iso-8601=seconds)" "$RUN_ID" "$stage_name" "$outcome" "$elapsed" "$entry_state" \
-        >> "$QUIESCENCE_LOG" 2>/dev/null || true
-}
-
-wait-for-nvidia-quiescence() {
-    local readonly stage_name="${1:-quiesce}"
-    local elapsed=0
-    local status=''
-    local usage=''
-
-    if [[ -z "$NVIDIA_DEVICE" || ! -f "${NVIDIA_DEVICE}/power/runtime_status" ]]; then
-        log "No NVIDIA GPU found; skipping GPU quiescence wait (${stage_name})."
-
-        return 0
-    fi
-
-    log "Waiting for NVIDIA GPU to enter suspended state at '${stage_name}' (up to ${QUIESCENCE_TIMEOUT_SECONDS}s)..."
-    local readonly entry_state=$(snapshot-nvidia-state)
-    while (( elapsed < QUIESCENCE_TIMEOUT_SECONDS )); do
-        if is-wake-requested; then
-            log "Wake input detected during quiescence at '${stage_name}'. Resuming desktop."
-            record-quiescence-outcome "$stage_name" woke "$elapsed" "$entry_state"
-
-            return 0
-        fi
-
-        status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
-        usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
-
-        if [[ "$status" == 'suspended' || "$usage" == '0' ]]; then
-            log "NVIDIA GPU quiesced at stage '${stage_name}' after ${elapsed}s (status: ${status}, usage: ${usage})."
-            record-quiescence-outcome "$stage_name" quiesced "$elapsed" "$entry_state"
-
-            return 0
-        fi
-
-        sleep "$QUIESCENCE_INTERVAL_SECONDS"
-        elapsed=$((elapsed + QUIESCENCE_INTERVAL_SECONDS))
-    done
-
-    if is-wake-requested; then
-        log "Wake input detected during quiescence at '${stage_name}'. Resuming desktop."
-        record-quiescence-outcome "$stage_name" woke "$elapsed" "$entry_state"
-
-        return 0
-    fi
-
-    status=$(read-file "${NVIDIA_DEVICE}/power/runtime_status")
-    usage=$(read-file "${NVIDIA_DEVICE}/power/runtime_usage")
-    log "ERROR: Timed out at stage '${stage_name}' after ${QUIESCENCE_TIMEOUT_SECONDS}s (status: ${status}, usage: ${usage})."
-    record-quiescence-outcome "$stage_name" timed_out "$elapsed" "$entry_state"
-    log-nvidia-quiescence-diagnostics "$stage_name"
-
-    return 1
-}
-
-reset-screensaver() {
-    local user_dir=''
-    local uid=''
-    local username=''
-
-    for user_dir in /run/user/*; do
-        if [[ -d "$user_dir" ]]; then
-            uid=$(basename "$user_dir")
-            username=$(id -nu "$uid" 2>/dev/null || continue)
-            runuser --user "$username" -- env \
-                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
-                busctl --user call org.gnome.ScreenSaver /org/gnome/ScreenSaver org.gnome.ScreenSaver SetActive b false >/dev/null 2>&1 || true
-            runuser --user "$username" -- env \
-                "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus" \
-                busctl --user set-property org.gnome.SessionManager /org/gnome/SessionManager/Presence org.gnome.SessionManager.Presence status u 0 >/dev/null 2>&1 || true
-        fi
-    done
-}
-
 play-tone() {
     local readonly frequency_hz="$1"
     local readonly duration_ms="$2"
 
+    # Detect once on first tone (memoized in SPEAKER_DEVICE). The sentinel 'none' means
+    # detection ran and found no built-in analog card, so we don't re-probe on every tone.
     if [[ -z "$SPEAKER_DEVICE" ]]; then
+        SPEAKER_DEVICE=$(detect-speaker-device)
+        [[ -n "$SPEAKER_DEVICE" ]] || SPEAKER_DEVICE='none'
+    fi
+    if [[ "$SPEAKER_DEVICE" == 'none' ]]; then
         return 0
     fi
 
@@ -462,29 +632,6 @@ notify-users() {
     done
 }
 
-read-file() {
-    local readonly path="$1"
-    local readonly fallback="${2:-unavailable}"
-
-    cat "$path" 2>/dev/null || printf '%s\n' "$fallback"
-}
-
-read-hwmon-temperature() {
-    local readonly device_name="$1"
-    local readonly temperature_file="$2"
-    local hwmon=''
-
-    for hwmon in /sys/class/hwmon/hwmon*; do
-        if [[ "$(read-file "$hwmon/name")" == "$device_name" ]]; then
-            read-file "$hwmon/$temperature_file"
-
-            return
-        fi
-    done
-
-    printf 'unavailable\n'
-}
-
 sample-telemetry() {
     printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
         "$(date --iso-8601=seconds)" \
@@ -517,8 +664,8 @@ start-telemetry() {
     local readonly run_id="$1"
 
     install --directory --owner=root --group=root --mode=0755 "$LOG_DIR"
-    TELEMETRY_FILE="${LOG_DIR}/${run_id}-samples.csv"
-    log "Writing passive telemetry: $TELEMETRY_FILE"
+    TELEMETRY_FILE=$(printf "$TELEMETRY_FILE_PATTERN" "$run_id")
+    log "Started passive telemetry sampling: $TELEMETRY_FILE"
     collect-telemetry &
     TELEMETRY_PID="$!"
 }
@@ -528,7 +675,7 @@ stop-telemetry() {
         kill "$TELEMETRY_PID" 2>/dev/null || true
         wait "$TELEMETRY_PID" 2>/dev/null || true
         sample-telemetry
-        log "Wrote passive telemetry: $TELEMETRY_FILE"
+        log "Stopped passive telemetry sampling (on wake): $TELEMETRY_FILE"
         TELEMETRY_PID=''
     fi
 }
@@ -627,68 +774,126 @@ wait-for-input() {
     return 0
 }
 
+# Walk QUIESCENCE_LADDER top-to-bottom. Returns 0 as soon as either the GPU quiesces
+# OR the user presses a wake key (caller distinguishes via is-wake-requested). Returns
+# 1 only if every stage's timeout elapsed with no quiescence and no wake - i.e. we've
+# exhausted our levers and catnap must abort. Between stages we beep, log the escalation
+# reason, and invoke the next stage's pre-action.
+run-quiescence-ladder() {
+    local stage_spec='' stage='' timeout='' action='' action_reason=''
+    local -i idx=0
+
+    for stage_spec in "${QUIESCENCE_LADDER[@]}"; do
+        IFS='|' read -r stage timeout action action_reason <<< "$stage_spec"
+        if (( idx > 0 )); then
+            play-catnap-quiescence-delayed
+            # idx here is the 1-based number of the stage that just timed out.
+            [[ -n "$action_reason" ]] && log "Stage ${idx} timed out; ${action_reason}"
+            [[ -n "$action" ]] && "$action"
+        fi
+        idx+=1
+        wait-for-nvidia-quiescence "$stage" "$timeout" && return 0
+        is-wake-requested && return 0
+    done
+
+    return 1
+}
+
+# GPU is quiesced and the user hasn't woken us; freeze userspace and block until input.
+# Captures the "before" baseline + starts passive telemetry only now, so aborted or
+# immediately-woken runs never create a samples file or record a spurious baseline.
+enter-catnap() {
+    local -n stats_ref="$1"
+    local readonly run_id="$2"
+
+    stats_ref[before_epoch]=$(date +%s)
+    stats_ref[before_cpu]=$(awk '$1 == "usage_usec" { print $2 }' /sys/fs/cgroup/user.slice/cpu.stat 2>/dev/null || true)
+    stats_ref[before_energy]=$(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || true)
+    stats_ref[before_battery_status]=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null || true)
+    if [[ -n "$NVIDIA_DEVICE" && -f "${NVIDIA_DEVICE}/power/runtime_active_time" ]]; then
+        stats_ref[before_nvidia_active]=$(cat "${NVIDIA_DEVICE}/power/runtime_active_time" 2>/dev/null || true)
+        stats_ref[before_nvidia_suspended]=$(cat "${NVIDIA_DEVICE}/power/runtime_suspended_time" 2>/dev/null || true)
+    fi
+    start-telemetry "$run_id"
+
+    freeze-userspace
+    play-catnap-entered
+    wait-for-input
+}
+
+# Full catnap ladder failed: snapshot the GPU state one last time,
+# beep the failure chime, and exit non-zero. Called only after run-quiescence-ladder
+# reported all stages exhausted with no wake input.
+abort-catnap() {
+    if [[ -n "$NVIDIA_DEVICE" ]]; then
+        record-quiescence-outcome "run-abort" snapshot 0 "$(snapshot-nvidia-state)"
+    fi
+    play-catnap-aborted
+    exit 1
+}
+
 main() {
+    local readonly main_started_ms=$(date '+%s%3N')
     local readonly run_id=$(date '+%Y%m%d-%H%M%S')
     RUN_ID="$run_id"
     declare -A stats=()
 
+    blank-displays "$main_started_ms"
+
+    NVIDIA_DEVICE=$(detect-nvidia-gpu)
     INITIAL_EPP=$(get-cpu-epp)
 
-    trap 'thaw-userspace; resume-gnome-shell || true; sleep 1; set-display-power-mode "$POWER_SAVE_ON" || true; reset-screensaver || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; set-gpu-persistence-mode 1 || true; stop-input-listener; stop-telemetry' EXIT
+    trap 'thaw-userspace; sleep 1; restore-display-layout || true; set-display-power-mode "$POWER_SAVE_ON" || true; reset-screensaver || true; if [[ -n "${INITIAL_EPP:-}" ]]; then set-cpu-epp "$INITIAL_EPP" || true; fi; rm -f "$GPU_WAKE_SUPPRESS_FILE" || true; stop-input-listener; stop-telemetry' EXIT
     trap 'exit 0' INT TERM HUP
 
-    start-telemetry "$run_id"
+    # Switch the active layout onto the internal panel up front - the decisive lever that
+    # frees the dGPU (see the display-switch section). Done here, after the EXIT trap that
+    # restores the layout is armed, so a crash mid-run still puts the external monitor back.
+    switch-display-to-internal
+
     start-input-listener
 
-    stats[before_epoch]=$(date +%s)
-    stats[before_cpu]=$(awk '$1 == "usage_usec" { print $2 }' /sys/fs/cgroup/user.slice/cpu.stat 2>/dev/null || true)
-    stats[before_energy]=$(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || true)
-    stats[before_battery_status]=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null || true)
-
-    if [[ -n "$NVIDIA_DEVICE" && -f "${NVIDIA_DEVICE}/power/runtime_active_time" ]]; then
-        stats[before_nvidia_active]=$(cat "${NVIDIA_DEVICE}/power/runtime_active_time" 2>/dev/null || true)
-        stats[before_nvidia_suspended]=$(cat "${NVIDIA_DEVICE}/power/runtime_suspended_time" 2>/dev/null || true)
-    fi
-
     set-cpu-epp power
-    set-gpu-persistence-mode 0
-    set-display-power-mode "$POWER_SAVE_OFF"
-    if ! wait-for-nvidia-quiescence "pre-gnome-shell"; then
-        if ! is-wake-requested; then
-            play-catnap-quiescence-delayed
-        fi
+
+    # Boundary snapshot #1: run-start. Safe here - we haven't started trying to
+    # quiesce the GPU yet, so poking the driver / DRM cannot spoil anything.
+    if [[ -n "$NVIDIA_DEVICE" ]]; then
+        record-quiescence-outcome "run-start" snapshot 0 "$(snapshot-nvidia-state)"
     fi
 
     local slept_in_catnap=false
 
-    if ! is-wake-requested; then
-        suspend-gnome-shell
-        if ! wait-for-nvidia-quiescence "post-gnome-shell"; then
-            if ! is-wake-requested; then
-                play-catnap-aborted
-                exit 1
-            fi
-        fi
+    if run-quiescence-ladder; then
         if ! is-wake-requested; then
-            freeze-userspace
-            play-catnap-entered
+            enter-catnap stats "$run_id"
             slept_in_catnap=true
-            wait-for-input
         fi
+    else
+        abort-catnap
     fi
 
-    thaw-userspace
-    resume-gnome-shell
+    # Sound the wake chime first thing - it goes straight to the speaker via aplay,
+    # independent of gnome-shell/PipeWire, so it's the earliest feedback we can give
+    # that the machine heard the wake input.
     if [[ "$slept_in_catnap" == true ]]; then
         play-catnap-resumed
     fi
+    thaw-userspace
     sleep 1
+    restore-display-layout
     set-display-power-mode "$POWER_SAVE_ON"
     reset-screensaver
+
+    # Boundary snapshot #3: run-wake. Deferred to here, after the screen is already
+    # back on, so the heavyweight snapshot never stalls the visible wake. Only
+    # meaningful after a real sleep (thaw+resume have brought userspace back, so the
+    # GPU is on its way up regardless); skip immediate-wake paths where we never froze.
+    if [[ "$slept_in_catnap" == true && -n "$NVIDIA_DEVICE" ]]; then
+        record-quiescence-outcome "run-wake" snapshot 0 "$(snapshot-nvidia-state)"
+    fi
     if [[ -n "${INITIAL_EPP:-}" ]]; then
         set-cpu-epp "$INITIAL_EPP"
     fi
-    set-gpu-persistence-mode 1
     stop-input-listener
     stop-telemetry
 

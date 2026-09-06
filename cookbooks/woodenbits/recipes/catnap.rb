@@ -10,7 +10,7 @@
 # automatic idle trigger, use woodenbits::catnap-idle instead, which includes
 # this recipe.
 
-%w(catnap catnap-engine).each do |script|
+%w(catnap catnap-engine catnap-display-ctl).each do |script|
   template "/usr/local/bin/#{script}" do
     source "system/usr/local/bin/#{script}.erb"
     mode '0755'

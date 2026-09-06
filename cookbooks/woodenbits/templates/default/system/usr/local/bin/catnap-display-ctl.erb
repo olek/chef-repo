@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""catnap-display-ctl - switch the GNOME/Mutter monitor layout during catnap.
+
+The engine's decisive dGPU-quiescence lever. On this hybrid laptop the external
+monitor (DP-5) hangs off the discrete NVIDIA GPU; while it is the active display
+the dGPU can never reach RTD3 (blanking via DPMS is not enough - see catnap-engine).
+Moving the active layout onto the built-in panel (eDP-*, driven by the iGPU) leaves
+the dGPU with no output to scan out, so it can finally suspend.
+
+Two subcommands, both run as the graphical session user (the engine crosses into the
+session via runuser, because Mutter's DisplayConfig lives on the user's session bus):
+
+  to-internal   Activate the built-in panel as the sole logical monitor. Prints the
+                prior layout as JSON on stdout so 'restore' can replay it. Prints
+                nothing and exits 0 when there is nothing to switch away from - already
+                internal-only, undocked, or no built-in panel exists.
+
+  restore       Read the JSON that 'to-internal' emitted (on stdin) and re-apply that
+                layout. Best-effort: if it no longer applies (e.g. the external monitor
+                was unplugged mid-catnap) it logs to stderr and exits 0, leaving the
+                session on whatever is currently active.
+
+ApplyMonitorsConfig runs with method=1 (temporary) so the user's saved monitors.xml is
+never rewritten by a transient catnap switch.
+"""
+import json
+import sys
+
+import gi
+gi.require_version("Gio", "2.0")
+gi.require_version("GLib", "2.0")
+from gi.repository import Gio, GLib
+
+BUS_NAME = "org.gnome.Mutter.DisplayConfig"
+OBJECT_PATH = "/org/gnome/Mutter/DisplayConfig"
+# ApplyMonitorsConfig method: 0=verify, 1=temporary, 2=persistent. Temporary applies the
+# layout without persisting it to monitors.xml, which is exactly what a catnap switch wants.
+APPLY_METHOD_TEMPORARY = 1
+# Argument type of ApplyMonitorsConfig: serial, method, logical monitors, properties.
+APPLY_CONFIG_TYPE = "(uua(iiduba(ssa{sv}))a{sv})"
+
+
+def _proxy():
+    return Gio.DBusProxy.new_for_bus_sync(
+        Gio.BusType.SESSION, Gio.DBusProxyFlags.NONE, None,
+        BUS_NAME, OBJECT_PATH, BUS_NAME, None,
+    )
+
+
+def _get_current_state(proxy):
+    """(serial, monitors, logical_monitors) from GetCurrentState, as python natives."""
+    serial, monitors, logical_monitors, _properties = proxy.call_sync(
+        "GetCurrentState", None, Gio.DBusCallFlags.NONE, -1, None
+    ).unpack()
+    return serial, monitors, logical_monitors
+
+
+def _current_mode_id(monitors, connector):
+    """mode_id of the connector's active mode, falling back to preferred then first."""
+    for spec, modes, _properties in monitors:
+        if spec[0] != connector:
+            continue
+        preferred = None
+        for mode in modes:
+            mode_id, mode_properties = mode[0], mode[6]
+            if mode_properties.get("is-current"):
+                return mode_id
+            if mode_properties.get("is-preferred") and preferred is None:
+                preferred = mode_id
+        if preferred is not None:
+            return preferred
+        return modes[0][0] if modes else None
+    return None
+
+
+def _builtin_connector(monitors):
+    """Connector of the built-in panel: the is-builtin property, else eDP*/LVDS* naming."""
+    for spec, _modes, properties in monitors:
+        if properties.get("is-builtin"):
+            return spec[0]
+    for spec, _modes, _properties in monitors:
+        if spec[0].startswith(("eDP", "LVDS")):
+            return spec[0]
+    return None
+
+
+def _builtin_preferred_mode(monitors, connector):
+    """(mode_id, preferred_scale) of the built-in panel's preferred (else first) mode."""
+    for spec, modes, _properties in monitors:
+        if spec[0] != connector:
+            continue
+        for mode in modes:
+            if mode[6].get("is-preferred"):
+                return mode[0], mode[4]
+        if modes:
+            return modes[0][0], modes[0][4]
+    return None, None
+
+
+def _save_layout(monitors, logical_monitors):
+    """Serialize the active layout into a JSON-able restore descriptor."""
+    saved = []
+    for x, y, scale, transform, primary, monitor_specs, _properties in logical_monitors:
+        connectors = [
+            {"connector": spec[0], "mode_id": _current_mode_id(monitors, spec[0])}
+            for spec in monitor_specs
+        ]
+        saved.append({
+            "x": x, "y": y, "scale": scale, "transform": transform,
+            "primary": primary, "monitors": connectors,
+        })
+    return saved
+
+
+def _apply(proxy, serial, logical_monitors):
+    logical = [
+        (lm["x"], lm["y"], lm["scale"], lm["transform"], lm["primary"],
+         [(m["connector"], m["mode_id"], {}) for m in lm["monitors"]])
+        for lm in logical_monitors
+    ]
+    argument = GLib.Variant(APPLY_CONFIG_TYPE, (serial, APPLY_METHOD_TEMPORARY, logical, {}))
+    proxy.call_sync("ApplyMonitorsConfig", argument, Gio.DBusCallFlags.NONE, -1, None)
+
+
+def to_internal():
+    proxy = _proxy()
+    serial, monitors, logical_monitors = _get_current_state(proxy)
+
+    internal = _builtin_connector(monitors)
+    if internal is None:
+        return  # no panel to fall back to
+
+    active_connectors = {spec[0] for lm in logical_monitors for spec in lm[5]}
+    if active_connectors <= {internal}:
+        return  # already internal-only, or undocked - nothing to switch away from
+
+    mode_id, scale = _builtin_preferred_mode(monitors, internal)
+    if mode_id is None:
+        return
+
+    saved = _save_layout(monitors, logical_monitors)
+    internal_only = [{
+        "x": 0, "y": 0, "scale": scale, "transform": 0, "primary": True,
+        "monitors": [{"connector": internal, "mode_id": mode_id}],
+    }]
+    _apply(proxy, serial, internal_only)
+    json.dump(saved, sys.stdout)
+
+
+def restore():
+    data = sys.stdin.read().strip()
+    if not data:
+        return
+    saved = json.loads(data)
+    if not saved:
+        return
+    proxy = _proxy()
+    serial, _monitors, _logical_monitors = _get_current_state(proxy)
+    try:
+        _apply(proxy, serial, saved)
+    except GLib.Error as error:
+        # Layout no longer applies (e.g. external monitor unplugged during catnap). Leave
+        # the session on whatever is active. Follow-on: prune to still-connected monitors.
+        print("catnap-display-ctl: restore failed: %s" % error.message, file=sys.stderr)
+
+
+def main(argv):
+    actions = {"to-internal": to_internal, "restore": restore}
+    if len(argv) != 2 or argv[1] not in actions:
+        print("usage: catnap-display-ctl {to-internal|restore}", file=sys.stderr)
+        return 2
+    actions[argv[1]]()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

@@ -29,6 +29,19 @@ import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const COLUMNS = 4;
 
+// D-Bus surface for triggering a full re-tile without the keyboard. The catnap
+// suspend engine switches the active monitor layout to the internal panel and back
+// around a sleep, which changes the workarea and leaves windows mis-placed; it calls
+// RetileAll (as the session user) to re-lay-out everything for the current geometry.
+const DBUS_NAME = 'org.gnome.Shell.Extensions.ColumnPlacer';
+const DBUS_PATH = '/org/gnome/Shell/Extensions/ColumnPlacer';
+const DBUS_IFACE =
+  '<node>' +
+  '  <interface name="org.gnome.Shell.Extensions.ColumnPlacer">' +
+  '    <method name="RetileAll"/>' +
+  '  </interface>' +
+  '</node>';
+
 // Every placed-or-skipped window is appended here, one line per window, so you
 // can discover an app's real WM_CLASS (needed to add a rule) without Looking
 // Glass -- just open the app and tail this file. Under Wayland the app_id often
@@ -104,6 +117,13 @@ export default class ColumnPlacerExtension extends Extension {
       Meta.KeyBindingFlags.NONE,
       Shell.ActionMode.NORMAL,
       () => this._retileAll());
+
+    // Expose the same re-tile over D-Bus so it can be triggered headlessly (the
+    // catnap engine calls it around its monitor-layout switch -- see DBUS_IFACE).
+    this._dbus = Gio.DBusExportedObject.wrapJSObject(DBUS_IFACE, this);
+    this._dbus.export(Gio.DBus.session, DBUS_PATH);
+    this._dbusNameId = Gio.bus_own_name_on_connection(
+      Gio.DBus.session, DBUS_NAME, Gio.BusNameOwnerFlags.NONE, null, null);
   }
 
   disable() {
@@ -116,8 +136,21 @@ export default class ColumnPlacerExtension extends Extension {
         GLib.Source.remove(id);
       this._sourceIds = null;
     }
+    if (this._dbusNameId) {
+      Gio.bus_unown_name(this._dbusNameId);
+      this._dbusNameId = null;
+    }
+    if (this._dbus) {
+      this._dbus.unexport();
+      this._dbus = null;
+    }
     Main.wm.removeKeybinding('retile-all');
     this._settings = null;
+  }
+
+  // D-Bus entry point (name matches DBUS_IFACE); delegates to the shared re-tile.
+  RetileAll() {
+    this._retileAll();
   }
 
   _retileAll() {

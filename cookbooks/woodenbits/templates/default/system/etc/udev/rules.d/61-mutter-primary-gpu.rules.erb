@@ -1,0 +1,14 @@
+# Pin GNOME/Mutter's primary compositor GPU to the Intel iGPU (PCI vendor 0x8086) so
+# gnome-shell never binds to the NVIDIA dGPU. Left on the dGPU, the compositor holds its
+# VRAM permanently and blocks the dGPU's RTD3 runtime suspend - the root problem catnap's
+# quiescence ladder fights (see catnap-engine). Offload apps launched with
+# __NV_PRIME_RENDER_OFFLOAD=1 still burst onto the dGPU and release its VRAM cleanly on exit.
+#
+# Matched by the card's DRM driver, not by a /dev/dri/cardN number (card numbering is not
+# stable across boots) and not by ATTRS{vendor} (that climbs the whole device tree, and the
+# dGPU sits behind an Intel PCIe root port whose vendor is also 0x8086 - so a vendor match
+# tags the dGPU too and mutter is free to keep picking it). DRIVERS matches an ancestor's
+# driver; the iGPU card's parent binds i915 while the dGPU's chain is nvidia -> pcieport,
+# so i915 uniquely selects the iGPU. KERNEL=="card[0-9]" targets the card node, not its
+# connector children (cardN-DP-5 etc).
+SUBSYSTEM=="drm", KERNEL=="card[0-9]", DRIVERS=="i915", TAG+="mutter-device-preferred-primary"

@@ -10,6 +10,12 @@
 # user cgroup slices (user-*.slice). It monitors raw input events via libinput and thaws
 # the system back to full performance upon user activity.
 #
+# Wake trick - stay on the internal panel: catnap switches the active layout onto the built-in
+# panel up front (the decisive dGPU-quiescence lever) and normally fans back out to the external
+# monitor on wake. Waking with a left- or right-Ctrl key instead keeps the session on the
+# internal panel - a full wake in every other respect, just no switch back. See wake-was-ctrl-key
+# and stay-on-internal-display for the mechanism.
+#
 set -euo pipefail
 
 readonly SETTLE_SECONDS=1
@@ -309,6 +315,22 @@ restore-display-layout() {
     # column-placer re-lays them out for the restored screen.
     [[ -n "$DISPLAY_RESTORE_STATE" ]] || return 0
     printf '%s' "$DISPLAY_RESTORE_STATE" | run-display-ctl restore
+    DISPLAY_RESTORE_STATE=''
+    retile-windows
+
+    return 0
+}
+
+stay-on-internal-display() {
+    # The Ctrl-key wake path's alternative to restore-display-layout: the user woke with Ctrl to
+    # keep the session on the built-in panel, so instead of replaying the saved layout we discard
+    # it - leaving nothing for either this path or the EXIT trap to restore the external monitor
+    # from - and retile for the internal geometry. switch-display-to-internal deliberately skips
+    # that up-front retile (see the display-switch section), so windows are still placed for the
+    # external monitor until now. No-op when nothing was captured (undocked / internal-only):
+    # the session is already on the internal panel with windows correctly placed.
+    [[ -n "$DISPLAY_RESTORE_STATE" ]] || return 0
+    log "Ctrl wake: staying on internal panel; discarding saved external-monitor layout"
     DISPLAY_RESTORE_STATE=''
     retile-windows
 
@@ -764,16 +786,32 @@ start-input-listener() {
         local event=''
         while IFS= read -r event; do
             if (( SECONDS >= start_time + SETTLE_SECONDS )) && [[ "$event" =~ $WAKE_EVENT_PATTERN ]]; then
-                echo '1' > "$WAKE_TRIGGERED_FILE"
+                # Record the whole libinput event line, not a bare marker: is-wake-requested
+                # only needs the file to be non-empty, but wake-was-ctrl-key inspects the line
+                # to tell a Ctrl-key wake (stay on the internal panel) from any other input.
+                # --show-keycodes above is load-bearing for that: libinput obfuscates key names
+                # to '***' by default, so without it the line never carries KEY_LEFTCTRL and
+                # every wake looks the same. We persist only this one wake line, so the flag
+                # never exposes general typing.
+                printf '%s\n' "$event" > "$WAKE_TRIGGERED_FILE"
                 break
             fi
-        done < <(stdbuf --output=L libinput debug-events 2>/dev/null)
+        done < <(stdbuf --output=L libinput debug-events --show-keycodes 2>/dev/null)
     ) &
     INPUT_PID="$!"
 }
 
 is-wake-requested() {
     [[ -n "${WAKE_TRIGGERED_FILE:-}" && -s "$WAKE_TRIGGERED_FILE" ]]
+}
+
+# True when the input that woke us was a left- or right-Ctrl key - the user's signal to wake
+# but stay on the built-in panel rather than fan back out to the external monitor (see
+# stay-on-internal-display). Reads the event line start-input-listener recorded; libinput names
+# those keys KEY_LEFTCTRL / KEY_RIGHTCTRL. False (and safe) when no wake has been recorded yet.
+wake-was-ctrl-key() {
+    is-wake-requested || return 1
+    grep -qE 'KEY_(LEFT|RIGHT)CTRL' "$WAKE_TRIGGERED_FILE"
 }
 
 stop-input-listener() {
@@ -875,7 +913,8 @@ abort-catnap() {
 # the constraints documented at each step's own function: thaw first (userspace must be live
 # before any --user D-Bus call), settle, reset the screensaver/idle timer BEFORE unblanking so
 # the idle logic that was counting down pre-catnap can't immediately re-sleep us, then unblank
-# (Mutter's DisplayConfig only answers once thawed), restore the external-monitor layout, put
+# (Mutter's DisplayConfig only answers once thawed), restore the external-monitor layout - unless
+# the user woke with a Ctrl key to stay on the internal panel (stay-on-internal-display) - put
 # EPP back, drop the GPU-wake suppress sentinel, and stop the helpers. Every step tolerates
 # not-yet-done state (thaw on unfrozen slices, unblank on a never-blanked panel, restore with
 # nothing captured), so it is equally safe on the abort path where we never actually froze.
@@ -884,7 +923,11 @@ restore-system() {
     sleep 1
     reset-screensaver
     set-display-power-mode "$POWER_SAVE_ON"
-    restore-display-layout
+    if wake-was-ctrl-key; then
+        stay-on-internal-display
+    else
+        restore-display-layout
+    fi
     if [[ -n "${INITIAL_EPP:-}" ]]; then
         set-cpu-epp "$INITIAL_EPP"
     fi

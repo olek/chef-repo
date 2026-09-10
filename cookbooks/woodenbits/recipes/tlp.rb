@@ -7,6 +7,7 @@
 #   node['woodenbits']['tlp']['mem_sleep_ac']               (default: 's2idle')
 #   node['woodenbits']['tlp']['mem_sleep_bat']              (default: 'deep')
 #   node['woodenbits']['tlp']['battery_charge_thresholds']  (e.g. { 'start' => 70, 'stop' => 80 })
+#   node['woodenbits']['tlp']['runtime_pm_driver_denylist'] (e.g. 'thunderbolt'; nil = empty list)
 
 if node['woodenbits']['tlp']['enabled']
   package 'tlp'
@@ -30,7 +31,8 @@ if node['woodenbits']['tlp']['enabled']
     variables(
       mem_sleep_ac: node['woodenbits']['tlp']['mem_sleep_ac'],
       mem_sleep_bat: node['woodenbits']['tlp']['mem_sleep_bat'],
-      charge_thresholds: node['woodenbits']['tlp']['battery_charge_thresholds']
+      charge_thresholds: node['woodenbits']['tlp']['battery_charge_thresholds'],
+      runtime_pm_driver_denylist: node['woodenbits']['tlp']['runtime_pm_driver_denylist']
     )
     notifies :run, 'execute[reload tlp]', :delayed
   end

@@ -129,7 +129,12 @@ USB_AUTOSUSPEND=1
 #
 # RUNTIME_PM_DRIVER_BLACKLIST option is deprecated and replaced with modern RUNTIME_PM_DRIVER_DENYLIST
 RUNTIME_PM_DRIVER_BLACKLIST=""
-RUNTIME_PM_DRIVER_DENYLIST=""
+# SYSTEM-SPECIFIC: on opoplavsky-ltl1 (HP ZBook Fury 16 G11) the Thunderbolt 4
+# controller sinks into D3cold during s2idle and fails to resume ("Unable to
+# change power state from D3cold to D0" / "failed to send driver ready to ICM"),
+# wedging the box overnight (2026-09-10). Denylisting the thunderbolt driver
+# keeps those devices out of Runtime PM. Set via node attribute.
+RUNTIME_PM_DRIVER_DENYLIST="<%= @runtime_pm_driver_denylist %>"
 RUNTIME_PM_DENYLIST=""
 
 # System suspend mode:

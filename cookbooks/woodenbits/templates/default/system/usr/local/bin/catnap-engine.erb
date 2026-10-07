@@ -167,6 +167,19 @@ thaw-userspace() {
     done
 }
 
+# Cron lives in system.slice, so it keeps firing while user slices are frozen. Its jobs
+# (notably the corporate puppet-cron every 30 min) can block on frozen session processes and
+# pile up, then all run at once on wake. Stopping cron for the catnap skips those runs
+# instead; cron does not replay missed jobs once restarted. Gated by the node's
+# catnap.pause-cron attribute.
+stop-cron() {
+    systemctl stop cron || true
+}
+
+start-cron() {
+    systemctl start cron || true
+}
+
 kill-gdm-mirror() {
     # GDM keeps a second gnome-shell running under the gdm user after login (the
     # greeter/login-screen session), which mirrors VRAM allocations and can pin the
@@ -892,6 +905,9 @@ enter-catnap() {
     capture-power-stats "$stats_name" before
     start-telemetry "$run_id"
 
+<% if node['woodenbits']['catnap']['pause-cron'] -%>
+    stop-cron
+<% end -%>
     freeze-userspace
     play-catnap-entered
     wait-for-input
@@ -910,16 +926,26 @@ abort-catnap() {
 
 # Best-effort teardown shared by the normal wake path and the EXIT trap (crash/abort), so both
 # restore the session identically and cannot drift out of sync. Ordering matters and matches
-# the constraints documented at each step's own function: thaw first (userspace must be live
-# before any --user D-Bus call), settle, reset the screensaver/idle timer BEFORE unblanking so
-# the idle logic that was counting down pre-catnap can't immediately re-sleep us, then unblank
-# (Mutter's DisplayConfig only answers once thawed), restore the external-monitor layout - unless
-# the user woke with a Ctrl key to stay on the internal panel (stay-on-internal-display) - put
-# EPP back, drop the GPU-wake suppress sentinel, and stop the helpers. Every step tolerates
-# not-yet-done state (thaw on unfrozen slices, unblank on a never-blanked panel, restore with
-# nothing captured), so it is equally safe on the abort path where we never actually froze.
+# the constraints documented at each step's own function:
+#   1. Thaw userspace first - it must be live before any --user D-Bus call.
+#   2. Restart cron, when the node sets catnap.pause-cron.
+#   3. Settle.
+#   4. Reset the screensaver/idle timer BEFORE unblanking, so the idle logic that was counting
+#      down pre-catnap can't immediately re-sleep us.
+#   5. Unblank - Mutter's DisplayConfig only answers once thawed.
+#   6. Restore the external-monitor layout, unless the user woke with a Ctrl key to stay on
+#      the internal panel (stay-on-internal-display).
+#   7. Put EPP back.
+#   8. Drop the GPU-wake suppress sentinel.
+#   9. Stop the helpers.
+# Every step tolerates not-yet-done state (thaw on unfrozen slices, unblank on a never-blanked
+# panel, restore with nothing captured), so it is equally safe on the abort path where we
+# never actually froze.
 restore-system() {
     thaw-userspace
+<% if node['woodenbits']['catnap']['pause-cron'] -%>
+    start-cron
+<% end -%>
     sleep 1
     reset-screensaver
     set-display-power-mode "$POWER_SAVE_ON"

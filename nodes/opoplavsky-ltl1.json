@@ -6,7 +6,8 @@
     "profile": "work",
     "catnap": {
       "idle": true,
-      "powerbtn": true
+      "powerbtn": true,
+      "pause-cron": true
     },
     "tlp": {
       "enabled": true,

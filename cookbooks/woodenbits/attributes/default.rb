@@ -4,6 +4,9 @@ default['woodenbits']['profile'] = 'personal'
 # Catnap low-power sleep suite
 default['woodenbits']['catnap']['idle'] = false
 default['woodenbits']['catnap']['powerbtn'] = false
+# Stop cron for the duration of a catnap so jobs that block on the frozen session
+# don't pile up and all run at once on wake.
+default['woodenbits']['catnap']['pause-cron'] = false
 
 # TLP power management
 default['woodenbits']['tlp']['enabled'] = false

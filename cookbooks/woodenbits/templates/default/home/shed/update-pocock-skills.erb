@@ -5,6 +5,8 @@ set -euo pipefail
 REPO_DIR=""
 if [[ -d "$HOME/git/their/mattpocock-skills" ]]; then
     REPO_DIR="$HOME/git/their/mattpocock-skills"
+elif [[ -d "/data/dev/git/other/mattpocock-skills" ]]; then
+    REPO_DIR="/data/dev/git/other/mattpocock-skills"
 elif [[ -d "/data/dev/misc/mattpocock-skills" ]]; then
     REPO_DIR="/data/dev/misc/mattpocock-skills"
 fi
@@ -14,6 +16,8 @@ PREFIX=">>>"
 if [[ -z "$REPO_DIR" ]]; then
     if [[ -d "$HOME/git/their" ]]; then
         REPO_DIR="$HOME/git/their/mattpocock-skills"
+    elif [[ -d "/data/dev/git/other" ]]; then
+        REPO_DIR="/data/dev/git/other/mattpocock-skills"
     elif [[ -d "/data/dev/misc" ]]; then
         REPO_DIR="/data/dev/misc/mattpocock-skills"
     elif [[ -d "/data/dev" ]]; then
@@ -21,7 +25,7 @@ if [[ -z "$REPO_DIR" ]]; then
     elif [[ -d "$HOME/git" ]]; then
         REPO_DIR="$HOME/git/mattpocock-skills"
     else
-        echo "ERROR: None of the expected parent directories (~/git/their, /data/dev/misc, /data/dev, ~/git) exist. Aborting clone." >&2
+        echo "ERROR: None of the expected parent directories (~/git/their, /data/dev/git/other, /data/dev/misc, /data/dev, ~/git) exist. Aborting clone." >&2
         exit 1
     fi
     echo "$PREFIX Repo directory not found, cloning from GitHub to $REPO_DIR..."
@@ -32,8 +36,11 @@ else
     git -C "$REPO_DIR" pull --ff-only
 fi
 
+CANONICAL_DIR="$HOME/agent/skills/vendored/mattpocock"
+
 TARGET_DIRS=(
     "$HOME/.claude/skills"
+    "$HOME/.codex/skills"
     "$HOME/.gemini/config/skills"
 )
 
@@ -54,7 +61,6 @@ find_skill() {
 
 sync_skill() {
     local name="$1"
-    local target_dir="$2"
     local src
     src="$(find_skill "$name")"
 
@@ -63,7 +69,7 @@ sync_skill() {
         return
     fi
 
-    local dest="$target_dir/$name"
+    local dest="$CANONICAL_DIR/$name"
 
     if [[ ! -d "$dest" ]]; then
         mkdir -p "$dest"
@@ -84,13 +90,44 @@ sync_skill() {
     fi
 }
 
+link_skill() {
+    local name="$1"
+    local target_dir="$2"
+    local src="$CANONICAL_DIR/$name"
+    local dest="$target_dir/$name"
+
+    if [[ -L "$dest" ]]; then
+        if [[ "$(readlink -f "$dest")" == "$src" ]]; then
+            echo "$PREFIX $name: linked to shared source in $target_dir"
+            return
+        fi
+        echo "ERROR: $dest is a symlink to a different target. Resolve it before updating." >&2
+        return 1
+    fi
+
+    if [[ -e "$dest" ]]; then
+        echo "ERROR: $dest already exists and is not a symlink. Move it aside before updating." >&2
+        return 1
+    fi
+
+    ln -s "$src" "$dest"
+    echo "$PREFIX $name: linked in $target_dir"
+}
+
+echo ""
+
+echo "$PREFIX Syncing upstream skills to $CANONICAL_DIR..."
+mkdir -p "$CANONICAL_DIR"
+for skill in "${SKILLS[@]}"; do
+    sync_skill "$skill"
+done
 echo ""
 
 for target_dir in "${TARGET_DIRS[@]}"; do
-    echo "$PREFIX Syncing to $target_dir..."
+    echo "$PREFIX Linking shared skills in $target_dir..."
     mkdir -p "$target_dir"
     for skill in "${SKILLS[@]}"; do
-        sync_skill "$skill" "$target_dir"
+        link_skill "$skill" "$target_dir"
     done
     echo ""
 done

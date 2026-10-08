@@ -7,6 +7,9 @@ default['woodenbits']['catnap']['powerbtn'] = false
 # Stop cron for the duration of a catnap so jobs that block on the frozen session
 # don't pile up and all run at once on wake.
 default['woodenbits']['catnap']['pause-cron'] = false
+# Stop the unattended-upgrades timer for the duration of a catnap so upgrades don't restart
+# daemons under the frozen session; the missed run happens after wake.
+default['woodenbits']['catnap']['pause-unattended-upgrades'] = false
 
 # TLP power management
 default['woodenbits']['tlp']['enabled'] = false

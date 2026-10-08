@@ -7,7 +7,8 @@
     "catnap": {
       "idle": true,
       "powerbtn": true,
-      "pause-cron": true
+      "pause-cron": true,
+      "pause-unattended-upgrades": true
     },
     "tlp": {
       "enabled": true,

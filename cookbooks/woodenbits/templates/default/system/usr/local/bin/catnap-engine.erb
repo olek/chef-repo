@@ -180,6 +180,20 @@ start-cron() {
     systemctl start cron || true
 }
 
+# unattended-upgrades also runs from system.slice (apt-daily-upgrade.timer). Upgrading under a
+# frozen session swaps libraries and restarts daemons (e.g. bluetooth, and kanata via its udev
+# rule) beneath it, so on thaw gnome-shell can fail to reopen the replaced input devices.
+# Stopping the timer defers the upgrade; its Persistent=true replays the missed run once the
+# timer is started again after the thaw. Gated by the node's catnap.pause-unattended-upgrades
+# attribute.
+stop-unattended-upgrades() {
+    systemctl stop apt-daily-upgrade.timer || true
+}
+
+start-unattended-upgrades() {
+    systemctl start apt-daily-upgrade.timer || true
+}
+
 kill-gdm-mirror() {
     # GDM keeps a second gnome-shell running under the gdm user after login (the
     # greeter/login-screen session), which mirrors VRAM allocations and can pin the
@@ -908,6 +922,9 @@ enter-catnap() {
 <% if node['woodenbits']['catnap']['pause-cron'] -%>
     stop-cron
 <% end -%>
+<% if node['woodenbits']['catnap']['pause-unattended-upgrades'] -%>
+    stop-unattended-upgrades
+<% end -%>
     freeze-userspace
     play-catnap-entered
     wait-for-input
@@ -928,7 +945,8 @@ abort-catnap() {
 # restore the session identically and cannot drift out of sync. Ordering matters and matches
 # the constraints documented at each step's own function:
 #   1. Thaw userspace first - it must be live before any --user D-Bus call.
-#   2. Restart cron, when the node sets catnap.pause-cron.
+#   2. Restart cron and the unattended-upgrades timer, when the node sets catnap.pause-cron
+#      and catnap.pause-unattended-upgrades respectively.
 #   3. Settle.
 #   4. Reset the screensaver/idle timer BEFORE unblanking, so the idle logic that was counting
 #      down pre-catnap can't immediately re-sleep us.
@@ -945,6 +963,9 @@ restore-system() {
     thaw-userspace
 <% if node['woodenbits']['catnap']['pause-cron'] -%>
     start-cron
+<% end -%>
+<% if node['woodenbits']['catnap']['pause-unattended-upgrades'] -%>
+    start-unattended-upgrades
 <% end -%>
     sleep 1
     reset-screensaver

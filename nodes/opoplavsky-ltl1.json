@@ -5,8 +5,8 @@
   "woodenbits": {
     "profile": "work",
     "catnap": {
-      "idle": true,
-      "powerbtn": true,
+      "idle": false,
+      "powerbtn": false,
       "pause-cron": true,
       "pause-unattended-upgrades": true
     },

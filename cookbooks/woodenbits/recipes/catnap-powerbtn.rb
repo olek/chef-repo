@@ -69,6 +69,11 @@ if node['woodenbits']['catnap']['powerbtn']
 else
   # --- DISABLED STATE (Clean up drop-ins, leave GNOME settings alone) ---
 
+  service 'acpid' do
+    action :nothing
+    only_if 'systemctl is-active acpid'
+  end
+
   file '/etc/systemd/logind.conf.d/01-catnap.conf' do
     action :delete
     notifies :run, 'execute[reload logind for catnap]', :immediately
